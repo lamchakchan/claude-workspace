@@ -32,6 +32,14 @@
   "setup_commands": {
     "github": "bun run cli/index.ts mcp remote https://api.githubcopilot.com/mcp/ --name github",
     "notion": "bun run cli/index.ts mcp remote https://mcp.notion.com/mcp --name notion",
-    "linear": "bun run cli/index.ts mcp remote https://mcp.linear.app/sse --name linear"
+    "linear": "bun run cli/index.ts mcp remote https://mcp.linear.app/sse --name linear",
+    "jira": "bun run cli/index.ts mcp add jira --api-key JIRA_API_TOKEN -- npx -y @anthropic/claude-code-jira-server"
+  },
+
+  "notes": {
+    "github": "Uses OAuth - authenticate via /mcp in Claude Code after adding",
+    "notion": "Uses OAuth - authenticate via /mcp in Claude Code after adding",
+    "linear": "Uses OAuth - authenticate via /mcp in Claude Code after adding",
+    "jira": "You will be prompted to enter JIRA_API_TOKEN securely. Also set JIRA_URL and JIRA_EMAIL env vars."
   }
 }

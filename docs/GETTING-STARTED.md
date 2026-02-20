@@ -370,15 +370,29 @@ The platform ships with three MCP servers in `.mcp.json`:
 
 ### Adding More Servers
 
-**Add a database:**
+**Add a database (with API key):**
 ```bash
-bun run cli/index.ts mcp add postgres -- npx -y @bytebase/dbhub --dsn "postgresql://user:pass@localhost/mydb"
+# The --api-key flag prompts securely for the value (masked input)
+bun run cli/index.ts mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+# You'll be prompted: Enter value for DATABASE_URL: ****
+# The key is stored as an env var in local Claude config (NOT in .mcp.json)
+```
+
+**Add a search API:**
+```bash
+bun run cli/index.ts mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
 ```
 
 **Add GitHub (remote, with OAuth):**
 ```bash
 bun run cli/index.ts mcp remote https://api.githubcopilot.com/mcp/ --name github
 # Then in Claude Code: /mcp → Authenticate
+```
+
+**Add a remote server with Bearer token:**
+```bash
+bun run cli/index.ts mcp remote https://mcp-gateway.company.com --name gateway --bearer
+# You'll be prompted: Enter Bearer token: ****
 ```
 
 **Add Sentry for error monitoring:**
@@ -389,6 +403,25 @@ bun run cli/index.ts mcp remote https://mcp.sentry.dev/mcp --name sentry
 **Add Notion:**
 ```bash
 bun run cli/index.ts mcp remote https://mcp.notion.com/mcp --name notion
+```
+
+### MCP Authentication Methods
+
+The CLI supports three authentication methods for MCP servers:
+
+| Method | Flag | Best For |
+|--------|------|----------|
+| **API Key** | `--api-key ENV_NAME` | Local servers needing credentials (databases, search APIs) |
+| **Bearer Token** | `--bearer` | Remote servers with pre-generated tokens |
+| **OAuth 2.0** | `--oauth` | Remote servers with browser-based login (GitHub, Notion) |
+
+All secrets are entered via **masked input** (not visible on screen or in shell history) and stored in your **local Claude config** — never in `.mcp.json` (which is committed to git).
+
+**OAuth with pre-registered app:**
+```bash
+bun run cli/index.ts mcp remote https://mcp.example.com --name example \
+  --oauth --client-id my-app-id --client-secret
+# Prompts for client secret (masked), then you authenticate via /mcp in Claude Code
 ```
 
 ### Using MCP Templates
@@ -411,7 +444,14 @@ Each template file includes the setup command to copy and run.
 If your organization runs a centralized MCP gateway:
 
 ```bash
+# Without auth (gateway handles auth internally)
 bun run cli/index.ts mcp remote https://mcp-gateway.company.com --name company-gateway
+
+# With Bearer token auth
+bun run cli/index.ts mcp remote https://mcp-gateway.company.com --name company-gateway --bearer
+
+# With OAuth
+bun run cli/index.ts mcp remote https://mcp-gateway.company.com --name company-gateway --oauth
 ```
 
 ### Checking MCP Status

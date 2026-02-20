@@ -205,17 +205,37 @@ bun run cli/index.ts mcp list
 ### Add a Server
 
 ```bash
-# Local stdio server
+# Local stdio server (no auth)
 bun run cli/index.ts mcp add <name> -- <command> [args...]
 
-# Remote HTTP server
+# Local server with API key (securely prompted, masked input)
+bun run cli/index.ts mcp add <name> --api-key ENV_VAR_NAME -- <command> [args...]
+
+# Remote HTTP server (no auth or OAuth via /mcp)
 bun run cli/index.ts mcp remote <url> --name <name>
 
-# With auth header
-bun run cli/index.ts mcp remote <url> --name <name> --header "Authorization: Bearer <token>"
+# Remote server with Bearer token (securely prompted)
+bun run cli/index.ts mcp remote <url> --name <name> --bearer
+
+# Remote server with OAuth + pre-registered client
+bun run cli/index.ts mcp remote <url> --name <name> --oauth --client-id <id> --client-secret
 
 # Directly via Claude Code CLI
 claude mcp add --transport http <name> <url>
+```
+
+### Manage MCP Secrets
+
+Secrets added via `--api-key`, `--bearer`, or `--client-secret` are stored in your **local Claude config** (never in `.mcp.json`).
+
+```bash
+# Re-run the add command to update a secret (will overwrite)
+bun run cli/index.ts mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+
+# Check where secrets are stored
+# Local servers: env vars in Claude's local MCP config
+# Remote servers: headers/tokens in Claude's local config
+# Neither is committed to git
 ```
 
 ### Remove a Server
@@ -552,6 +572,22 @@ MCP_TIMEOUT=30000 claude
 # Remove and re-add
 claude mcp remove <name>
 claude mcp add --transport stdio <name> -- <command>
+```
+
+### "MCP server authentication failed"
+
+```bash
+# Re-add with fresh credentials (masked prompt)
+bun run cli/index.ts mcp add <name> --api-key ENV_VAR_NAME -- <command>
+
+# For remote servers with expired Bearer token
+bun run cli/index.ts mcp remote <url> --name <name> --bearer
+
+# For OAuth servers, re-authenticate in Claude Code
+# /mcp → select server → Authenticate
+
+# Verify env var is being passed to the server
+claude --debug  # Look for MCP env configuration in output
 ```
 
 ### "Context too full" / "Auto-compacting frequently"

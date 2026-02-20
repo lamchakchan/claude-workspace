@@ -189,8 +189,12 @@ docker compose run --rm claude
 
 ### Add a local MCP server
 ```bash
-# Via CLI
+# Basic local server
 bun run cli/index.ts mcp add postgres -- npx -y @bytebase/dbhub --dsn "postgresql://..."
+
+# With API key (securely prompted, masked input)
+bun run cli/index.ts mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
+bun run cli/index.ts mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
 
 # Via Claude Code directly
 claude mcp add --transport http github https://api.githubcopilot.com/mcp/
@@ -198,9 +202,27 @@ claude mcp add --transport http github https://api.githubcopilot.com/mcp/
 
 ### Connect to a remote MCP gateway
 ```bash
-bun run cli/index.ts mcp remote https://mcp-gateway.yourcompany.com
-bun run cli/index.ts mcp remote https://mcp.sentry.dev/mcp --name sentry
+# OAuth-based (authenticate in Claude Code via /mcp)
+bun run cli/index.ts mcp remote https://api.githubcopilot.com/mcp/ --name github
+
+# Bearer token (securely prompted, masked input)
+bun run cli/index.ts mcp remote https://mcp-gateway.company.com --name gateway --bearer
+
+# OAuth with pre-registered client
+bun run cli/index.ts mcp remote https://mcp.example.com --name example --oauth --client-id my-app-id --client-secret
 ```
+
+### MCP Authentication Options
+
+| Flag | Description |
+|------|-------------|
+| `--api-key ENV_NAME` | Securely prompt for an API key, stored as environment variable |
+| `--bearer` | Securely prompt for a Bearer token (masked input) |
+| `--oauth` | Use OAuth 2.0 (authenticate via `/mcp` in session) |
+| `--client-id <id>` | OAuth client ID for pre-registered apps |
+| `--client-secret` | Securely prompt for OAuth client secret |
+
+All secrets are entered via masked input (not visible on screen) and stored in local Claude config — **never** in `.mcp.json` (which is committed to git).
 
 ### Use a template
 Check `templates/mcp-configs/` for ready-to-use configurations for databases, Docker, Sentry, GitHub, Notion, Slack, Linear, and more.

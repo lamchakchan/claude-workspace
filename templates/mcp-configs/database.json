@@ -20,8 +20,14 @@
   },
 
   "setup_commands": {
-    "postgresql": "bun run cli/index.ts mcp add postgres --env DATABASE_URL=postgresql://user:pass@host:5432/db -- npx -y @bytebase/dbhub",
-    "mysql": "bun run cli/index.ts mcp add mysql --env DATABASE_URL=mysql://user:pass@host:3306/db -- npx -y @bytebase/dbhub",
+    "postgresql": "bun run cli/index.ts mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
+    "mysql": "bun run cli/index.ts mcp add mysql --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
     "sqlite": "bun run cli/index.ts mcp add sqlite -- npx -y @anthropic/claude-code-sqlite-server ./db.sqlite"
+  },
+
+  "notes": {
+    "postgresql": "You will be prompted to enter DATABASE_URL securely (e.g., postgresql://user:pass@host:5432/db)",
+    "mysql": "You will be prompted to enter DATABASE_URL securely (e.g., mysql://user:pass@host:3306/db)",
+    "sqlite": "No API key needed - SQLite uses a local file path"
   }
 }

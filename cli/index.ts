@@ -35,20 +35,29 @@ Commands:
   setup                          First-time setup & API key provisioning
   attach <project-path>          Attach platform config to a project
   sandbox <project-path> <name>  Create a sandboxed branch worktree
-  mcp add <name> [-- <cmd>]      Add a local MCP server
-  mcp remote <url>               Connect to a remote MCP gateway
+  mcp add <name> [options]       Add an MCP server (local or remote)
+  mcp remote <url>               Connect to a remote MCP server/gateway
   mcp list                       List all configured MCP servers
   doctor                         Check platform configuration health
 
 Options:
   --help, -h    Show this help message
 
+MCP Authentication:
+  --api-key ENV_NAME     Securely prompt for API key (masked input)
+  --bearer               Securely prompt for Bearer token (masked input)
+  --oauth                Use OAuth 2.0 (authenticate via /mcp in session)
+  --client-id <id>       OAuth client ID for pre-registered apps
+  --client-secret        Prompt for OAuth client secret (masked input)
+
 Examples:
   bun run cli/index.ts setup
   bun run cli/index.ts attach /path/to/my-project
   bun run cli/index.ts sandbox /path/to/my-project feature-auth
-  bun run cli/index.ts mcp add postgres -- npx -y @bytebase/dbhub
-  bun run cli/index.ts mcp remote https://mcp-gateway.company.com
+  bun run cli/index.ts mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+  bun run cli/index.ts mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
+  bun run cli/index.ts mcp remote https://mcp.sentry.dev/mcp --name sentry
+  bun run cli/index.ts mcp remote https://mcp-gateway.company.com --bearer
 `;
 
 async function main() {
