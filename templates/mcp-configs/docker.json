@@ -1,15 +1,16 @@
 {
   "_description": "Docker and Kubernetes MCP server configurations",
-
   "examples": {
     "docker": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-docker"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-docker"
+      ],
       "env": {}
     }
   },
-
   "setup_commands": {
-    "docker": "bun run cli/index.ts mcp add docker -- npx -y @modelcontextprotocol/server-docker"
+    "docker": "claude-platform mcp add docker -- npx -y @modelcontextprotocol/server-docker"
   }
 }

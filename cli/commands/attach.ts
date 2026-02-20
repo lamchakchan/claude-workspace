@@ -16,7 +16,9 @@ const PLATFORM_DIR = resolve(import.meta.dir, "../..");
  */
 export async function attach(targetPath?: string) {
   if (!targetPath) {
-    console.error("Usage: bun run cli/index.ts attach <project-path> [--symlink] [--force]");
+    console.error(
+      "Usage: claude-platform attach <project-path> [--symlink] [--force]",
+    );
     process.exit(1);
   }
 
@@ -46,7 +48,7 @@ export async function attach(targetPath?: string) {
     join(PLATFORM_DIR, ".claude/agents"),
     join(claudeDir, "agents"),
     useSymlinks,
-    force
+    force,
   );
 
   // Copy or symlink skills
@@ -55,7 +57,7 @@ export async function attach(targetPath?: string) {
     join(PLATFORM_DIR, ".claude/skills"),
     join(claudeDir, "skills"),
     useSymlinks,
-    force
+    force,
   );
 
   // Copy or symlink hooks
@@ -64,7 +66,7 @@ export async function attach(targetPath?: string) {
     join(PLATFORM_DIR, ".claude/hooks"),
     join(claudeDir, "hooks"),
     useSymlinks,
-    force
+    force,
   );
 
   // Create or merge settings.json
@@ -89,11 +91,18 @@ export async function attach(targetPath?: string) {
   console.log("  claude");
   console.log("\nTo customize for this project:");
   console.log(`  Edit ${join(claudeDir, "CLAUDE.md")} for team instructions`);
-  console.log(`  Copy .claude/settings.local.json.example to .claude/settings.local.json for personal overrides`);
+  console.log(
+    `  Copy .claude/settings.local.json.example to .claude/settings.local.json for personal overrides`,
+  );
   console.log("");
 }
 
-async function copyOrLink(src: string, dest: string, useSymlinks: boolean, force: boolean) {
+async function copyOrLink(
+  src: string,
+  dest: string,
+  useSymlinks: boolean,
+  force: boolean,
+) {
   if (!existsSync(src)) {
     console.log(`  Skipping: ${src} does not exist`);
     return;
@@ -143,7 +152,7 @@ async function setupProjectSettings(claudeDir: string, force: boolean) {
 
   // Read platform settings as base
   const platformSettings = JSON.parse(
-    await Bun.file(join(PLATFORM_DIR, ".claude/settings.json")).text()
+    await Bun.file(join(PLATFORM_DIR, ".claude/settings.json")).text(),
   );
 
   await Bun.write(settingsPath, JSON.stringify(platformSettings, null, 2));
@@ -169,18 +178,24 @@ async function setupMcpConfig(projectDir: string, force: boolean) {
   }
 
   const platformMcp = JSON.parse(
-    await Bun.file(join(PLATFORM_DIR, ".mcp.json")).text()
+    await Bun.file(join(PLATFORM_DIR, ".mcp.json")).text(),
   );
 
   await Bun.write(mcpPath, JSON.stringify(platformMcp, null, 2));
   console.log("  Created .mcp.json");
 }
 
-async function setupProjectClaudeMd(projectDir: string, claudeDir: string, force: boolean) {
+async function setupProjectClaudeMd(
+  projectDir: string,
+  claudeDir: string,
+  force: boolean,
+) {
   const claudeMdPath = join(claudeDir, "CLAUDE.md");
 
   if (existsSync(claudeMdPath) && !force) {
-    console.log("  Project CLAUDE.md already exists. Use --force to overwrite.");
+    console.log(
+      "  Project CLAUDE.md already exists. Use --force to overwrite.",
+    );
     return;
   }
 

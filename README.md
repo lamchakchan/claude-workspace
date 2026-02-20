@@ -59,22 +59,23 @@ claude-platform/
 - **Git** (for version control and worktree sandboxing)
 - **Bun** (for the platform CLI) — Install: `curl -fsSL https://bun.sh/install | bash`
 
-### Setup (3 commands)
+### Setup
 
 ```bash
-# 1. Clone and setup (installs Claude Code CLI, provisions API key)
+# 1. Clone and bootstrap
 git clone <this-repo> ~/claude-platform
 cd ~/claude-platform
-bun run cli/index.ts setup
+bun install && bun link    # registers the `claude-platform` command
 
-# 2. Attach to your project
-bun run cli/index.ts attach /path/to/your/project
+# 2. Run setup (installs Claude Code CLI, provisions API key, configures globals)
+claude-platform setup
 
-# 3. Start Claude Code
+# 3. Attach to your project and start coding
+claude-platform attach /path/to/your/project
 cd /path/to/your/project && claude
 ```
 
-The `setup` command handles everything: installs Claude Code CLI if missing, runs the interactive API key provisioning (Option 2), creates global settings, and installs dependencies.
+After the one-time bootstrap (`bun install && bun link`), `claude-platform` is available globally as a command. The `setup` command handles the rest: installs Claude Code CLI if missing, runs interactive API key provisioning, and creates global settings.
 
 ### Optional: Docker
 
@@ -108,13 +109,13 @@ See [Docker Operations](docs/RUNBOOK.md#8-docker-operations) for registry setup,
 - TodoWrite used throughout for visible progress tracking
 
 ### 3. Multi-Project Support
-- `bun run cli/index.ts attach <path>` copies/symlinks platform config into any repo
+- `claude-platform attach <path>` copies/symlinks platform config into any repo
 - Each project gets its own CLAUDE.md layer for project-specific context
 - Shared agents and skills work across all attached projects
 - `--symlink` flag keeps config in sync with the platform repo
 
 ### 4. Parallel Branch Sandboxing
-- `bun run cli/index.ts sandbox <path> <branch>` creates git worktrees
+- `claude-platform sandbox <path> <branch>` creates git worktrees
 - Multiple Claude Code instances can work on the same repo simultaneously
 - Each sandbox gets its own branch and isolated working directory
 - Dependencies auto-installed in each worktree
@@ -132,8 +133,8 @@ Priority (highest to lowest):
 ### 6. MCP Integration
 - Preconfigured local MCP servers (memory, filesystem, git)
 - Ready-to-use templates for databases, Docker, observability, collaboration tools
-- Easy CLI to add new local MCP: `bun run cli/index.ts mcp add <name> -- <cmd>`
-- Remote MCP gateway: `bun run cli/index.ts mcp remote <url>`
+- Easy CLI to add new local MCP: `claude-platform mcp add <name> -- <cmd>`
+- Remote MCP gateway: `claude-platform mcp remote <url>`
 - Managed MCP policies for organizational control
 
 ### 7. Flexible Model Selection
@@ -162,7 +163,7 @@ Priority (highest to lowest):
 ## Self-Provisioning API Key (Option 2)
 
 ```bash
-bun run cli/index.ts setup
+claude-platform setup
 # Follow the interactive flow to provision your key
 ```
 
@@ -171,11 +172,11 @@ bun run cli/index.ts setup
 ### Add a local MCP server
 ```bash
 # Basic local server
-bun run cli/index.ts mcp add postgres -- npx -y @bytebase/dbhub --dsn "postgresql://..."
+claude-platform mcp add postgres -- npx -y @bytebase/dbhub --dsn "postgresql://..."
 
 # With API key (securely prompted, masked input)
-bun run cli/index.ts mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
-bun run cli/index.ts mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+claude-platform mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
+claude-platform mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
 
 # Via Claude Code directly
 claude mcp add --transport http github https://api.githubcopilot.com/mcp/
@@ -184,13 +185,13 @@ claude mcp add --transport http github https://api.githubcopilot.com/mcp/
 ### Connect to a remote MCP gateway
 ```bash
 # OAuth-based (authenticate in Claude Code via /mcp)
-bun run cli/index.ts mcp remote https://api.githubcopilot.com/mcp/ --name github
+claude-platform mcp remote https://api.githubcopilot.com/mcp/ --name github
 
 # Bearer token (securely prompted, masked input)
-bun run cli/index.ts mcp remote https://mcp-gateway.company.com --name gateway --bearer
+claude-platform mcp remote https://mcp-gateway.company.com --name gateway --bearer
 
 # OAuth with pre-registered client
-bun run cli/index.ts mcp remote https://mcp.example.com --name example --oauth --client-id my-app-id --client-secret
+claude-platform mcp remote https://mcp.example.com --name example --oauth --client-id my-app-id --client-secret
 ```
 
 ### MCP Authentication Options
@@ -212,8 +213,8 @@ Check `templates/mcp-configs/` for ready-to-use configurations for databases, Do
 
 ### Using Git Worktrees (Native)
 ```bash
-bun run cli/index.ts sandbox /path/to/project feature-auth
-bun run cli/index.ts sandbox /path/to/project feature-api
+claude-platform sandbox /path/to/project feature-auth
+claude-platform sandbox /path/to/project feature-api
 
 # Each worktree gets its own branch and Claude Code instance
 cd /path/to/project-worktrees/feature-auth && claude
@@ -238,7 +239,7 @@ For split-pane view (each teammate in its own pane), install tmux and set `"team
 ## Health Check
 
 ```bash
-bun run cli/index.ts doctor
+claude-platform doctor
 ```
 
 This checks: Claude Code CLI, Bun, Git, global settings, project config, agents, skills, hooks, MCP servers, and authentication.

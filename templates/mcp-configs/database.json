@@ -1,30 +1,41 @@
 {
   "_description": "Database MCP server configurations. Copy the relevant section into your .mcp.json",
-
   "examples": {
     "postgresql": {
       "command": "npx",
-      "args": ["-y", "@bytebase/dbhub", "--dsn", "${DATABASE_URL:-postgresql://localhost:5432/mydb}"],
+      "args": [
+        "-y",
+        "@bytebase/dbhub",
+        "--dsn",
+        "${DATABASE_URL:-postgresql://localhost:5432/mydb}"
+      ],
       "env": {}
     },
     "mysql": {
       "command": "npx",
-      "args": ["-y", "@bytebase/dbhub", "--dsn", "${DATABASE_URL:-mysql://localhost:3306/mydb}"],
+      "args": [
+        "-y",
+        "@bytebase/dbhub",
+        "--dsn",
+        "${DATABASE_URL:-mysql://localhost:3306/mydb}"
+      ],
       "env": {}
     },
     "sqlite": {
       "command": "npx",
-      "args": ["-y", "@anthropic/claude-code-sqlite-server", "${DB_PATH:-./db.sqlite}"],
+      "args": [
+        "-y",
+        "@anthropic/claude-code-sqlite-server",
+        "${DB_PATH:-./db.sqlite}"
+      ],
       "env": {}
     }
   },
-
   "setup_commands": {
-    "postgresql": "bun run cli/index.ts mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
-    "mysql": "bun run cli/index.ts mcp add mysql --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
-    "sqlite": "bun run cli/index.ts mcp add sqlite -- npx -y @anthropic/claude-code-sqlite-server ./db.sqlite"
+    "postgresql": "claude-platform mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
+    "mysql": "claude-platform mcp add mysql --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
+    "sqlite": "claude-platform mcp add sqlite -- npx -y @anthropic/claude-code-sqlite-server ./db.sqlite"
   },
-
   "notes": {
     "postgresql": "You will be prompted to enter DATABASE_URL securely (e.g., postgresql://user:pass@host:5432/db)",
     "mysql": "You will be prompted to enter DATABASE_URL securely (e.g., mysql://user:pass@host:3306/db)",

@@ -13,7 +13,7 @@ const CLAUDE_CONFIG = join(homedir(), ".claude.json");
  *   2. API key provisioning (self-service via Option 2)
  *   3. Create global user settings
  *   4. Create global CLAUDE.md
- *   5. Install Bun dependencies
+ *   5. Install dependencies and register CLI
  *   6. Check for optional system tools
  */
 export async function setup() {
@@ -42,8 +42,8 @@ export async function setup() {
   console.log("\n[4/6] Setting up global CLAUDE.md...");
   await setupGlobalClaudeMd();
 
-  // Step 5: Install dependencies
-  console.log("\n[5/6] Installing platform dependencies...");
+  // Step 5: Install dependencies and register CLI
+  console.log("\n[5/6] Installing dependencies and registering CLI...");
   await installDependencies();
 
   // Step 6: Check optional system tools
@@ -53,11 +53,11 @@ export async function setup() {
   console.log("\n=== Setup Complete ===");
   console.log("\nNext steps:");
   console.log(
-    "  1. Attach to a project:  bun run cli/index.ts attach /path/to/project",
+    "  1. Attach to a project:  claude-platform attach /path/to/project",
   );
   console.log("  2. Start Claude Code:    cd /path/to/project && claude");
   console.log(
-    "  3. Add MCP servers:      bun run cli/index.ts mcp add <name> -- <command>",
+    "  3. Add MCP servers:      claude-platform mcp add <name> -- <command>",
   );
   console.log("");
 }
@@ -262,9 +262,14 @@ async function installDependencies() {
     console.log("  Bun is available. Installing dependencies...");
     await $`cd ${platformDir} && bun install`.quiet();
     console.log("  Dependencies installed.");
+
+    // Register claude-platform as a global command via bun link
+    console.log("  Registering claude-platform command...");
+    await $`cd ${platformDir} && bun link`.quiet();
+    console.log("  Registered: claude-platform is now available globally.");
   } catch {
     console.log("  Bun not found. Install Bun: https://bun.sh");
-    console.log("  Then run: bun install");
+    console.log("  Then run: cd ~/claude-platform && bun install && bun link");
   }
 }
 

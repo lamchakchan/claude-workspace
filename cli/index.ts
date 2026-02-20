@@ -29,7 +29,7 @@ const HELP = `
 claude-platform - Claude Code Platform Engineering Kit CLI
 
 Usage:
-  bun run cli/index.ts <command> [options]
+  claude-platform <command> [options]
 
 Commands:
   setup                          First-time setup & API key provisioning
@@ -51,13 +51,13 @@ MCP Authentication:
   --client-secret        Prompt for OAuth client secret (masked input)
 
 Examples:
-  bun run cli/index.ts setup
-  bun run cli/index.ts attach /path/to/my-project
-  bun run cli/index.ts sandbox /path/to/my-project feature-auth
-  bun run cli/index.ts mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
-  bun run cli/index.ts mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
-  bun run cli/index.ts mcp remote https://mcp.sentry.dev/mcp --name sentry
-  bun run cli/index.ts mcp remote https://mcp-gateway.company.com --bearer
+  claude-platform setup
+  claude-platform attach /path/to/my-project
+  claude-platform sandbox /path/to/my-project feature-auth
+  claude-platform mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+  claude-platform mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
+  claude-platform mcp remote https://mcp.sentry.dev/mcp --name sentry
+  claude-platform mcp remote https://mcp-gateway.company.com --bearer
 `;
 
 async function main() {

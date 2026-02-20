@@ -1,6 +1,5 @@
 {
   "_description": "Observability and monitoring MCP server configurations",
-
   "examples": {
     "sentry": {
       "type": "http",
@@ -11,12 +10,10 @@
       "url": "${GRAFANA_MCP_URL}"
     }
   },
-
   "setup_commands": {
-    "sentry": "bun run cli/index.ts mcp remote https://mcp.sentry.dev/mcp --name sentry",
-    "grafana": "bun run cli/index.ts mcp remote $GRAFANA_MCP_URL --name grafana --bearer"
+    "sentry": "claude-platform mcp remote https://mcp.sentry.dev/mcp --name sentry",
+    "grafana": "claude-platform mcp remote $GRAFANA_MCP_URL --name grafana --bearer"
   },
-
   "notes": {
     "sentry": "Uses OAuth - authenticate via /mcp in Claude Code after adding",
     "grafana": "You will be prompted for a Bearer token. Generate one in Grafana settings."

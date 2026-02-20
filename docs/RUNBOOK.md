@@ -29,7 +29,7 @@ Procedures for maintaining the Claude Code Platform, troubleshooting issues, and
 
 | Task | Command | Purpose |
 |------|---------|---------|
-| Run health check | `bun run cli/index.ts doctor` | Catch config drift |
+| Run health check | `claude-platform doctor` | Catch config drift |
 | Check Claude Code version | `claude --version` | Stay current |
 | Review hook scripts | `ls -la .claude/hooks/` | Verify still executable |
 | Check MCP server status | Run `/mcp` in Claude Code | Verify connections |
@@ -67,7 +67,7 @@ When you update the platform repo, projects using `--symlink` get changes automa
 
 ```bash
 # Re-attach with force to overwrite old config
-bun run cli/index.ts attach /path/to/project --force
+claude-platform attach /path/to/project --force
 ```
 
 ### Updating Specific Components
@@ -126,7 +126,7 @@ Claude Code releases can change:
 - Agent/skill frontmatter options
 
 After updating, always:
-1. Run `bun run cli/index.ts doctor`
+1. Run `claude-platform doctor`
 2. Test hooks with `claude --debug`
 3. Check `/mcp` status
 4. Verify agents appear in `/agents`
@@ -139,7 +139,7 @@ After updating, always:
 
 ```bash
 # Initial provisioning via setup
-bun run cli/index.ts setup
+claude-platform setup
 
 # Re-provisioning (if key expires)
 claude  # Launches interactive login flow
@@ -196,7 +196,7 @@ echo "ANTHROPIC_API_KEY=new-key" > .env
 
 ```bash
 # Via CLI
-bun run cli/index.ts mcp list
+claude-platform mcp list
 
 # Via Claude Code (includes status)
 # Inside a session: /mcp
@@ -206,19 +206,19 @@ bun run cli/index.ts mcp list
 
 ```bash
 # Local stdio server (no auth)
-bun run cli/index.ts mcp add <name> -- <command> [args...]
+claude-platform mcp add <name> -- <command> [args...]
 
 # Local server with API key (securely prompted, masked input)
-bun run cli/index.ts mcp add <name> --api-key ENV_VAR_NAME -- <command> [args...]
+claude-platform mcp add <name> --api-key ENV_VAR_NAME -- <command> [args...]
 
 # Remote HTTP server (no auth or OAuth via /mcp)
-bun run cli/index.ts mcp remote <url> --name <name>
+claude-platform mcp remote <url> --name <name>
 
 # Remote server with Bearer token (securely prompted)
-bun run cli/index.ts mcp remote <url> --name <name> --bearer
+claude-platform mcp remote <url> --name <name> --bearer
 
 # Remote server with OAuth + pre-registered client
-bun run cli/index.ts mcp remote <url> --name <name> --oauth --client-id <id> --client-secret
+claude-platform mcp remote <url> --name <name> --oauth --client-id <id> --client-secret
 
 # Directly via Claude Code CLI
 claude mcp add --transport http <name> <url>
@@ -230,7 +230,7 @@ Secrets added via `--api-key`, `--bearer`, or `--client-secret` are stored in yo
 
 ```bash
 # Re-run the add command to update a secret (will overwrite)
-bun run cli/index.ts mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+claude-platform mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
 
 # Check where secrets are stored
 # Local servers: env vars in Claude's local MCP config
@@ -578,10 +578,10 @@ claude mcp add --transport stdio <name> -- <command>
 
 ```bash
 # Re-add with fresh credentials (masked prompt)
-bun run cli/index.ts mcp add <name> --api-key ENV_VAR_NAME -- <command>
+claude-platform mcp add <name> --api-key ENV_VAR_NAME -- <command>
 
 # For remote servers with expired Bearer token
-bun run cli/index.ts mcp remote <url> --name <name> --bearer
+claude-platform mcp remote <url> --name <name> --bearer
 
 # For OAuth servers, re-authenticate in Claude Code
 # /mcp → select server → Authenticate
@@ -712,17 +712,17 @@ This instantly disables all hooks while preserving the configuration. Remove whe
 
 2. **Setup**
    - [ ] Clone platform repo: `git clone <platform-repo> ~/claude-platform`
-   - [ ] Run setup: `cd ~/claude-platform && bun run cli/index.ts setup`
-   - [ ] Or pull Docker image: `docker pull registry.company.com/platform/claude-code:latest`
+   - [ ] Bootstrap CLI: `cd ~/claude-platform && bun install && bun link`
+   - [ ] Run setup: `claude-platform setup`
 
 3. **Project Onboarding**
    - [ ] Clone their project repo
-   - [ ] Attach platform: `bun run cli/index.ts attach /path/to/project`
+   - [ ] Attach platform: `claude-platform attach /path/to/project`
    - [ ] Customize `.claude/CLAUDE.local.md` with their personal context
    - [ ] Copy `settings.local.json.example` → `settings.local.json`
 
 4. **Verification**
-   - [ ] Run doctor: `bun run cli/index.ts doctor`
+   - [ ] Run doctor: `claude-platform doctor`
    - [ ] Start Claude Code: `cd /path/to/project && claude`
    - [ ] Verify hooks: `Ctrl+O` and try a test command
    - [ ] Verify MCP: `/mcp`
@@ -743,19 +743,20 @@ set -euo pipefail
 
 echo "=== New Member Setup ==="
 
-# 1. Clone platform
+# 1. Clone platform and bootstrap CLI
 git clone <platform-repo> ~/claude-platform
 cd ~/claude-platform
+bun install && bun link
 
 # 2. Setup (interactive - API key provisioning)
-bun run cli/index.ts setup
+claude-platform setup
 
 # 3. Attach to project (pass project path as argument)
 PROJECT=${1:?Usage: ./new-member-setup.sh /path/to/project}
-bun run cli/index.ts attach "$PROJECT"
+claude-platform attach "$PROJECT"
 
 # 4. Verify
-bun run cli/index.ts doctor
+claude-platform doctor
 
 echo ""
 echo "Setup complete. Start Claude Code:"

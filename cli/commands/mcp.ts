@@ -34,11 +34,11 @@ async function promptSecret(prompt: string): Promise<string> {
  *   --oauth / --client-id    Use OAuth 2.0 flow (authenticate via /mcp)
  *
  * Usage:
- *   bun run cli/index.ts mcp add <name> -- <command> [args...]
- *   bun run cli/index.ts mcp add <name> --api-key API_KEY -- <command>
- *   bun run cli/index.ts mcp add <name> --transport http <url>
- *   bun run cli/index.ts mcp add <name> --bearer --transport http <url>
- *   bun run cli/index.ts mcp add <name> --oauth --client-id <id> --transport http <url>
+ *   claude-platform mcp add <name> -- <command> [args...]
+ *   claude-platform mcp add <name> --api-key API_KEY -- <command>
+ *   claude-platform mcp add <name> --transport http <url>
+ *   claude-platform mcp add <name> --bearer --transport http <url>
+ *   claude-platform mcp add <name> --oauth --client-id <id> --transport http <url>
  *
  * Options:
  *   --scope local|project|user    Where to save (default: local)
@@ -132,7 +132,9 @@ export async function mcpAdd(args: string[]) {
   if (apiKeyEnvVar) {
     console.log(`\nAPI key required for '${name}' server.`);
     console.log(`The key will be stored as env var: ${apiKeyEnvVar}`);
-    console.log(`Stored in your Claude config (~/.claude.json), NOT in project files.\n`);
+    console.log(
+      `Stored in your Claude config (~/.claude.json), NOT in project files.\n`,
+    );
 
     const keyValue = await promptSecret(`Enter ${apiKeyEnvVar}: `);
     if (!keyValue) {
@@ -144,7 +146,9 @@ export async function mcpAdd(args: string[]) {
 
   if (promptBearer) {
     console.log(`\nBearer token required for '${name}' server.`);
-    console.log("Stored in your Claude config (~/.claude.json), NOT in project files.\n");
+    console.log(
+      "Stored in your Claude config (~/.claude.json), NOT in project files.\n",
+    );
 
     const token = await promptSecret("Enter Bearer token: ");
     if (!token) {
@@ -218,15 +222,21 @@ export async function mcpAdd(args: string[]) {
       console.log(`\nMCP server '${name}' added successfully.`);
 
       if (useOAuth) {
-        console.log("Next: Run '/mcp' in Claude Code to complete OAuth authentication.");
+        console.log(
+          "Next: Run '/mcp' in Claude Code to complete OAuth authentication.",
+        );
       } else {
         console.log("Run '/mcp' in Claude Code to verify the connection.");
       }
 
       if (scope === "project" && Object.keys(envVars).length > 0) {
         console.log("\n  NOTE: Server added to .mcp.json (project scope).");
-        console.log("  API keys are in your LOCAL Claude config, not in .mcp.json.");
-        console.log("  Team members must set these env vars in their own environment:");
+        console.log(
+          "  API keys are in your LOCAL Claude config, not in .mcp.json.",
+        );
+        console.log(
+          "  Team members must set these env vars in their own environment:",
+        );
         for (const key of Object.keys(envVars)) {
           console.log(`    export ${key}=<value>`);
         }
@@ -235,7 +245,9 @@ export async function mcpAdd(args: string[]) {
       console.error(`\nFailed to add MCP server. Exit code: ${proc.exitCode}`);
     }
   } catch {
-    console.error("Error: Could not run 'claude' command. Is Claude Code installed?");
+    console.error(
+      "Error: Could not run 'claude' command. Is Claude Code installed?",
+    );
     process.exit(1);
   }
 }
@@ -334,7 +346,7 @@ export async function mcpRemote(url?: string, extraArgs: string[] = []) {
   console.log(`  Transport: ${transport}`);
   console.log(`  Scope:     ${scope}`);
   if (useOAuth || clientId) console.log(`  Auth:      OAuth 2.0`);
-  else if (headers.some(h => h.toLowerCase().startsWith("authorization")))
+  else if (headers.some((h) => h.toLowerCase().startsWith("authorization")))
     console.log(`  Auth:      Bearer token`);
   else console.log(`  Auth:      OAuth (via /mcp in session)`);
   console.log("");
@@ -350,13 +362,17 @@ export async function mcpRemote(url?: string, extraArgs: string[] = []) {
     if (proc.exitCode === 0) {
       console.log(`\nRemote MCP server '${name}' connected.`);
       if (useOAuth || clientId || !promptBearer) {
-        console.log("Next: Run '/mcp' in Claude Code → select '${name}' → Authenticate");
+        console.log(
+          "Next: Run '/mcp' in Claude Code → select '${name}' → Authenticate",
+        );
       }
     } else {
       console.error(`\nFailed to connect. Exit code: ${proc.exitCode}`);
     }
   } catch {
-    console.error("Error: Could not run 'claude' command. Is Claude Code installed?");
+    console.error(
+      "Error: Could not run 'claude' command. Is Claude Code installed?",
+    );
     process.exit(1);
   }
 }
@@ -384,14 +400,17 @@ export async function mcpList() {
       const mcpConfig = JSON.parse(await Bun.file(mcpJsonPath).text());
       for (const [name, config] of Object.entries(mcpConfig.mcpServers || {})) {
         const cfg = config as any;
-        const envKeys = cfg.env ? Object.keys(cfg.env).filter(k => cfg.env[k]) : [];
-        const envNote = envKeys.length > 0 ? ` (env: ${envKeys.join(", ")})` : "";
+        const envKeys = cfg.env
+          ? Object.keys(cfg.env).filter((k) => cfg.env[k])
+          : [];
+        const envNote =
+          envKeys.length > 0 ? ` (env: ${envKeys.join(", ")})` : "";
 
         if (cfg.type === "http" || cfg.url) {
           console.log(`  ${name}: ${cfg.url || cfg.type} (remote)${envNote}`);
         } else {
           console.log(
-            `  ${name}: ${cfg.command} ${(cfg.args || []).join(" ")} (local)${envNote}`
+            `  ${name}: ${cfg.command} ${(cfg.args || []).join(" ")} (local)${envNote}`,
           );
         }
       }
@@ -401,16 +420,24 @@ export async function mcpList() {
   }
 
   console.log("\n--- Quick Add Commands ---");
-  console.log("  Local server (no auth):     bun run cli/index.ts mcp add <name> -- <cmd>");
-  console.log("  Local server (API key):     bun run cli/index.ts mcp add <name> --api-key API_KEY -- <cmd>");
-  console.log("  Remote server (OAuth):      bun run cli/index.ts mcp remote <url>");
-  console.log("  Remote server (Bearer):     bun run cli/index.ts mcp remote <url> --bearer");
-  console.log("  Remote server (client creds): bun run cli/index.ts mcp remote <url> --oauth --client-id <id> --client-secret");
+  console.log(
+    "  Local server (no auth):     claude-platform mcp add <name> -- <cmd>",
+  );
+  console.log(
+    "  Local server (API key):     claude-platform mcp add <name> --api-key API_KEY -- <cmd>",
+  );
+  console.log("  Remote server (OAuth):      claude-platform mcp remote <url>");
+  console.log(
+    "  Remote server (Bearer):     claude-platform mcp remote <url> --bearer",
+  );
+  console.log(
+    "  Remote server (client creds): claude-platform mcp remote <url> --oauth --client-id <id> --client-secret",
+  );
   console.log("");
 }
 
 function printMcpAddHelp() {
-  console.log(`Usage: bun run cli/index.ts mcp add <name> [options] [-- <command> [args...]]
+  console.log(`Usage: claude-platform mcp add <name> [options] [-- <command> [args...]]
 
 Add a local or remote MCP server with secure API key handling.
 
@@ -436,39 +463,39 @@ Security:
 Examples:
 
   # Server requiring an API key (prompted securely)
-  bun run cli/index.ts mcp add brave-search --api-key BRAVE_API_KEY \\
+  claude-platform mcp add brave-search --api-key BRAVE_API_KEY \\
     -- npx -y @modelcontextprotocol/server-brave-search
 
   # Database with connection string as secret
-  bun run cli/index.ts mcp add postgres --api-key DATABASE_URL \\
+  claude-platform mcp add postgres --api-key DATABASE_URL \\
     -- npx -y @bytebase/dbhub
 
   # Airtable with explicit env var (key visible in command)
-  bun run cli/index.ts mcp add airtable \\
+  claude-platform mcp add airtable \\
     --env AIRTABLE_API_KEY=patXXXXXXXX \\
     -- npx -y airtable-mcp-server
 
   # Remote server with OAuth (GitHub, Sentry, Notion, etc.)
-  bun run cli/index.ts mcp add github --transport http \\
+  claude-platform mcp add github --transport http \\
     https://api.githubcopilot.com/mcp/
   # Then: /mcp in Claude Code → Authenticate
 
   # Remote server with Bearer token
-  bun run cli/index.ts mcp add my-api --bearer --transport http \\
+  claude-platform mcp add my-api --bearer --transport http \\
     https://api.example.com/mcp
 
   # Remote with pre-registered OAuth credentials
-  bun run cli/index.ts mcp add my-server --oauth --client-id abc123 \\
+  claude-platform mcp add my-server --oauth --client-id abc123 \\
     --client-secret --transport http https://mcp.example.com/mcp
 
   # Share server with team (key stays local)
-  bun run cli/index.ts mcp add sentry --scope project \\
+  claude-platform mcp add sentry --scope project \\
     --transport http https://mcp.sentry.dev/mcp
 `);
 }
 
 function printMcpRemoteHelp() {
-  console.log(`Usage: bun run cli/index.ts mcp remote <url> [options]
+  console.log(`Usage: claude-platform mcp remote <url> [options]
 
 Connect to a remote MCP server or gateway.
 
@@ -486,20 +513,20 @@ Other Options:
 Examples:
 
   # OAuth servers (most cloud services - authenticate via /mcp)
-  bun run cli/index.ts mcp remote https://mcp.sentry.dev/mcp --name sentry
-  bun run cli/index.ts mcp remote https://api.githubcopilot.com/mcp/ --name github
-  bun run cli/index.ts mcp remote https://mcp.notion.com/mcp --name notion
-  bun run cli/index.ts mcp remote https://mcp.linear.app/mcp --name linear
+  claude-platform mcp remote https://mcp.sentry.dev/mcp --name sentry
+  claude-platform mcp remote https://api.githubcopilot.com/mcp/ --name github
+  claude-platform mcp remote https://mcp.notion.com/mcp --name notion
+  claude-platform mcp remote https://mcp.linear.app/mcp --name linear
 
   # Bearer token (prompted securely)
-  bun run cli/index.ts mcp remote https://mcp.example.com --bearer
+  claude-platform mcp remote https://mcp.example.com --bearer
 
   # Pre-registered OAuth credentials
-  bun run cli/index.ts mcp remote https://mcp.example.com \\
+  claude-platform mcp remote https://mcp.example.com \\
     --oauth --client-id my-client-id --client-secret
 
   # Organization gateway
-  bun run cli/index.ts mcp remote https://mcp-gateway.company.com --name company
-  bun run cli/index.ts mcp remote https://mcp-gateway.company.com --bearer --name company
+  claude-platform mcp remote https://mcp-gateway.company.com --name company
+  claude-platform mcp remote https://mcp-gateway.company.com --bearer --name company
 `);
 }

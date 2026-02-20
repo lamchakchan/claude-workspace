@@ -39,9 +39,14 @@ The setup wizard checks for these and will guide you if anything is missing. It 
 git clone <platform-repo-url> ~/claude-platform
 cd ~/claude-platform
 
+# One-time bootstrap: install deps and register the CLI command
+bun install && bun link
+
 # Run the setup wizard (installs Claude Code CLI, provisions API key, configures global settings)
-bun run cli/index.ts setup
+claude-platform setup
 ```
+
+After the one-time `bun install && bun link`, `claude-platform` is available globally from any directory.
 
 **Alternative: Docker** — If you prefer a fully self-contained image (e.g., for CI/CD or ephemeral environments), see [Docker Operations](RUNBOOK.md#8-docker-operations).
 
@@ -54,7 +59,7 @@ bun run cli/index.ts setup
 The platform uses "Option 2" self-provisioning. When you run setup:
 
 ```bash
-bun run cli/index.ts setup
+claude-platform setup
 # The script will:
 # 1. Check if Claude Code CLI is installed (installs if missing)
 # 2. Launch the interactive API key provisioning flow
@@ -74,7 +79,7 @@ export ANTHROPIC_API_KEY=sk-ant-your-key-here
 
 ```bash
 # Run the health check
-bun run cli/index.ts doctor
+claude-platform doctor
 
 # Expected output:
 # [OK] Claude Code CLI: 2.x.x
@@ -95,7 +100,7 @@ bun run cli/index.ts doctor
 
 ```bash
 # Copy platform config into your project
-bun run cli/index.ts attach /path/to/your/project
+claude-platform attach /path/to/your/project
 
 # What this creates in your project:
 # .claude/settings.json     - Team settings with safe defaults
@@ -112,7 +117,7 @@ bun run cli/index.ts attach /path/to/your/project
 If you want your project to always use the latest platform config:
 
 ```bash
-bun run cli/index.ts attach /path/to/your/project --symlink
+claude-platform attach /path/to/your/project --symlink
 ```
 
 With symlinks, updating the platform repo automatically updates all attached projects.
@@ -122,7 +127,7 @@ With symlinks, updating the platform repo automatically updates all attached pro
 If a project already has Claude config and you want to replace it:
 
 ```bash
-bun run cli/index.ts attach /path/to/your/project --force
+claude-platform attach /path/to/your/project --force
 ```
 
 ### Docker Attach (Automatic)
@@ -341,36 +346,36 @@ The platform ships with three MCP servers in `.mcp.json`:
 **Add a database (with API key):**
 ```bash
 # The --api-key flag prompts securely for the value (masked input)
-bun run cli/index.ts mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+claude-platform mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
 # You'll be prompted: Enter value for DATABASE_URL: ****
 # The key is stored as an env var in local Claude config (NOT in .mcp.json)
 ```
 
 **Add a search API:**
 ```bash
-bun run cli/index.ts mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
+claude-platform mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
 ```
 
 **Add GitHub (remote, with OAuth):**
 ```bash
-bun run cli/index.ts mcp remote https://api.githubcopilot.com/mcp/ --name github
+claude-platform mcp remote https://api.githubcopilot.com/mcp/ --name github
 # Then in Claude Code: /mcp → Authenticate
 ```
 
 **Add a remote server with Bearer token:**
 ```bash
-bun run cli/index.ts mcp remote https://mcp-gateway.company.com --name gateway --bearer
+claude-platform mcp remote https://mcp-gateway.company.com --name gateway --bearer
 # You'll be prompted: Enter Bearer token: ****
 ```
 
 **Add Sentry for error monitoring:**
 ```bash
-bun run cli/index.ts mcp remote https://mcp.sentry.dev/mcp --name sentry
+claude-platform mcp remote https://mcp.sentry.dev/mcp --name sentry
 ```
 
 **Add Notion:**
 ```bash
-bun run cli/index.ts mcp remote https://mcp.notion.com/mcp --name notion
+claude-platform mcp remote https://mcp.notion.com/mcp --name notion
 ```
 
 ### MCP Authentication Methods
@@ -387,7 +392,7 @@ All secrets are entered via **masked input** (not visible on screen or in shell 
 
 **OAuth with pre-registered app:**
 ```bash
-bun run cli/index.ts mcp remote https://mcp.example.com --name example \
+claude-platform mcp remote https://mcp.example.com --name example \
   --oauth --client-id my-app-id --client-secret
 # Prompts for client secret (masked), then you authenticate via /mcp in Claude Code
 ```
@@ -413,13 +418,13 @@ If your organization runs a centralized MCP gateway:
 
 ```bash
 # Without auth (gateway handles auth internally)
-bun run cli/index.ts mcp remote https://mcp-gateway.company.com --name company-gateway
+claude-platform mcp remote https://mcp-gateway.company.com --name company-gateway
 
 # With Bearer token auth
-bun run cli/index.ts mcp remote https://mcp-gateway.company.com --name company-gateway --bearer
+claude-platform mcp remote https://mcp-gateway.company.com --name company-gateway --bearer
 
 # With OAuth
-bun run cli/index.ts mcp remote https://mcp-gateway.company.com --name company-gateway --oauth
+claude-platform mcp remote https://mcp-gateway.company.com --name company-gateway --oauth
 ```
 
 ### Checking MCP Status
@@ -441,9 +446,9 @@ Work on multiple features simultaneously on the same repo:
 
 ```bash
 # Create sandboxed worktrees
-bun run cli/index.ts sandbox /path/to/project feature-auth
-bun run cli/index.ts sandbox /path/to/project feature-api
-bun run cli/index.ts sandbox /path/to/project bugfix-payments
+claude-platform sandbox /path/to/project feature-auth
+claude-platform sandbox /path/to/project feature-api
+claude-platform sandbox /path/to/project bugfix-payments
 
 # Each creates:
 # /path/to/project-worktrees/feature-auth/  (branch: feature-auth)
@@ -633,7 +638,7 @@ Just close the terminal. Sessions are persisted automatically. Your next `claude
 
 ### Run the Doctor When Things Feel Off
 ```bash
-bun run cli/index.ts doctor
+claude-platform doctor
 # Checks everything: CLI, settings, hooks, MCP, auth
 ```
 

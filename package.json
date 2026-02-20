@@ -3,14 +3,8 @@
   "version": "1.0.0",
   "description": "Claude Code Platform Engineering Kit - Preconfigured AI agent platform for teams",
   "type": "module",
-  "scripts": {
-    "setup": "bun run cli/index.ts setup",
-    "attach": "bun run cli/index.ts attach",
-    "sandbox": "bun run cli/index.ts sandbox",
-    "mcp:add": "bun run cli/index.ts mcp add",
-    "mcp:remote": "bun run cli/index.ts mcp remote",
-    "mcp:list": "bun run cli/index.ts mcp list",
-    "doctor": "bun run cli/index.ts doctor"
+  "bin": {
+    "claude-platform": "cli/index.ts"
   },
   "dependencies": {},
   "devDependencies": {

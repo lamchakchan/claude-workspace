@@ -1,6 +1,5 @@
 {
   "_description": "Collaboration tool MCP server configurations",
-
   "examples": {
     "github": {
       "type": "http",
@@ -20,7 +19,10 @@
     },
     "jira": {
       "command": "npx",
-      "args": ["-y", "@anthropic/claude-code-jira-server"],
+      "args": [
+        "-y",
+        "@anthropic/claude-code-jira-server"
+      ],
       "env": {
         "JIRA_URL": "${JIRA_URL}",
         "JIRA_EMAIL": "${JIRA_EMAIL}",
@@ -28,14 +30,12 @@
       }
     }
   },
-
   "setup_commands": {
-    "github": "bun run cli/index.ts mcp remote https://api.githubcopilot.com/mcp/ --name github",
-    "notion": "bun run cli/index.ts mcp remote https://mcp.notion.com/mcp --name notion",
-    "linear": "bun run cli/index.ts mcp remote https://mcp.linear.app/sse --name linear",
-    "jira": "bun run cli/index.ts mcp add jira --api-key JIRA_API_TOKEN -- npx -y @anthropic/claude-code-jira-server"
+    "github": "claude-platform mcp remote https://api.githubcopilot.com/mcp/ --name github",
+    "notion": "claude-platform mcp remote https://mcp.notion.com/mcp --name notion",
+    "linear": "claude-platform mcp remote https://mcp.linear.app/sse --name linear",
+    "jira": "claude-platform mcp add jira --api-key JIRA_API_TOKEN -- npx -y @anthropic/claude-code-jira-server"
   },
-
   "notes": {
     "github": "Uses OAuth - authenticate via /mcp in Claude Code after adding",
     "notion": "Uses OAuth - authenticate via /mcp in Claude Code after adding",

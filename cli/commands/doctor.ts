@@ -63,7 +63,7 @@ export async function doctor() {
       warnings++;
     }
   } else {
-    warn("~/.claude/settings.json not found. Run 'bun run cli/index.ts setup'");
+    warn("~/.claude/settings.json not found. Run 'claude-platform setup'");
     warnings++;
   }
 
@@ -80,7 +80,11 @@ export async function doctor() {
   const cwd = process.cwd();
 
   const checks = [
-    { path: ".claude/settings.json", label: "Project settings", required: true },
+    {
+      path: ".claude/settings.json",
+      label: "Project settings",
+      required: true,
+    },
     { path: ".claude/CLAUDE.md", label: "Project CLAUDE.md", required: true },
     { path: ".mcp.json", label: "MCP configuration", required: false },
     { path: ".claude/agents", label: "Agents directory", required: false },
@@ -209,7 +213,7 @@ export async function doctor() {
         if (config.oauthAccount) {
           pass("OAuth authentication configured");
         } else {
-          warn("No API key or OAuth found. Run: bun run cli/index.ts setup");
+          warn("No API key or OAuth found. Run: claude-platform setup");
           warnings++;
         }
       } catch {
@@ -217,7 +221,7 @@ export async function doctor() {
         warnings++;
       }
     } else {
-      warn("No authentication configured. Run: bun run cli/index.ts setup");
+      warn("No authentication configured. Run: claude-platform setup");
       warnings++;
     }
   }

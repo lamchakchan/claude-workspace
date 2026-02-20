@@ -13,11 +13,13 @@ import { $ } from "bun";
  */
 export async function sandbox(projectPath?: string, branchName?: string) {
   if (!projectPath || !branchName) {
-    console.error("Usage: bun run cli/index.ts sandbox <project-path> <branch-name>");
+    console.error(
+      "Usage: claude-platform sandbox <project-path> <branch-name>",
+    );
     console.log("\nExamples:");
-    console.log("  bun run cli/index.ts sandbox ./my-project feature-auth");
-    console.log("  bun run cli/index.ts sandbox ./my-project feature-api");
-    console.log("  bun run cli/index.ts sandbox ./my-project bugfix-login");
+    console.log("  claude-platform sandbox ./my-project feature-auth");
+    console.log("  claude-platform sandbox ./my-project feature-api");
+    console.log("  claude-platform sandbox ./my-project bugfix-login");
     process.exit(1);
   }
 
@@ -120,7 +122,10 @@ export async function sandbox(projectPath?: string, branchName?: string) {
 
 async function installWorktreeDeps(worktreeDir: string) {
   // Check for package manager lock files and install deps
-  if (existsSync(join(worktreeDir, "bun.lockb")) || existsSync(join(worktreeDir, "bun.lock"))) {
+  if (
+    existsSync(join(worktreeDir, "bun.lockb")) ||
+    existsSync(join(worktreeDir, "bun.lock"))
+  ) {
     try {
       await $`cd ${worktreeDir} && bun install`.quiet();
       console.log("  Dependencies installed (bun)");
@@ -149,7 +154,9 @@ async function installWorktreeDeps(worktreeDir: string) {
       console.log("  Warning: Could not install pnpm dependencies");
     }
   } else if (existsSync(join(worktreeDir, "package.json"))) {
-    console.log("  No lockfile found. Run your package manager to install dependencies.");
+    console.log(
+      "  No lockfile found. Run your package manager to install dependencies.",
+    );
   } else {
     console.log("  No package.json found. Skipping dependency installation.");
   }
