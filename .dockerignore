@@ -1,0 +1,10 @@
+node_modules
+.git
+*.log
+.env
+.env.*
+!.env.example
+plans/
+.claude/agent-memory*/
+.claude/settings.local.json
+.claude/CLAUDE.local.md

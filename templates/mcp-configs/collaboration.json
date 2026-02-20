@@ -1,0 +1,37 @@
+{
+  "_description": "Collaboration tool MCP server configurations",
+
+  "examples": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    },
+    "notion": {
+      "type": "http",
+      "url": "https://mcp.notion.com/mcp"
+    },
+    "slack": {
+      "type": "http",
+      "url": "${SLACK_MCP_URL}"
+    },
+    "linear": {
+      "type": "http",
+      "url": "https://mcp.linear.app/sse"
+    },
+    "jira": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/claude-code-jira-server"],
+      "env": {
+        "JIRA_URL": "${JIRA_URL}",
+        "JIRA_EMAIL": "${JIRA_EMAIL}",
+        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}"
+      }
+    }
+  },
+
+  "setup_commands": {
+    "github": "bun run cli/index.ts mcp remote https://api.githubcopilot.com/mcp/ --name github",
+    "notion": "bun run cli/index.ts mcp remote https://mcp.notion.com/mcp --name notion",
+    "linear": "bun run cli/index.ts mcp remote https://mcp.linear.app/sse --name linear"
+  }
+}

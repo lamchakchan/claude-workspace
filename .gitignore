@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Claude local settings (personal, not shared)
+.claude/settings.local.json
+.claude/CLAUDE.local.md
+.claude/agent-memory-local/
+
+# Plans (generated, may contain sensitive info)
+plans/*.md
+!plans/.gitkeep
+
+# Docker volumes
+docker-data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
