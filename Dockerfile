@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     jq \
     ca-certificates \
     gnupg \
-    # Agent teams support
+    # Agent teams split-pane mode (optional - in-process mode works without tmux)
     tmux \
     # Shell script validation
     shellcheck \
@@ -79,7 +79,6 @@ ENV CLAUDE_CODE_ENABLE_TELEMETRY=1 \
     CLAUDE_CODE_ENABLE_TASKS=true \
     CLAUDE_CODE_SUBAGENT_MODEL=sonnet \
     CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80 \
-    # tmux for agent teams
     TERM=xterm-256color
 
 # Entrypoint script handles setup and launches claude

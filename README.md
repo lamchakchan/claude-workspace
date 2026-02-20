@@ -247,11 +247,12 @@ BRANCH=feature-api docker compose run --rm claude
 ```
 
 ### Using Agent Teams (Experimental)
-Agent teams are enabled by default in this platform. Ask Claude to create a team:
+Agent teams are enabled by default in this platform. **tmux is not required** — the default in-process mode works in any terminal. Ask Claude to create a team:
 ```
 Create an agent team with 3 teammates to implement the auth module,
 API endpoints, and frontend components in parallel.
 ```
+For split-pane view (each teammate in its own pane), install tmux and set `"teammateMode": "tmux"` in settings.
 
 ## Health Check
 

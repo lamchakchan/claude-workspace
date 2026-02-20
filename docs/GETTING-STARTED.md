@@ -522,6 +522,24 @@ git -C /path/to/project worktree remove /path/to/project-worktrees/feature-auth
 
 Agent teams let multiple Claude instances collaborate on a single task. This is experimental but enabled by default in the platform.
 
+### Display Modes
+
+Agent teams support two display modes:
+
+| Mode | Requires | Description |
+|------|----------|-------------|
+| **In-process** (default) | Nothing extra | All teammates run inside your main terminal. Use `Shift+Down` to cycle. Works in any terminal. |
+| **Split panes** | tmux or iTerm2 | Each teammate gets its own visible pane. Better visibility but requires extra tooling. |
+
+The platform defaults to **in-process mode** (`"teammateMode": "in-process"` in settings.json), so **tmux is not required**. If you want split-pane mode, install tmux and change the setting:
+
+```json
+// .claude/settings.json or .claude/settings.local.json
+{ "teammateMode": "tmux" }
+```
+
+Or per-session: `claude --teammate-mode tmux`
+
 ### When to Use Teams
 
 - Research tasks requiring multiple perspectives

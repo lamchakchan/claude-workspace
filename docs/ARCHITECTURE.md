@@ -410,7 +410,8 @@ Each Docker container is a fully isolated environment:
 
 ```
 ubuntu:24.04 (base)
-├── System tools: curl, wget, git, jq, tmux, shellcheck, ssh
+├── System tools: curl, wget, git, jq, shellcheck, ssh
+├── tmux (optional - only needed for split-pane agent team display)
 ├── Node.js 22 (LTS)
 ├── Bun runtime
 ├── Claude Code CLI
@@ -419,6 +420,8 @@ ubuntu:24.04 (base)
 ├── Agents copied to /root/.claude/agents/
 └── Entrypoint script at /usr/local/bin/entrypoint.sh
 ```
+
+**Note on tmux:** Agent teams default to **in-process mode** which works in any terminal without tmux. tmux is included in the Docker image for users who prefer split-pane mode (`"teammateMode": "tmux"`), but it is not required.
 
 ### Volume Strategy
 
