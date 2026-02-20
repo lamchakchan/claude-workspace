@@ -1,0 +1,864 @@
+# Operations Runbook
+
+Procedures for maintaining the Claude Code Platform, troubleshooting issues, and managing the platform lifecycle.
+
+---
+
+## Table of Contents
+
+1. [Routine Maintenance](#1-routine-maintenance)
+2. [Updating the Platform](#2-updating-the-platform)
+3. [Updating Claude Code CLI](#3-updating-claude-code-cli)
+4. [Managing API Keys](#4-managing-api-keys)
+5. [Managing MCP Servers](#5-managing-mcp-servers)
+6. [Managing Hooks](#6-managing-hooks)
+7. [Managing Agents and Skills](#7-managing-agents-and-skills)
+8. [Docker Operations](#8-docker-operations)
+9. [Troubleshooting](#9-troubleshooting)
+10. [Rollback Procedures](#10-rollback-procedures)
+11. [Onboarding New Team Members](#11-onboarding-new-team-members)
+12. [Offboarding](#12-offboarding)
+13. [Security Incident Response](#13-security-incident-response)
+14. [Monitoring and Observability](#14-monitoring-and-observability)
+
+---
+
+## 1. Routine Maintenance
+
+### Weekly
+
+| Task | Command | Purpose |
+|------|---------|---------|
+| Run health check | `bun run cli/index.ts doctor` | Catch config drift |
+| Check Claude Code version | `claude --version` | Stay current |
+| Review hook scripts | `ls -la .claude/hooks/` | Verify still executable |
+| Check MCP server status | Run `/mcp` in Claude Code | Verify connections |
+
+### Monthly
+
+| Task | Command | Purpose |
+|------|---------|---------|
+| Update Claude Code CLI | `npm update -g @anthropic-ai/claude-code` | Get latest features/fixes |
+| Update MCP servers | `npm update` in project | Update MCP dependencies |
+| Review permission rules | Read `.claude/settings.json` | Adjust as needed |
+| Review CLAUDE.md files | Read all CLAUDE.md layers | Keep context current |
+| Clean old worktrees | `git worktree list` → remove stale ones | Free disk space |
+| Clean old plans | `ls plans/` → archive old ones | Keep directory manageable |
+| Rebuild Docker image | `docker build -t claude-platform .` | Include latest updates |
+
+### Quarterly
+
+| Task | Purpose |
+|------|---------|
+| Review subagent definitions | Are they still effective? Adjust prompts |
+| Review model choices | Are costs acceptable? Optimize per-agent models |
+| Audit MCP server list | Remove unused servers, add needed ones |
+| Review security scanner rules | Update for new vulnerability patterns |
+| Review hook effectiveness | Are hooks catching real issues? Remove noise |
+| Update Docker base image | Security patches in ubuntu:24.04 |
+
+---
+
+## 2. Updating the Platform
+
+### Updating All Attached Projects
+
+When you update the platform repo, projects using `--symlink` get changes automatically. For projects using copies:
+
+```bash
+# Re-attach with force to overwrite old config
+bun run cli/index.ts attach /path/to/project --force
+```
+
+### Updating Specific Components
+
+```bash
+# Update only agents
+cp -r .claude/agents/* /path/to/project/.claude/agents/
+
+# Update only hooks
+cp .claude/hooks/*.sh /path/to/project/.claude/hooks/
+chmod +x /path/to/project/.claude/hooks/*.sh
+
+# Update only settings (careful - may overwrite project customizations)
+# Better: manually merge changes
+diff .claude/settings.json /path/to/project/.claude/settings.json
+```
+
+### Version Pinning
+
+Tag platform releases for reproducibility:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+
+# Projects can pin to a version
+git clone --branch v1.0.0 <platform-repo> ~/claude-platform
+```
+
+---
+
+## 3. Updating Claude Code CLI
+
+### Check Current Version
+
+```bash
+claude --version
+```
+
+### Update
+
+```bash
+# Via npm (native install)
+npm update -g @anthropic-ai/claude-code
+
+# Via Docker (rebuild image)
+docker build -t claude-platform . --no-cache
+```
+
+### Breaking Changes
+
+Claude Code releases can change:
+- Settings schema (new/renamed fields)
+- Hook event format (new fields in JSON input)
+- MCP configuration format
+- Agent/skill frontmatter options
+
+After updating, always:
+1. Run `bun run cli/index.ts doctor`
+2. Test hooks with `claude --debug`
+3. Check `/mcp` status
+4. Verify agents appear in `/agents`
+
+---
+
+## 4. Managing API Keys
+
+### Self-Provisioning (Option 2)
+
+```bash
+# Initial provisioning via setup
+bun run cli/index.ts setup
+
+# Re-provisioning (if key expires)
+claude  # Launches interactive login flow
+```
+
+### Environment Variable
+
+```bash
+# Set in shell profile
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Verify
+echo $ANTHROPIC_API_KEY | head -c 10
+```
+
+### API Key Helper Script
+
+For dynamic key generation (e.g., from a vault):
+
+```json
+// In settings.json
+{
+  "apiKeyHelper": "/path/to/generate-api-key.sh"
+}
+```
+
+The script should output the API key to stdout. Claude Code calls it before each API request.
+
+### Key Rotation
+
+1. Generate new key in Anthropic Console
+2. Update `ANTHROPIC_API_KEY` in your environment
+3. Or update key in your vault (if using `apiKeyHelper`)
+4. Restart Claude Code sessions
+
+### Docker Key Management
+
+```bash
+# Option A: Environment variable
+ANTHROPIC_API_KEY=new-key docker compose run --rm claude
+
+# Option B: .env file
+echo "ANTHROPIC_API_KEY=new-key" > .env
+
+# Option C: Persistent volume (authenticated via interactive login)
+# Auth is stored in claude-auth volume and persists across container restarts
+```
+
+---
+
+## 5. Managing MCP Servers
+
+### List All Servers
+
+```bash
+# Via CLI
+bun run cli/index.ts mcp list
+
+# Via Claude Code (includes status)
+# Inside a session: /mcp
+```
+
+### Add a Server
+
+```bash
+# Local stdio server
+bun run cli/index.ts mcp add <name> -- <command> [args...]
+
+# Remote HTTP server
+bun run cli/index.ts mcp remote <url> --name <name>
+
+# With auth header
+bun run cli/index.ts mcp remote <url> --name <name> --header "Authorization: Bearer <token>"
+
+# Directly via Claude Code CLI
+claude mcp add --transport http <name> <url>
+```
+
+### Remove a Server
+
+```bash
+claude mcp remove <name>
+```
+
+### Troubleshoot a Server
+
+```bash
+# Check server status
+# In Claude Code: /mcp
+
+# Debug startup
+MCP_TIMEOUT=30000 claude --debug
+
+# Check server logs
+claude --debug 2>&1 | grep -i mcp
+
+# Increase output limit for large-output servers
+MAX_MCP_OUTPUT_TOKENS=50000 claude
+```
+
+### Reset MCP Approvals
+
+If you've accidentally denied a project MCP server:
+
+```bash
+claude mcp reset-project-choices
+```
+
+### Update Project MCP Config
+
+Edit `.mcp.json` directly:
+
+```json
+{
+  "mcpServers": {
+    "new-server": {
+      "type": "http",
+      "url": "https://mcp.example.com/mcp"
+    }
+  }
+}
+```
+
+---
+
+## 6. Managing Hooks
+
+### View Active Hooks
+
+```bash
+# In Claude Code
+# /hooks
+
+# Or read settings directly
+cat .claude/settings.json | jq '.hooks'
+```
+
+### Test a Hook Manually
+
+```bash
+# Feed test input to a hook
+echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"}}' | .claude/hooks/block-dangerous-commands.sh
+# Expected: exit code 2 (blocked)
+
+echo '{"tool_name":"Bash","tool_input":{"command":"npm test"}}' | .claude/hooks/block-dangerous-commands.sh
+# Expected: exit code 0 (allowed)
+```
+
+### Debug Hooks in Real Time
+
+```bash
+claude --debug
+# Or toggle verbose mode: Ctrl+O during a session
+```
+
+### Disable All Hooks Temporarily
+
+```json
+// In .claude/settings.local.json
+{
+  "disableAllHooks": true
+}
+```
+
+Remove the setting when done.
+
+### Add a New Hook
+
+1. Write the script:
+```bash
+#!/bin/bash
+set -euo pipefail
+INPUT=$(cat)
+# Your logic here
+exit 0  # allow, or exit 2 to block
+```
+
+2. Make executable: `chmod +x .claude/hooks/my-hook.sh`
+
+3. Register in `.claude/settings.json`:
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/my-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Common Hook Issues
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Hook not firing | Wrong matcher or event | Check matcher regex against tool name |
+| Hook blocks everything | Missing exit 0 for allowed cases | Add `exit 0` as the default case |
+| "Permission denied" | Script not executable | `chmod +x .claude/hooks/script.sh` |
+| JSON parse error | Shell profile prints text | Check for echo/motd in bash profile |
+| Hook too slow | Complex logic | Move to async hook or optimize script |
+
+---
+
+## 7. Managing Agents and Skills
+
+### List Available Agents
+
+```bash
+# In Claude Code
+# /agents
+
+# Or check the directory
+ls .claude/agents/
+```
+
+### Modify an Agent
+
+Edit the `.md` file directly. Changes take effect on the next Claude Code session.
+
+Key frontmatter fields to adjust:
+- `model`: Change the model (sonnet, haiku, opus)
+- `tools`: Restrict or expand tool access
+- `maxTurns`: Limit how long the agent can run
+- `permissionMode`: `plan` (read-only) or `default` (full access)
+- `memory`: `project` for persistent memory, omit for none
+
+### Create a Project-Specific Agent
+
+```bash
+# Create in your project's .claude/agents/ directory
+cat > /path/to/project/.claude/agents/deploy-checker.md << 'EOF'
+---
+name: deploy-checker
+description: Validates deployment readiness. Checks build, tests, lint, and env config before deploying.
+tools: Read, Grep, Glob, Bash
+model: sonnet
+---
+
+You verify that a project is ready to deploy. Check:
+1. Build succeeds
+2. All tests pass
+3. No lint errors
+4. Environment variables are configured
+5. Database migrations are up to date
+EOF
+```
+
+### List Available Skills
+
+```bash
+# In Claude Code: type / to see all commands
+# Skills appear as /skill-name
+
+ls .claude/skills/*/SKILL.md
+```
+
+---
+
+## 8. Docker Operations
+
+### Build the Image
+
+```bash
+# Standard build
+docker build -t claude-platform .
+
+# No-cache build (force fresh)
+docker build -t claude-platform . --no-cache
+
+# Build with custom tag
+docker build -t registry.company.com/platform/claude-code:v1.2.0 .
+```
+
+### Push to Registry
+
+```bash
+# Tag for your registry
+docker tag claude-platform registry.company.com/platform/claude-code:latest
+
+# Push
+docker push registry.company.com/platform/claude-code:latest
+```
+
+### Run
+
+```bash
+# Interactive session
+docker compose run --rm claude
+
+# With specific project
+PROJECT_DIR=/path/to/project docker compose run --rm claude
+
+# With specific API key
+ANTHROPIC_API_KEY=sk-ant-... docker compose run --rm claude
+```
+
+### Cleanup
+
+```bash
+# Remove old containers
+docker compose down
+
+# Remove volumes (WARNING: loses auth data)
+docker compose down -v
+
+# Remove old images
+docker image prune -f
+
+# Full cleanup
+docker system prune -f
+```
+
+### Debug Container Issues
+
+```bash
+# Shell into container without running claude
+docker compose run --rm --entrypoint bash claude
+
+# Check installed tools
+docker compose run --rm --entrypoint bash claude -c "which claude && which bun && which tmux && which jq"
+
+# Check entrypoint logs
+docker compose run --rm claude 2>&1 | head -20
+```
+
+### Update the Docker Image
+
+```bash
+# Pull latest base image
+docker pull ubuntu:24.04
+
+# Rebuild
+docker build -t claude-platform . --no-cache
+
+# Push updated image
+docker push registry.company.com/platform/claude-code:latest
+
+# Notify team
+echo "Updated claude-platform image. Pull latest: docker pull registry.company.com/platform/claude-code:latest"
+```
+
+---
+
+## 9. Troubleshooting
+
+### "Claude Code not found"
+
+```bash
+# Check if installed
+which claude
+
+# Install
+npm install -g @anthropic-ai/claude-code
+
+# If using Docker, rebuild the image
+docker build -t claude-platform .
+```
+
+### "API key invalid" or "Authentication failed"
+
+```bash
+# Check if key is set
+echo $ANTHROPIC_API_KEY | head -c 10
+
+# Re-provision
+claude  # Follow interactive login
+
+# Check config
+cat ~/.claude.json | jq '.oauthAccount'
+```
+
+### "Hook script failed"
+
+```bash
+# Check if executable
+ls -la .claude/hooks/
+
+# Make executable
+chmod +x .claude/hooks/*.sh
+
+# Test manually
+echo '{}' | .claude/hooks/block-dangerous-commands.sh; echo "Exit: $?"
+
+# Check for syntax errors
+shellcheck .claude/hooks/*.sh
+
+# Run with debug
+claude --debug
+```
+
+### "MCP server failed to start"
+
+```bash
+# Check if npx works
+npx -y @modelcontextprotocol/server-filesystem --help
+
+# Increase timeout
+MCP_TIMEOUT=30000 claude
+
+# Check in session
+# /mcp
+
+# Remove and re-add
+claude mcp remove <name>
+claude mcp add --transport stdio <name> -- <command>
+```
+
+### "Context too full" / "Auto-compacting frequently"
+
+```bash
+# Check context usage
+# In Claude Code: /context
+
+# Manually compact
+# /compact
+
+# Adjust threshold (lower = more aggressive)
+# In settings.json env:
+# "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "70"
+
+# Use subagents for context-heavy work
+# "Use the explorer agent to find all API endpoints"
+```
+
+### "Agent not found"
+
+```bash
+# Check agent file exists and has correct format
+cat .claude/agents/planner.md | head -10
+
+# Verify YAML frontmatter is valid (--- markers present)
+# Agent files MUST start with --- and have a closing ---
+
+# Check for agent in session
+# /agents
+```
+
+### "Hooks not blocking as expected"
+
+```bash
+# Check matcher regex
+# "Bash" matches the Bash tool
+# "Write|Edit" matches Write OR Edit
+# "mcp__memory__.*" matches all memory MCP tools
+
+# Test the matcher
+claude --debug
+# Then trigger the tool and check hook output
+```
+
+### "Worktree won't create"
+
+```bash
+# Check if branch already exists
+git branch -a | grep <branch-name>
+
+# Check existing worktrees
+git worktree list
+
+# Remove stale worktree reference
+git worktree prune
+```
+
+---
+
+## 10. Rollback Procedures
+
+### Rollback Platform Config in a Project
+
+```bash
+# If config is version controlled
+cd /path/to/project
+git checkout HEAD~1 -- .claude/ .mcp.json
+
+# If using symlinks, checkout previous platform version
+cd ~/claude-platform
+git checkout v1.0.0
+```
+
+### Rollback Claude Code CLI
+
+```bash
+# Install specific version
+npm install -g @anthropic-ai/claude-code@2.0.0
+```
+
+### Rollback Docker Image
+
+```bash
+# Use a tagged version
+docker pull registry.company.com/platform/claude-code:v1.0.0
+docker tag registry.company.com/platform/claude-code:v1.0.0 claude-platform
+```
+
+### Rollback Settings
+
+Claude Code auto-backs up settings (5 most recent):
+```bash
+# Find backups
+ls ~/.claude/settings.json.bak*
+
+# Restore
+cp ~/.claude/settings.json.bak.1 ~/.claude/settings.json
+```
+
+### Emergency: Disable All Platform Features
+
+```json
+// .claude/settings.local.json
+{
+  "disableAllHooks": true
+}
+```
+
+This instantly disables all hooks while preserving the configuration. Remove when the issue is resolved.
+
+---
+
+## 11. Onboarding New Team Members
+
+### Checklist
+
+1. **Prerequisites**
+   - [ ] Docker installed (or Bun + Node.js for native)
+   - [ ] Git configured (name, email, SSH key)
+   - [ ] Access to Anthropic Console (for API key) or org API key
+
+2. **Setup**
+   - [ ] Clone platform repo: `git clone <platform-repo> ~/claude-platform`
+   - [ ] Run setup: `cd ~/claude-platform && bun run cli/index.ts setup`
+   - [ ] Or pull Docker image: `docker pull registry.company.com/platform/claude-code:latest`
+
+3. **Project Onboarding**
+   - [ ] Clone their project repo
+   - [ ] Attach platform: `bun run cli/index.ts attach /path/to/project`
+   - [ ] Customize `.claude/CLAUDE.local.md` with their personal context
+   - [ ] Copy `settings.local.json.example` → `settings.local.json`
+
+4. **Verification**
+   - [ ] Run doctor: `bun run cli/index.ts doctor`
+   - [ ] Start Claude Code: `cd /path/to/project && claude`
+   - [ ] Verify hooks: `Ctrl+O` and try a test command
+   - [ ] Verify MCP: `/mcp`
+   - [ ] Verify agents: `/agents`
+
+5. **First Task**
+   - [ ] Walk through a simple task together
+   - [ ] Show the plan-first workflow
+   - [ ] Demonstrate subagent usage
+   - [ ] Show how to use `/compact` and context management
+
+### Quick Start Script for New Members
+
+```bash
+#!/bin/bash
+# new-member-setup.sh
+set -euo pipefail
+
+echo "=== New Member Setup ==="
+
+# 1. Clone platform
+git clone <platform-repo> ~/claude-platform
+cd ~/claude-platform
+
+# 2. Setup (interactive - API key provisioning)
+bun run cli/index.ts setup
+
+# 3. Attach to project (pass project path as argument)
+PROJECT=${1:?Usage: ./new-member-setup.sh /path/to/project}
+bun run cli/index.ts attach "$PROJECT"
+
+# 4. Verify
+bun run cli/index.ts doctor
+
+echo ""
+echo "Setup complete. Start Claude Code:"
+echo "  cd $PROJECT && claude"
+```
+
+---
+
+## 12. Offboarding
+
+### Remove Platform from a Project
+
+```bash
+# Remove all platform config
+rm -rf /path/to/project/.claude/
+rm /path/to/project/.mcp.json
+
+# Or selectively
+rm -rf /path/to/project/.claude/agents/
+rm -rf /path/to/project/.claude/skills/
+rm -rf /path/to/project/.claude/hooks/
+# Keep .claude/settings.json and CLAUDE.md if customized
+```
+
+### Remove User's Global Config
+
+```bash
+# Remove global settings
+rm -rf ~/.claude/
+
+# Remove auth
+rm ~/.claude.json
+
+# Remove environment variable
+# Edit ~/.bashrc or ~/.zshrc: remove ANTHROPIC_API_KEY line
+```
+
+### Revoke API Key
+
+1. Go to Anthropic Console
+2. Revoke the user's API key
+3. If using shared key, rotate it
+
+---
+
+## 13. Security Incident Response
+
+### If a Secret Was Committed
+
+```bash
+# 1. Immediately rotate the compromised credential
+# 2. Remove from git history
+git filter-branch --force --index-filter \
+  "git rm --cached --ignore-unmatch path/to/secret" HEAD
+# 3. Force push (coordinate with team)
+git push --force
+# 4. Review validate-secrets.sh hook for gaps
+```
+
+### If Claude Executed a Dangerous Command
+
+```bash
+# 1. Check what ran
+claude --debug  # or review session transcript
+
+# 2. Assess damage
+git status  # file changes
+git diff    # content changes
+git log -5  # recent commits
+
+# 3. Revert if needed
+git checkout -- .  # revert all uncommitted changes
+git reset HEAD~1   # undo last commit (if Claude committed)
+
+# 4. Review and strengthen hooks
+cat .claude/hooks/block-dangerous-commands.sh
+# Add the pattern that was missed
+```
+
+### If MCP Server Was Compromised
+
+```bash
+# 1. Remove the server immediately
+claude mcp remove <name>
+
+# 2. Revoke any credentials associated with it
+# 3. Review what tools were exposed
+# 4. Check session transcripts for unauthorized actions
+```
+
+---
+
+## 14. Monitoring and Observability
+
+### OpenTelemetry
+
+The platform enables telemetry by default. Configure your OTEL collector:
+
+```json
+// In settings.json
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://your-collector:4317"
+  }
+}
+```
+
+### Session Transcripts
+
+All session transcripts are saved to:
+```
+~/.claude/projects/<project-hash>/<session-id>.jsonl
+```
+
+These are JSONL files containing every message, tool call, and result.
+
+### Cost Monitoring
+
+```bash
+# Turn duration shows per-turn timing
+# Enabled by default in settings: "showTurnDuration": true
+
+# Disable cost warnings if needed
+# "DISABLE_COST_WARNINGS": "1"
+```
+
+### Usage Tracking
+
+Track API usage via:
+1. Anthropic Console dashboard
+2. OpenTelemetry metrics
+3. Session transcript analysis
+
+### Alerting
+
+Set up alerts for:
+- API key approaching rate limits
+- Unusual spending patterns
+- Hook failures (exit code 2 spikes)
+- MCP server disconnections
