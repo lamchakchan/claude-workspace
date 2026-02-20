@@ -23,49 +23,27 @@ This guide walks you through setting up the platform, attaching it to your first
 
 ## 1. Prerequisites
 
-### Docker Path (Recommended)
-
-You only need:
-- **Docker** (Docker Desktop or Docker Engine)
-- An **Anthropic API key** (or access to your org's Claude console)
-
-### Native Path
-
 You need:
-- **Bun** (https://bun.sh) - `curl -fsSL https://bun.sh/install | bash`
-- **Node.js** 22+ - for MCP servers and Claude Code CLI
-- **Git** - for version control operations
-- **tmux** - for agent teams (optional, `apt install tmux` or `brew install tmux`)
-- **jq** - for hook scripts (`apt install jq` or `brew install jq`)
+- **Node.js 18+** and **npm** — for Claude Code CLI and MCP servers
+- **Git** — for version control and worktree sandboxing
+- **Bun** — for the platform CLI: `curl -fsSL https://bun.sh/install | bash`
+
+The setup wizard checks for these and will guide you if anything is missing. It also checks for optional tools like shellcheck, jq, prettier, and tmux.
 
 ---
 
 ## 2. Installation
 
-### Docker Path
-
 ```bash
 # Clone the platform
 git clone <platform-repo-url> ~/claude-platform
 cd ~/claude-platform
 
-# Option A: Build locally
-docker build -t claude-platform .
-
-# Option B: Pull from your org's registry (if already published)
-docker pull registry.company.com/platform/claude-code:latest
-```
-
-### Native Path
-
-```bash
-# Clone the platform
-git clone <platform-repo-url> ~/claude-platform
-cd ~/claude-platform
-
-# Run the setup wizard
+# Run the setup wizard (installs Claude Code CLI, provisions API key, configures global settings)
 bun run cli/index.ts setup
 ```
+
+**Alternative: Docker** — If you prefer a fully self-contained image (e.g., for CI/CD or ephemeral environments), see [Docker Operations](RUNBOOK.md#8-docker-operations).
 
 ---
 
@@ -73,9 +51,8 @@ bun run cli/index.ts setup
 
 ### API Key Provisioning (Option 2: Self-Service)
 
-The platform uses "Option 2" self-provisioning. When you run setup or start the Docker container for the first time:
+The platform uses "Option 2" self-provisioning. When you run setup:
 
-**Native:**
 ```bash
 bun run cli/index.ts setup
 # The script will:
@@ -84,16 +61,7 @@ bun run cli/index.ts setup
 # 3. Create global settings at ~/.claude/settings.json
 # 4. Create global instructions at ~/.claude/CLAUDE.md
 # 5. Install Bun dependencies
-```
-
-**Docker:**
-```bash
-# Set your API key in .env
-cp docker/.env.example .env
-# Edit .env: set ANTHROPIC_API_KEY=sk-ant-...
-
-# Or pass it inline
-ANTHROPIC_API_KEY=sk-ant-... docker compose run --rm claude
+# 6. Check for optional system tools (shellcheck, jq, prettier, tmux)
 ```
 
 **Alternative: Environment variable**

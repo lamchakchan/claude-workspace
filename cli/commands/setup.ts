@@ -14,12 +14,13 @@ const CLAUDE_CONFIG = join(homedir(), ".claude.json");
  *   3. Create global user settings
  *   4. Create global CLAUDE.md
  *   5. Install Bun dependencies
+ *   6. Check for optional system tools
  */
 export async function setup() {
   console.log("\n=== Claude Code Platform Setup ===\n");
 
   // Step 1: Check if Claude Code CLI is installed
-  console.log("[1/5] Checking Claude Code installation...");
+  console.log("[1/6] Checking Claude Code installation...");
   const claudeInstalled = await checkClaudeInstalled();
   if (!claudeInstalled) {
     console.log("  Claude Code CLI not found. Installing...");
@@ -30,26 +31,34 @@ export async function setup() {
   }
 
   // Step 2: API Key provisioning (Option 2 - self-provision)
-  console.log("\n[2/5] API Key provisioning...");
+  console.log("\n[2/6] API Key provisioning...");
   await provisionApiKey();
 
   // Step 3: Create global user settings
-  console.log("\n[3/5] Setting up global user configuration...");
+  console.log("\n[3/6] Setting up global user configuration...");
   await setupGlobalSettings();
 
   // Step 4: Create global CLAUDE.md
-  console.log("\n[4/5] Setting up global CLAUDE.md...");
+  console.log("\n[4/6] Setting up global CLAUDE.md...");
   await setupGlobalClaudeMd();
 
   // Step 5: Install dependencies
-  console.log("\n[5/5] Installing platform dependencies...");
+  console.log("\n[5/6] Installing platform dependencies...");
   await installDependencies();
+
+  // Step 6: Check optional system tools
+  console.log("\n[6/6] Checking optional system tools...");
+  await checkOptionalTools();
 
   console.log("\n=== Setup Complete ===");
   console.log("\nNext steps:");
-  console.log("  1. Attach to a project:  bun run cli/index.ts attach /path/to/project");
+  console.log(
+    "  1. Attach to a project:  bun run cli/index.ts attach /path/to/project",
+  );
   console.log("  2. Start Claude Code:    cd /path/to/project && claude");
-  console.log("  3. Add MCP servers:      bun run cli/index.ts mcp add <name> -- <command>");
+  console.log(
+    "  3. Add MCP servers:      bun run cli/index.ts mcp add <name> -- <command>",
+  );
   console.log("");
 }
 
@@ -78,7 +87,9 @@ async function installClaude() {
     console.log("  Claude Code installed successfully.");
   } catch (error) {
     console.error("  Failed to install Claude Code automatically.");
-    console.log("  Please install manually: npm install -g @anthropic-ai/claude-code");
+    console.log(
+      "  Please install manually: npm install -g @anthropic-ai/claude-code",
+    );
     console.log("  Or visit: https://docs.anthropic.com/en/docs/claude-code");
     process.exit(1);
   }
@@ -114,7 +125,9 @@ async function provisionApiKey() {
   if (proc.exitCode !== 0) {
     console.log("\n  API key provisioning requires interactive setup.");
     console.log("  Run 'claude' directly to complete the login flow.");
-    console.log("  You can set ANTHROPIC_API_KEY in your environment as an alternative.");
+    console.log(
+      "  You can set ANTHROPIC_API_KEY in your environment as an alternative.",
+    );
   }
 }
 
@@ -122,14 +135,18 @@ async function setupGlobalSettings() {
   const settingsPath = join(CLAUDE_HOME, "settings.json");
 
   if (existsSync(settingsPath)) {
-    console.log("  Global settings already exist. Merging platform defaults...");
+    console.log(
+      "  Global settings already exist. Merging platform defaults...",
+    );
     try {
       const existing = JSON.parse(await Bun.file(settingsPath).text());
       const merged = mergeSettings(existing, getDefaultGlobalSettings());
       await Bun.write(settingsPath, JSON.stringify(merged, null, 2));
       console.log("  Global settings updated.");
     } catch (error) {
-      console.log("  Could not merge settings. Skipping global settings update.");
+      console.log(
+        "  Could not merge settings. Skipping global settings update.",
+      );
     }
     return;
   }
@@ -137,7 +154,10 @@ async function setupGlobalSettings() {
   // Create ~/.claude/ directory if needed
   await $`mkdir -p ${CLAUDE_HOME}`.quiet();
 
-  await Bun.write(settingsPath, JSON.stringify(getDefaultGlobalSettings(), null, 2));
+  await Bun.write(
+    settingsPath,
+    JSON.stringify(getDefaultGlobalSettings(), null, 2),
+  );
   console.log("  Global settings created at ~/.claude/settings.json");
 }
 
@@ -169,7 +189,10 @@ function getDefaultGlobalSettings() {
   };
 }
 
-function mergeSettings(existing: Record<string, any>, defaults: Record<string, any>): Record<string, any> {
+function mergeSettings(
+  existing: Record<string, any>,
+  defaults: Record<string, any>,
+): Record<string, any> {
   const merged = { ...existing };
 
   // Merge env vars (don't overwrite existing)
@@ -181,7 +204,7 @@ function mergeSettings(existing: Record<string, any>, defaults: Record<string, a
   if (defaults.permissions?.deny) {
     const existingDeny = existing.permissions?.deny || [];
     const newDeny = defaults.permissions.deny.filter(
-      (rule: string) => !existingDeny.includes(rule)
+      (rule: string) => !existingDeny.includes(rule),
     );
     merged.permissions = {
       ...existing.permissions,
@@ -242,5 +265,67 @@ async function installDependencies() {
   } catch {
     console.log("  Bun not found. Install Bun: https://bun.sh");
     console.log("  Then run: bun install");
+  }
+}
+
+async function checkOptionalTools() {
+  const tools: Array<{
+    name: string;
+    check: string;
+    purpose: string;
+    install: string;
+  }> = [
+    {
+      name: "shellcheck",
+      check: "shellcheck",
+      purpose: "Hook script validation",
+      install:
+        "brew install shellcheck (macOS) / apt install shellcheck (Linux)",
+    },
+    {
+      name: "jq",
+      check: "jq",
+      purpose: "JSON processing in hooks",
+      install: "brew install jq (macOS) / apt install jq (Linux)",
+    },
+    {
+      name: "prettier",
+      check: "prettier",
+      purpose: "Auto-format hook (JS/TS/JSON/CSS)",
+      install: "npm install -g prettier",
+    },
+    {
+      name: "tmux",
+      check: "tmux",
+      purpose:
+        "Agent teams split-pane mode (optional — in-process mode works without it)",
+      install: "brew install tmux (macOS) / apt install tmux (Linux)",
+    },
+  ];
+
+  const missing: typeof tools = [];
+  const found: string[] = [];
+
+  for (const tool of tools) {
+    try {
+      await $`which ${tool.check}`.quiet();
+      found.push(tool.name);
+    } catch {
+      missing.push(tool);
+    }
+  }
+
+  if (found.length > 0) {
+    console.log(`  Found: ${found.join(", ")}`);
+  }
+
+  if (missing.length > 0) {
+    console.log(`\n  Optional tools not found (not required, but useful):`);
+    for (const tool of missing) {
+      console.log(`    - ${tool.name}: ${tool.purpose}`);
+      console.log(`      Install: ${tool.install}`);
+    }
+  } else {
+    console.log("  All optional tools are available.");
   }
 }

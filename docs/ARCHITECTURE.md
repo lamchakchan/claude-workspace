@@ -34,7 +34,7 @@ This document explains why the platform is structured the way it is, what trade-
 
 5. **Team-shared, individually customizable** - Settings, agents, skills, and hooks are committed to git for team consistency. Personal overrides live in `.local` files that are gitignored.
 
-6. **Minimal setup, maximum value** - Docker gives zero-setup onboarding. The Bun CLI automates everything else. A developer should go from "never used Claude Code" to "productive" in under 10 minutes.
+6. **Minimal setup, maximum value** - Three commands to get started: clone, setup, attach. The Bun CLI handles installation, API key provisioning, and configuration. A developer should go from "never used Claude Code" to "productive" in under 10 minutes.
 
 ### What This Platform Is NOT
 
@@ -394,7 +394,9 @@ Large projects (100K+ lines) can fill Claude's 200K context window quickly. When
 - Dependencies installed independently (no conflicts)
 - Claude Code sees a regular git repo in each worktree
 
-### Docker Isolation
+### Docker Isolation (Optional)
+
+Docker is available for CI/CD, ephemeral environments, or teams that want a fully self-contained image. It is **not required** for developer workstations — the native Bun CLI handles everything.
 
 Each Docker container is a fully isolated environment:
 - Own filesystem
@@ -404,7 +406,7 @@ Each Docker container is a fully isolated environment:
 
 ---
 
-## 10. Docker Architecture
+## 10. Docker Architecture (Optional)
 
 ### Image Layers
 

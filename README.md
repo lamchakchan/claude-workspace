@@ -35,12 +35,12 @@ claude-platform/
 │       ├── sandbox.ts              # Create parallel branch worktrees
 │       ├── mcp.ts                  # MCP server management
 │       └── doctor.ts               # Health check & diagnostics
-├── docker/                         # Docker support
+├── docker/                         # Docker support (optional)
 │   ├── entrypoint.sh               # Container entrypoint
 │   └── .env.example                # Environment variable template
 ├── .mcp.json                       # Project-scoped MCP servers
-├── Dockerfile                      # Pre-built image with all dependencies
-├── docker-compose.yml              # Multi-container orchestration
+├── Dockerfile                      # Pre-built image (optional, for CI/CD)
+├── docker-compose.yml              # Multi-container orchestration (optional)
 ├── templates/
 │   └── mcp-configs/                # Ready-to-use MCP configurations
 │       ├── database.json           # PostgreSQL/MySQL/SQLite MCP
@@ -53,45 +53,16 @@ claude-platform/
 
 ## Quick Start
 
-### Option A: Docker (Recommended - Zero Setup)
+### Prerequisites
 
-The Docker image includes all system dependencies (tmux, git, jq, Node.js, Bun, formatters) pre-installed. Nothing to configure on the host machine.
+- **Node.js 18+** and **npm** (for Claude Code CLI)
+- **Git** (for version control and worktree sandboxing)
+- **Bun** (for the platform CLI) — Install: `curl -fsSL https://bun.sh/install | bash`
 
-```bash
-# 1. Clone this platform kit
-git clone <this-repo> ~/claude-platform
-cd ~/claude-platform
-
-# 2. Create your .env file with API key
-cp docker/.env.example .env
-# Edit .env: set ANTHROPIC_API_KEY and PROJECT_DIR
-
-# 3. Run Claude Code in your project
-docker compose run --rm claude
-
-# Or with inline API key
-ANTHROPIC_API_KEY=sk-ant-... PROJECT_DIR=/path/to/project docker compose run --rm claude
-```
-
-**For your org's internal registry:**
-```bash
-# Build and push to your registry
-docker build -t registry.company.com/platform/claude-code:latest .
-docker push registry.company.com/platform/claude-code:latest
-
-# Team members pull and run
-docker pull registry.company.com/platform/claude-code:latest
-docker run -it \
-  -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
-  -v /path/to/project:/workspace \
-  -v ~/.ssh:/root/.ssh:ro \
-  registry.company.com/platform/claude-code:latest
-```
-
-### Option B: Native Install (Bun)
+### Setup (3 commands)
 
 ```bash
-# 1. Clone and setup
+# 1. Clone and setup (installs Claude Code CLI, provisions API key)
 git clone <this-repo> ~/claude-platform
 cd ~/claude-platform
 bun run cli/index.ts setup
@@ -102,6 +73,22 @@ bun run cli/index.ts attach /path/to/your/project
 # 3. Start Claude Code
 cd /path/to/your/project && claude
 ```
+
+The `setup` command handles everything: installs Claude Code CLI if missing, runs the interactive API key provisioning (Option 2), creates global settings, and installs dependencies.
+
+### Optional: Docker
+
+Docker is **not required** for most users. It's available for CI/CD pipelines, ephemeral environments, or teams that want a fully self-contained image with zero host dependencies.
+
+```bash
+# Build the image (includes all system tools pre-installed)
+docker build -t claude-platform .
+
+# Run against your project
+ANTHROPIC_API_KEY=sk-ant-... docker compose run --rm -v /path/to/project:/workspace claude
+```
+
+See [Docker Operations](docs/RUNBOOK.md#8-docker-operations) for registry setup, multi-container orchestration, and advanced usage.
 
 ## Key Features
 
@@ -166,23 +153,17 @@ Priority (highest to lowest):
 | `test-runner` | Sonnet | Test execution & analysis |
 | `security-scanner` | Sonnet | Security vulnerability scanning |
 
-### 9. Docker-Based Deployment
-- Pre-built image with all system tools (tmux, git, jq, formatters)
-- Zero host dependencies beyond Docker
+### 9. Docker Support (Optional)
+- Pre-built image with all system tools for CI/CD or ephemeral environments
 - Push to your internal registry for team-wide distribution
 - Parallel agent containers via docker compose
-- Persistent auth volumes across sessions
+- Not required — native setup handles everything for developer workstations
 
 ## Self-Provisioning API Key (Option 2)
 
 ```bash
-# Native
 bun run cli/index.ts setup
 # Follow the interactive flow to provision your key
-
-# Docker
-docker compose run --rm claude
-# Claude Code will launch the interactive login flow
 ```
 
 ## Adding MCP Servers
@@ -239,7 +220,7 @@ cd /path/to/project-worktrees/feature-auth && claude
 cd /path/to/project-worktrees/feature-api && claude
 ```
 
-### Using Docker Containers
+### Using Docker Containers (optional)
 ```bash
 # Spin up parallel agents in separate containers
 BRANCH=feature-auth docker compose run --rm claude
