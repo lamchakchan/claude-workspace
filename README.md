@@ -27,24 +27,19 @@ claude-platform/
 │       ├── enforce-branch-policy.sh
 │       ├── auto-format.sh
 │       └── validate-secrets.sh
-├── cli/                            # Bun-based CLI tooling
-│   ├── index.ts                    # CLI entry point
-│   └── commands/
-│       ├── setup.ts                # First-time setup & API key provisioning
-│       ├── attach.ts               # Attach platform to any project repo
-│       ├── sandbox.ts              # Create parallel branch worktrees
-│       ├── mcp.ts                  # MCP server management
-│       └── doctor.ts               # Health check & diagnostics
-├── docker/                         # Docker support (optional)
-│   ├── entrypoint.sh               # Container entrypoint
-│   └── .env.example                # Environment variable template
+├── main.go                         # Go CLI entry point
+├── assets.go                       # Embedded asset declarations
+├── internal/                       # Go command implementations
+│   ├── platform/                   # Shared helpers (exec, json, fs, assets)
+│   ├── setup/                      # First-time setup & API key provisioning
+│   ├── attach/                     # Attach platform to any project repo
+│   ├── sandbox/                    # Create parallel branch worktrees
+│   ├── mcp/                        # MCP server management
+│   └── doctor/                     # Health check & diagnostics
 ├── .mcp.json                       # Project-scoped MCP servers
-├── Dockerfile                      # Pre-built image (optional, for CI/CD)
-├── docker-compose.yml              # Multi-container orchestration (optional)
 ├── templates/
 │   └── mcp-configs/                # Ready-to-use MCP configurations
 │       ├── database.json           # PostgreSQL/MySQL/SQLite MCP
-│       ├── docker.json             # Docker management MCP
 │       ├── observability.json      # Sentry/Grafana MCP
 │       └── collaboration.json      # GitHub/Notion/Slack/Linear MCP
 ├── CLAUDE.md                       # Global platform-level instructions
@@ -57,39 +52,47 @@ claude-platform/
 
 - **Node.js 18+** and **npm** (for Claude Code CLI)
 - **Git** (for version control and worktree sandboxing)
-- **Bun** (for the platform CLI) — Install: `curl -fsSL https://bun.sh/install | bash`
+
+### Install
+
+**One-liner (macOS / Linux):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-platform/main/install.sh | bash
+```
+
+**Or download manually** from [GitHub Releases](https://github.com/lamchakchan/claude-platform/releases):
+
+```bash
+# macOS (Apple Silicon)
+curl -fsSL https://github.com/lamchakchan/claude-platform/releases/latest/download/claude-platform_<version>_darwin_arm64.tar.gz | tar xz
+sudo mv claude-platform /usr/local/bin/
+
+# Linux (x86_64)
+curl -fsSL https://github.com/lamchakchan/claude-platform/releases/latest/download/claude-platform_<version>_linux_amd64.tar.gz | tar xz
+sudo mv claude-platform /usr/local/bin/
+```
+
+**Or build from source:**
+
+```bash
+git clone https://github.com/lamchakchan/claude-platform.git
+cd claude-platform
+make install   # builds and copies to /usr/local/bin
+```
 
 ### Setup
 
 ```bash
-# 1. Clone and bootstrap
-git clone <this-repo> ~/claude-platform
-cd ~/claude-platform
-bun install && bun link    # registers the `claude-platform` command
-
-# 2. Run setup (installs Claude Code CLI, provisions API key, configures globals)
+# 1. Run setup (installs Claude Code CLI, provisions API key, configures globals)
 claude-platform setup
 
-# 3. Attach to your project and start coding
+# 2. Attach to your project and start coding
 claude-platform attach /path/to/your/project
 cd /path/to/your/project && claude
 ```
 
-After the one-time bootstrap (`bun install && bun link`), `claude-platform` is available globally as a command. The `setup` command handles the rest: installs Claude Code CLI if missing, runs interactive API key provisioning, and creates global settings.
-
-### Optional: Docker
-
-Docker is **not required** for most users. It's available for CI/CD pipelines, ephemeral environments, or teams that want a fully self-contained image with zero host dependencies.
-
-```bash
-# Build the image (includes all system tools pre-installed)
-docker build -t claude-platform .
-
-# Run against your project
-ANTHROPIC_API_KEY=sk-ant-... docker compose run --rm -v /path/to/project:/workspace claude
-```
-
-See [Docker Operations](docs/RUNBOOK.md#8-docker-operations) for registry setup, multi-container orchestration, and advanced usage.
+The `setup` command handles everything: installs Claude Code CLI if missing, runs interactive API key provisioning, creates global settings, and installs optional tools.
 
 ## Key Features
 
@@ -112,7 +115,7 @@ See [Docker Operations](docs/RUNBOOK.md#8-docker-operations) for registry setup,
 - `claude-platform attach <path>` copies/symlinks platform config into any repo
 - Each project gets its own CLAUDE.md layer for project-specific context
 - Shared agents and skills work across all attached projects
-- `--symlink` flag keeps config in sync with the platform repo
+- `--symlink` flag keeps config in sync across all attached projects (shared via `~/.claude-platform/assets/`)
 
 ### 4. Parallel Branch Sandboxing
 - `claude-platform sandbox <path> <branch>` creates git worktrees
@@ -153,12 +156,6 @@ Priority (highest to lowest):
 | `explorer` | Haiku | Fast codebase exploration |
 | `test-runner` | Sonnet | Test execution & analysis |
 | `security-scanner` | Sonnet | Security vulnerability scanning |
-
-### 9. Docker Support (Optional)
-- Pre-built image with all system tools for CI/CD or ephemeral environments
-- Push to your internal registry for team-wide distribution
-- Parallel agent containers via docker compose
-- Not required — native setup handles everything for developer workstations
 
 ## Self-Provisioning API Key (Option 2)
 
@@ -207,7 +204,7 @@ claude-platform mcp remote https://mcp.example.com --name example --oauth --clie
 All secrets are entered via masked input (not visible on screen) and stored in local Claude config — **never** in `.mcp.json` (which is committed to git).
 
 ### Use a template
-Check `templates/mcp-configs/` for ready-to-use configurations for databases, Docker, Sentry, GitHub, Notion, Slack, Linear, and more.
+Check `templates/mcp-configs/` for ready-to-use configurations for databases, Sentry, GitHub, Notion, Slack, Linear, and more.
 
 ## Parallel Development
 
@@ -219,13 +216,6 @@ claude-platform sandbox /path/to/project feature-api
 # Each worktree gets its own branch and Claude Code instance
 cd /path/to/project-worktrees/feature-auth && claude
 cd /path/to/project-worktrees/feature-api && claude
-```
-
-### Using Docker Containers (optional)
-```bash
-# Spin up parallel agents in separate containers
-BRANCH=feature-auth docker compose run --rm claude
-BRANCH=feature-api docker compose run --rm claude
 ```
 
 ### Using Agent Teams (Experimental)
@@ -242,7 +232,7 @@ For split-pane view (each teammate in its own pane), install tmux and set `"team
 claude-platform doctor
 ```
 
-This checks: Claude Code CLI, Bun, Git, global settings, project config, agents, skills, hooks, MCP servers, and authentication.
+This checks: Claude Code CLI, Git, global settings, project config, agents, skills, hooks, MCP servers, and authentication.
 
 ## Configuration Reference
 

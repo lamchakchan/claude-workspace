@@ -13,13 +13,12 @@ Procedures for maintaining the Claude Code Platform, troubleshooting issues, and
 5. [Managing MCP Servers](#5-managing-mcp-servers)
 6. [Managing Hooks](#6-managing-hooks)
 7. [Managing Agents and Skills](#7-managing-agents-and-skills)
-8. [Docker Operations](#8-docker-operations)
-9. [Troubleshooting](#9-troubleshooting)
-10. [Rollback Procedures](#10-rollback-procedures)
-11. [Onboarding New Team Members](#11-onboarding-new-team-members)
-12. [Offboarding](#12-offboarding)
-13. [Security Incident Response](#13-security-incident-response)
-14. [Monitoring and Observability](#14-monitoring-and-observability)
+8. [Troubleshooting](#8-troubleshooting)
+9. [Rollback Procedures](#9-rollback-procedures)
+10. [Onboarding New Team Members](#10-onboarding-new-team-members)
+11. [Offboarding](#11-offboarding)
+12. [Security Incident Response](#12-security-incident-response)
+13. [Monitoring and Observability](#13-monitoring-and-observability)
 
 ---
 
@@ -44,7 +43,6 @@ Procedures for maintaining the Claude Code Platform, troubleshooting issues, and
 | Review CLAUDE.md files | Read all CLAUDE.md layers | Keep context current |
 | Clean old worktrees | `git worktree list` → remove stale ones | Free disk space |
 | Clean old plans | `ls plans/` → archive old ones | Keep directory manageable |
-| Rebuild Docker image | `docker build -t claude-platform .` | Include latest updates |
 
 ### Quarterly
 
@@ -55,7 +53,6 @@ Procedures for maintaining the Claude Code Platform, troubleshooting issues, and
 | Audit MCP server list | Remove unused servers, add needed ones |
 | Review security scanner rules | Update for new vulnerability patterns |
 | Review hook effectiveness | Are hooks catching real issues? Remove noise |
-| Update Docker base image | Security patches in ubuntu:24.04 |
 
 ---
 
@@ -112,9 +109,6 @@ claude --version
 ```bash
 # Via npm (native install)
 npm update -g @anthropic-ai/claude-code
-
-# Via Docker (rebuild image)
-docker build -t claude-platform . --no-cache
 ```
 
 ### Breaking Changes
@@ -174,19 +168,6 @@ The script should output the API key to stdout. Claude Code calls it before each
 2. Update `ANTHROPIC_API_KEY` in your environment
 3. Or update key in your vault (if using `apiKeyHelper`)
 4. Restart Claude Code sessions
-
-### Docker Key Management
-
-```bash
-# Option A: Environment variable
-ANTHROPIC_API_KEY=new-key docker compose run --rm claude
-
-# Option B: .env file
-echo "ANTHROPIC_API_KEY=new-key" > .env
-
-# Option C: Persistent volume (authenticated via interactive login)
-# Auth is stored in claude-auth volume and persists across container restarts
-```
 
 ---
 
@@ -425,92 +406,7 @@ ls .claude/skills/*/SKILL.md
 
 ---
 
-## 8. Docker Operations
-
-### Build the Image
-
-```bash
-# Standard build
-docker build -t claude-platform .
-
-# No-cache build (force fresh)
-docker build -t claude-platform . --no-cache
-
-# Build with custom tag
-docker build -t registry.company.com/platform/claude-code:v1.2.0 .
-```
-
-### Push to Registry
-
-```bash
-# Tag for your registry
-docker tag claude-platform registry.company.com/platform/claude-code:latest
-
-# Push
-docker push registry.company.com/platform/claude-code:latest
-```
-
-### Run
-
-```bash
-# Interactive session
-docker compose run --rm claude
-
-# With specific project
-PROJECT_DIR=/path/to/project docker compose run --rm claude
-
-# With specific API key
-ANTHROPIC_API_KEY=sk-ant-... docker compose run --rm claude
-```
-
-### Cleanup
-
-```bash
-# Remove old containers
-docker compose down
-
-# Remove volumes (WARNING: loses auth data)
-docker compose down -v
-
-# Remove old images
-docker image prune -f
-
-# Full cleanup
-docker system prune -f
-```
-
-### Debug Container Issues
-
-```bash
-# Shell into container without running claude
-docker compose run --rm --entrypoint bash claude
-
-# Check installed tools
-docker compose run --rm --entrypoint bash claude -c "which claude && which bun && which tmux && which jq"
-
-# Check entrypoint logs
-docker compose run --rm claude 2>&1 | head -20
-```
-
-### Update the Docker Image
-
-```bash
-# Pull latest base image
-docker pull ubuntu:24.04
-
-# Rebuild
-docker build -t claude-platform . --no-cache
-
-# Push updated image
-docker push registry.company.com/platform/claude-code:latest
-
-# Notify team
-echo "Updated claude-platform image. Pull latest: docker pull registry.company.com/platform/claude-code:latest"
-```
-
----
-
-## 9. Troubleshooting
+## 8. Troubleshooting
 
 ### "Claude Code not found"
 
@@ -520,9 +416,6 @@ which claude
 
 # Install
 npm install -g @anthropic-ai/claude-code
-
-# If using Docker, rebuild the image
-docker build -t claude-platform .
 ```
 
 ### "API key invalid" or "Authentication failed"
@@ -648,7 +541,7 @@ git worktree prune
 
 ---
 
-## 10. Rollback Procedures
+## 9. Rollback Procedures
 
 ### Rollback Platform Config in a Project
 
@@ -667,14 +560,6 @@ git checkout v1.0.0
 ```bash
 # Install specific version
 npm install -g @anthropic-ai/claude-code@2.0.0
-```
-
-### Rollback Docker Image
-
-```bash
-# Use a tagged version
-docker pull registry.company.com/platform/claude-code:v1.0.0
-docker tag registry.company.com/platform/claude-code:v1.0.0 claude-platform
 ```
 
 ### Rollback Settings
@@ -701,18 +586,17 @@ This instantly disables all hooks while preserving the configuration. Remove whe
 
 ---
 
-## 11. Onboarding New Team Members
+## 10. Onboarding New Team Members
 
 ### Checklist
 
 1. **Prerequisites**
-   - [ ] Docker installed (or Bun + Node.js for native)
+   - [ ] Node.js 18+ and npm installed
    - [ ] Git configured (name, email, SSH key)
    - [ ] Access to Anthropic Console (for API key) or org API key
 
 2. **Setup**
-   - [ ] Clone platform repo: `git clone <platform-repo> ~/claude-platform`
-   - [ ] Bootstrap CLI: `cd ~/claude-platform && bun install && bun link`
+   - [ ] Install CLI: `curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-platform/main/install.sh | bash`
    - [ ] Run setup: `claude-platform setup`
 
 3. **Project Onboarding**
@@ -743,10 +627,8 @@ set -euo pipefail
 
 echo "=== New Member Setup ==="
 
-# 1. Clone platform and bootstrap CLI
-git clone <platform-repo> ~/claude-platform
-cd ~/claude-platform
-bun install && bun link
+# 1. Install the CLI
+curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-platform/main/install.sh | bash
 
 # 2. Setup (interactive - API key provisioning)
 claude-platform setup
@@ -765,7 +647,7 @@ echo "  cd $PROJECT && claude"
 
 ---
 
-## 12. Offboarding
+## 11. Offboarding
 
 ### Remove Platform from a Project
 
@@ -802,7 +684,7 @@ rm ~/.claude.json
 
 ---
 
-## 13. Security Incident Response
+## 12. Security Incident Response
 
 ### If a Secret Was Committed
 
@@ -849,7 +731,7 @@ claude mcp remove <name>
 
 ---
 
-## 14. Monitoring and Observability
+## 13. Monitoring and Observability
 
 ### OpenTelemetry
 

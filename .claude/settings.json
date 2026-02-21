@@ -40,9 +40,6 @@
       "Bash(shellcheck *)",
       "Bash(jq *)",
       "Bash(curl *)",
-      "Bash(docker ps *)",
-      "Bash(docker logs *)",
-      "Bash(docker images *)",
       "Bash(kubectl get *)",
       "Bash(kubectl describe *)",
       "Bash(kubectl logs *)"
