@@ -15,8 +15,7 @@ This document explains why the platform is structured the way it is, what trade-
 7. [Model Selection Strategy](#7-model-selection-strategy)
 8. [Context Management Strategy](#8-context-management-strategy)
 9. [Sandboxing & Isolation](#9-sandboxing--isolation)
-10. [Docker Architecture](#10-docker-architecture)
-11. [Extending the Platform](#11-extending-the-platform)
+10. [Extending the Platform](#10-extending-the-platform)
 
 ---
 
@@ -34,7 +33,7 @@ This document explains why the platform is structured the way it is, what trade-
 
 5. **Team-shared, individually customizable** - Settings, agents, skills, and hooks are committed to git for team consistency. Personal overrides live in `.local` files that are gitignored.
 
-6. **Minimal setup, maximum value** - Three commands to get started: clone, setup, attach. The Bun CLI handles installation, API key provisioning, and configuration. A developer should go from "never used Claude Code" to "productive" in under 10 minutes.
+6. **Minimal setup, maximum value** - Three commands to get started: clone, setup, attach. The Go CLI handles installation, API key provisioning, and configuration. A developer should go from "never used Claude Code" to "productive" in under 10 minutes.
 
 ### What This Platform Is NOT
 
@@ -394,69 +393,9 @@ Large projects (100K+ lines) can fill Claude's 200K context window quickly. When
 - Dependencies installed independently (no conflicts)
 - Claude Code sees a regular git repo in each worktree
 
-### Docker Isolation (Optional)
-
-Docker is available for CI/CD, ephemeral environments, or teams that want a fully self-contained image. It is **not required** for developer workstations — the native Bun CLI handles everything.
-
-Each Docker container is a fully isolated environment:
-- Own filesystem
-- Own processes
-- Shared project directory via volume mount
-- Shared auth via Docker volumes (persistent across runs)
-
 ---
 
-## 10. Docker Architecture (Optional)
-
-### Image Layers
-
-```
-ubuntu:24.04 (base)
-├── System tools: curl, wget, git, jq, shellcheck, ssh
-├── tmux (optional - only needed for split-pane agent team display)
-├── Node.js 22 (LTS)
-├── Bun runtime
-├── Claude Code CLI
-├── prettier (formatter)
-├── Platform config copied to /opt/claude-platform
-├── Agents copied to /root/.claude/agents/
-└── Entrypoint script at /usr/local/bin/entrypoint.sh
-```
-
-**Note on tmux:** Agent teams default to **in-process mode** which works in any terminal without tmux. tmux is included in the Docker image for users who prefer split-pane mode (`"teammateMode": "tmux"`), but it is not required.
-
-### Volume Strategy
-
-| Volume | Purpose | Persistence |
-|--------|---------|-------------|
-| `/workspace` | Your project (bind mount) | Host filesystem |
-| `claude-auth` | OAuth tokens, session data | Named volume, survives container restarts |
-| `claude-config` | ~/.claude.json preferences | Named volume |
-| `/root/.ssh` (ro) | SSH keys for git | Read-only bind mount |
-| `/root/.gitconfig` (ro) | Git identity | Read-only bind mount |
-
-### Entrypoint Flow
-
-```
-Container starts
-  │
-  ├─ Check for ANTHROPIC_API_KEY env var
-  │   └─ If missing, check for mounted ~/.claude.json
-  │       └─ If missing, start Claude for interactive login
-  │
-  ├─ Check if /workspace has .claude/ directory
-  │   └─ If missing, auto-attach platform config
-  │
-  ├─ Ensure ~/.claude/CLAUDE.md exists
-  │
-  ├─ Print environment info (versions)
-  │
-  └─ exec claude (or whatever CMD is)
-```
-
----
-
-## 11. Extending the Platform
+## 10. Extending the Platform
 
 ### Adding a New Subagent
 
@@ -518,12 +457,6 @@ Instructions that Claude follows when this skill is invoked.
 2. Include the JSON config and the CLI command to set it up
 3. Document in README.md
 
-### Modifying the Docker Image
-
-1. Edit `Dockerfile` to add new dependencies
-2. Rebuild: `docker build -t claude-platform .`
-3. Push to your registry
-
 ### Adding Organization-Wide Policies
 
 Deploy managed settings to system directories:
@@ -535,7 +468,7 @@ Deploy managed settings to system directories:
 {
   "availableModels": ["sonnet", "haiku"],
   "permissions": {
-    "deny": ["Bash(docker run *)"],
+    "deny": ["Bash(curl * | bash)"],
     "disableBypassPermissionsMode": "disable"
   },
   "allowManagedHooksOnly": false,

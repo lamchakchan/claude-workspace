@@ -30,3 +30,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Go build output
+claude-platform
+dist/

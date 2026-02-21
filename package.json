@@ -3,11 +3,6 @@
   "version": "1.0.0",
   "description": "Claude Code Platform Engineering Kit - Preconfigured AI agent platform for teams",
   "type": "module",
-  "bin": {
-    "claude-platform": "cli/index.ts"
-  },
   "dependencies": {},
-  "devDependencies": {
-    "@types/bun": "latest"
-  }
+  "devDependencies": {}
 }

@@ -26,7 +26,6 @@ This guide walks you through setting up the platform, attaching it to your first
 You need:
 - **Node.js 18+** and **npm** — for Claude Code CLI and MCP servers
 - **Git** — for version control and worktree sandboxing
-- **Bun** — for the platform CLI: `curl -fsSL https://bun.sh/install | bash`
 
 The setup wizard checks for these and will guide you if anything is missing. It also checks for optional tools like shellcheck, jq, prettier, and tmux.
 
@@ -34,21 +33,25 @@ The setup wizard checks for these and will guide you if anything is missing. It 
 
 ## 2. Installation
 
+**One-liner (macOS / Linux):**
+
 ```bash
-# Clone the platform
-git clone <platform-repo-url> ~/claude-platform
-cd ~/claude-platform
-
-# One-time bootstrap: install deps and register the CLI command
-bun install && bun link
-
-# Run the setup wizard (installs Claude Code CLI, provisions API key, configures global settings)
-claude-platform setup
+curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-platform/main/install.sh | bash
 ```
 
-After the one-time `bun install && bun link`, `claude-platform` is available globally from any directory.
+**Or build from source:**
 
-**Alternative: Docker** — If you prefer a fully self-contained image (e.g., for CI/CD or ephemeral environments), see [Docker Operations](RUNBOOK.md#8-docker-operations).
+```bash
+git clone <platform-repo-url> ~/claude-platform
+cd ~/claude-platform
+make install   # builds and copies to /usr/local/bin
+```
+
+Then run the setup wizard:
+
+```bash
+claude-platform setup
+```
 
 ---
 
@@ -65,8 +68,7 @@ claude-platform setup
 # 2. Launch the interactive API key provisioning flow
 # 3. Create global settings at ~/.claude/settings.json
 # 4. Create global instructions at ~/.claude/CLAUDE.md
-# 5. Install Bun dependencies
-# 6. Check for optional system tools (shellcheck, jq, prettier, tmux)
+# 5. Check for optional system tools (shellcheck, jq, prettier, tmux)
 ```
 
 **Alternative: Environment variable**
@@ -83,7 +85,6 @@ claude-platform doctor
 
 # Expected output:
 # [OK] Claude Code CLI: 2.x.x
-# [OK] Bun: 1.x.x
 # [OK] Git: git version 2.x.x
 # [OK] ~/.claude/settings.json exists
 # [OK] ~/.claude/CLAUDE.md exists
@@ -128,15 +129,6 @@ If a project already has Claude config and you want to replace it:
 
 ```bash
 claude-platform attach /path/to/your/project --force
-```
-
-### Docker Attach (Automatic)
-
-When using Docker, the container auto-attaches to `/workspace` if it doesn't already have a `.claude/` directory:
-
-```bash
-PROJECT_DIR=/path/to/your/project docker compose run --rm claude
-# The entrypoint script runs `attach /workspace` automatically
 ```
 
 ### Post-Attach: Customize for Your Project
@@ -405,7 +397,6 @@ Check `templates/mcp-configs/` for ready-to-use configurations:
 # See what's available
 ls templates/mcp-configs/
 # database.json       - PostgreSQL, MySQL, SQLite
-# docker.json         - Docker management
 # observability.json  - Sentry, Grafana
 # collaboration.json  - GitHub, Notion, Slack, Linear, Jira
 ```
@@ -470,14 +461,6 @@ cd /path/to/project-worktrees/bugfix-payments && claude
 ```
 
 Each instance works independently with its own branch and files, but shares git history.
-
-### Docker-Based Parallel Agents
-
-```bash
-# Run multiple containers pointing to the same project
-BRANCH=feature-auth docker compose run --rm claude
-BRANCH=feature-api docker compose run --rm claude
-```
 
 ### Cleanup
 

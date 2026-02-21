@@ -7,7 +7,7 @@ This file contains team-shared instructions loaded for every Claude Code session
 <!-- Describe your project here -->
 Project: Claude Code Platform Engineering Kit
 Purpose: Preconfigured AI agent platform for teams adopting Claude Code
-Tech Stack: Shell scripts, YAML, JSON, Markdown
+Tech Stack: Go, Shell scripts, YAML, JSON, Markdown
 
 ## Team Conventions
 
@@ -32,7 +32,8 @@ Tech Stack: Shell scripts, YAML, JSON, Markdown
 .claude/agents/   - Custom subagent definitions (Markdown + YAML frontmatter)
 .claude/skills/   - Reusable skill definitions
 .claude/hooks/    - Safety and quality gate scripts
-scripts/          - Setup and management scripts
+main.go           - Go CLI entry point
+internal/         - Go command implementations
 templates/        - Templates for project adaptation
 docs/             - Detailed documentation
 ```
@@ -42,4 +43,5 @@ docs/             - Detailed documentation
 - `README.md` - Main documentation and quick start guide
 - `.claude/settings.json` - Team settings with safe defaults
 - `.mcp.json` - MCP server configurations
-- `scripts/setup.sh` - First-time setup script
+- `install.sh` - One-liner installer script
+- `Makefile` - Build, test, and install targets
