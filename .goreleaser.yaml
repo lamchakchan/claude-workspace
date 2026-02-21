@@ -24,7 +24,7 @@ checksum:
 release:
   github:
     owner: lamchakchan
-    name: claude-platform
+    name: claude-workspace
 
 changelog:
   sort: asc
