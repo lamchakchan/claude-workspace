@@ -90,7 +90,7 @@ jobs:
           go-version: "1.22"
 
       - name: Smoke test (Docker)
-        run: make smoke-test-docker-fast
+        run: make smoke-test-docker
 
   pre-release:
     if: github.event_name == 'push' && github.ref != 'refs/heads/main'
