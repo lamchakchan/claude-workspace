@@ -13,7 +13,9 @@ import (
 	"time"
 )
 
-const releasesURL = "https://api.github.com/repos/lamchakchan/claude-workspace/releases/latest"
+// ReleasesURL is the GitHub API endpoint for fetching the latest release.
+// It is a variable (not a constant) so tests can override it with a local server.
+var ReleasesURL = "https://api.github.com/repos/lamchakchan/claude-workspace/releases/latest"
 
 // Release represents a GitHub release.
 type Release struct {
@@ -33,7 +35,7 @@ type ReleaseAsset struct {
 // FetchLatest fetches the latest release metadata from GitHub.
 func FetchLatest() (*Release, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", releasesURL, nil)
+	req, err := http.NewRequest("GET", ReleasesURL, nil)
 	if err != nil {
 		return nil, err
 	}

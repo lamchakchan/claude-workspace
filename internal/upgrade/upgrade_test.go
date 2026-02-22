@@ -3,7 +3,10 @@ package upgrade
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -55,7 +58,7 @@ func TestFindAssetNotFound(t *testing.T) {
 	}
 }
 
-func TestFetchLatestParsing(t *testing.T) {
+func TestFetchLatestWithMockServer(t *testing.T) {
 	release := Release{
 		TagName:     "v1.5.0",
 		Body:        "- Added context-manager skill\n- Updated security hook",
@@ -67,25 +70,188 @@ func TestFetchLatestParsing(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Accept") != "application/vnd.github+json" {
+			t.Errorf("missing Accept header, got %q", r.Header.Get("Accept"))
+		}
 		json.NewEncoder(w).Encode(release)
 	}))
 	defer server.Close()
 
-	resp, err := http.Get(server.URL)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	defer resp.Body.Close()
+	origURL := ReleasesURL
+	ReleasesURL = server.URL
+	defer func() { ReleasesURL = origURL }()
 
-	var got Release
-	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
-		t.Fatalf("decode error: %v", err)
+	got, err := FetchLatest()
+	if err != nil {
+		t.Fatalf("FetchLatest() error = %v", err)
 	}
 	if got.TagName != "v1.5.0" {
 		t.Errorf("TagName = %s, want v1.5.0", got.TagName)
 	}
 	if len(got.Assets) != 2 {
 		t.Errorf("Assets count = %d, want 2", len(got.Assets))
+	}
+	if got.Body != release.Body {
+		t.Errorf("Body = %q, want %q", got.Body, release.Body)
+	}
+}
+
+func TestFetchLatestRateLimited(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(403)
+	}))
+	defer server.Close()
+
+	origURL := ReleasesURL
+	ReleasesURL = server.URL
+	defer func() { ReleasesURL = origURL }()
+
+	_, err := FetchLatest()
+	if err == nil {
+		t.Fatal("expected error for rate-limited response")
+	}
+	if !strings.Contains(err.Error(), "rate limited") {
+		t.Errorf("expected rate limit error, got: %v", err)
+	}
+}
+
+func TestFetchLatestServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+	}))
+	defer server.Close()
+
+	origURL := ReleasesURL
+	ReleasesURL = server.URL
+	defer func() { ReleasesURL = origURL }()
+
+	_, err := FetchLatest()
+	if err == nil {
+		t.Fatal("expected error for 500 response")
+	}
+	if !strings.Contains(err.Error(), "status 500") {
+		t.Errorf("expected status 500 error, got: %v", err)
+	}
+}
+
+func TestDownloadAsset(t *testing.T) {
+	content := "binary-content-here"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(content))
+	}))
+	defer server.Close()
+
+	tmpDir := t.TempDir()
+	dest := filepath.Join(tmpDir, "download.tar.gz")
+
+	asset := ReleaseAsset{
+		Name:               "test.tar.gz",
+		BrowserDownloadURL: server.URL,
+		Size:               int64(len(content)),
+	}
+
+	if err := DownloadAsset(asset, dest); err != nil {
+		t.Fatalf("DownloadAsset() error = %v", err)
+	}
+
+	got, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("reading downloaded file: %v", err)
+	}
+	if string(got) != content {
+		t.Errorf("downloaded content = %q, want %q", string(got), content)
+	}
+}
+
+func TestDownloadAssetServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+	}))
+	defer server.Close()
+
+	tmpDir := t.TempDir()
+	dest := filepath.Join(tmpDir, "download.tar.gz")
+
+	asset := ReleaseAsset{
+		Name:               "test.tar.gz",
+		BrowserDownloadURL: server.URL,
+		Size:               100,
+	}
+
+	err := DownloadAsset(asset, dest)
+	if err == nil {
+		t.Fatal("expected error for 404 response")
+	}
+	if !strings.Contains(err.Error(), "status 404") {
+		t.Errorf("expected status 404 error, got: %v", err)
+	}
+}
+
+func TestVerifyChecksum(t *testing.T) {
+	// Create a test file and compute its checksum
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "test.tar.gz")
+	fileContent := []byte("test-archive-content")
+	os.WriteFile(filePath, fileContent, 0644)
+
+	h := sha256.Sum256(fileContent)
+	expectedHash := hex.EncodeToString(h[:])
+	checksumContent := fmt.Sprintf("%s  test.tar.gz\n%s  other.tar.gz\n", expectedHash, "0000000000000000000000000000000000000000000000000000000000000000")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(checksumContent))
+	}))
+	defer server.Close()
+
+	release := &Release{
+		Assets: []ReleaseAsset{
+			{Name: "test.tar.gz"},
+			{Name: "checksums.txt", BrowserDownloadURL: server.URL},
+		},
+	}
+
+	if err := VerifyChecksum(release, filePath, "test.tar.gz"); err != nil {
+		t.Fatalf("VerifyChecksum() error = %v", err)
+	}
+}
+
+func TestVerifyChecksumMismatch(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "test.tar.gz")
+	os.WriteFile(filePath, []byte("actual content"), 0644)
+
+	checksumContent := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  test.tar.gz\n"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(checksumContent))
+	}))
+	defer server.Close()
+
+	release := &Release{
+		Assets: []ReleaseAsset{
+			{Name: "checksums.txt", BrowserDownloadURL: server.URL},
+		},
+	}
+
+	err := VerifyChecksum(release, filePath, "test.tar.gz")
+	if err == nil {
+		t.Fatal("expected checksum mismatch error")
+	}
+	if !strings.Contains(err.Error(), "checksum mismatch") {
+		t.Errorf("expected checksum mismatch error, got: %v", err)
+	}
+}
+
+func TestVerifyChecksumNoChecksumFile(t *testing.T) {
+	release := &Release{
+		Assets: []ReleaseAsset{
+			{Name: "test.tar.gz"},
+		},
+	}
+
+	// Should not error — just prints a skip message
+	if err := VerifyChecksum(release, "/whatever", "test.tar.gz"); err != nil {
+		t.Fatalf("expected nil error when no checksums.txt, got: %v", err)
 	}
 }
 
@@ -105,6 +271,36 @@ func TestExtractBinary(t *testing.T) {
 		t.Fatalf("reading extracted binary: %v", err)
 	}
 	if string(content) != "#!/bin/sh\necho test" {
+		t.Errorf("unexpected content: %s", string(content))
+	}
+
+	// Verify the file is executable
+	info, err := os.Stat(binaryPath)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if info.Mode()&0111 == 0 {
+		t.Error("extracted binary should be executable")
+	}
+}
+
+func TestExtractBinaryNestedPath(t *testing.T) {
+	// GoReleaser sometimes nests the binary in a directory
+	tmpDir := t.TempDir()
+	archivePath := filepath.Join(tmpDir, "test.tar.gz")
+
+	createTestArchive(t, archivePath, "claude-workspace_1.5.0_linux_amd64/claude-workspace", "binary-content")
+
+	binaryPath, err := extractBinary(archivePath, tmpDir)
+	if err != nil {
+		t.Fatalf("extractBinary() error = %v", err)
+	}
+
+	content, err := os.ReadFile(binaryPath)
+	if err != nil {
+		t.Fatalf("reading extracted binary: %v", err)
+	}
+	if string(content) != "binary-content" {
 		t.Errorf("unexpected content: %s", string(content))
 	}
 }

@@ -379,7 +379,65 @@ else
     assert_fail "doctor output contains ${FAIL_LINES} [FAIL] line(s)"
 fi
 
-# ========== Phase 8: Summary ==========
+# ========== Phase 8: Run upgrade --check ==========
+echo -e "\n${BOLD}=== Phase 8: claude-workspace upgrade --check ===${NC}"
+
+# upgrade --check should exit 1 (update available) since the binary is a dev build
+UPGRADE_OUTPUT=$(vm_exec "claude-workspace upgrade --check" 2>&1) || true
+UPGRADE_EXIT=$?
+echo "$UPGRADE_OUTPUT" | sed 's/^/  | /'
+
+echo ""
+echo "  Assertions:"
+summary_phase 8 "claude-workspace upgrade --check"
+
+# Assert exit code is 1 (update available) — 0 would mean "already up to date"
+if [[ "$UPGRADE_EXIT" -eq 1 ]]; then
+    assert_pass "exit code is 1 (update available)"
+else
+    # Exit 0 = up-to-date, other = error (e.g. network failure)
+    # Treat network errors as non-fatal since GitHub API may be rate-limited
+    if echo "$UPGRADE_OUTPUT" | grep -q "rate limit\|checking for updates"; then
+        echo -e "  ${YELLOW}[SKIP]${NC} GitHub API unavailable (rate limited or no network)"
+        summary_append "- :warning: Skipped — GitHub API unavailable"
+    else
+        assert_fail "exit code was ${UPGRADE_EXIT}, expected 1 (update available)"
+    fi
+fi
+
+# Assert output contains current version info
+if echo "$UPGRADE_OUTPUT" | grep -q "Current: dev"; then
+    assert_pass "output shows 'Current: dev'"
+else
+    assert_fail "output missing 'Current: dev'"
+fi
+
+# Assert output contains latest version from GitHub
+if echo "$UPGRADE_OUTPUT" | grep -q "Latest:"; then
+    assert_pass "output shows 'Latest:' version"
+else
+    # Skip if GitHub API failed
+    if echo "$UPGRADE_OUTPUT" | grep -q "rate limit\|checking for updates"; then
+        echo -e "  ${YELLOW}[SKIP]${NC} Cannot verify latest version (API unavailable)"
+        summary_append "- :warning: Skipped — cannot verify latest version"
+    else
+        assert_fail "output missing 'Latest:' version"
+    fi
+fi
+
+# Assert dev build warning is shown
+if echo "$UPGRADE_OUTPUT" | grep -q "dev build"; then
+    assert_pass "output shows dev build warning"
+else
+    if echo "$UPGRADE_OUTPUT" | grep -q "rate limit\|checking for updates"; then
+        echo -e "  ${YELLOW}[SKIP]${NC} Cannot verify dev warning (API unavailable)"
+        summary_append "- :warning: Skipped — cannot verify dev warning"
+    else
+        assert_fail "output missing dev build warning"
+    fi
+fi
+
+# ========== Phase 9: Summary ==========
 echo -e "\n${BOLD}=== Summary ===${NC}"
 
 TOTAL=$((PASS_COUNT + FAIL_COUNT))
