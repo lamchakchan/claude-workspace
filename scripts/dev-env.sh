@@ -150,8 +150,13 @@ cmd_create() {
     echo "  Transferring binary..."
     copy_binary
 
-    echo "  Installing prerequisites (git, curl, python3)..."
-    root_exec "apt-get update -qq && apt-get install -y -qq git curl python3 >/dev/null 2>&1"
+    echo "  Installing prerequisites (git, curl, python3, sudo)..."
+    root_exec "apt-get update -qq && apt-get install -y -qq git curl python3 sudo >/dev/null 2>&1"
+
+    if [[ "$MODE" == "docker" ]]; then
+        echo "  Configuring passwordless sudo for ubuntu..."
+        root_exec "usermod -aG sudo ubuntu && echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"
+    fi
 
     echo "  Pre-seeding ~/.claude.json..."
     vm_exec 'cat > /home/ubuntu/.claude.json << '\''SEED'\''

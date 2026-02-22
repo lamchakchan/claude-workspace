@@ -463,11 +463,16 @@ func checkOptionalTools() {
 	}
 
 	// Detect package manager for system tools
+	hasSudo := platform.Exists("sudo")
 	var pkgInstall func(name string) string
 	if runtime.GOOS == "darwin" && platform.Exists("brew") {
 		pkgInstall = func(name string) string { return "brew install " + name }
 	} else if platform.Exists("apt-get") {
-		pkgInstall = func(name string) string { return "sudo apt-get install -y " + name }
+		if hasSudo {
+			pkgInstall = func(name string) string { return "sudo apt-get install -y " + name }
+		} else {
+			pkgInstall = func(name string) string { return "apt-get install -y " + name }
+		}
 	}
 
 	// Set install commands
@@ -516,8 +521,11 @@ func checkOptionalTools() {
 						fmt.Println("  Installed successfully via brew.")
 					}
 				} else if platform.Exists("apt-get") {
-					args := append([]string{"install", "-y"}, installable...)
-					platform.RunQuiet("sudo", append([]string{"apt-get"}, args...)...)
+					args := append([]string{"apt-get", "install", "-y"}, installable...)
+					if hasSudo {
+						args = append([]string{"sudo"}, args...)
+					}
+					platform.RunQuiet(args[0], args[1:]...)
 				}
 			}
 		}

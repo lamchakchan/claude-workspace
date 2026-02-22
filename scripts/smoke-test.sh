@@ -211,8 +211,13 @@ echo "  Transferring binary..."
 copy_binary
 
 # Install prerequisites
-echo "  Installing prerequisites (git, curl)..."
-root_exec "apt-get update -qq && apt-get install -y -qq git curl python3 >/dev/null 2>&1"
+echo "  Installing prerequisites (git, curl, python3, sudo)..."
+root_exec "apt-get update -qq && apt-get install -y -qq git curl python3 sudo >/dev/null 2>&1"
+
+if [[ "$MODE" == "docker" ]]; then
+    echo "  Configuring passwordless sudo for ubuntu..."
+    root_exec "usermod -aG sudo ubuntu && echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"
+fi
 
 # Pre-seed ~/.claude.json so setup skips interactive API key flow
 echo "  Pre-seeding ~/.claude.json..."
