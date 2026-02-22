@@ -89,25 +89,111 @@ func installClaude() error {
 	if platform.FileExists(filepath.Join(localBin, "claude")) {
 		os.Setenv("PATH", localBin+":"+os.Getenv("PATH"))
 
-		// Also persist to shell profile so it's available in future sessions
-		shellRC := filepath.Join(home, ".bashrc")
-		if _, err := os.Stat(filepath.Join(home, ".zshrc")); err == nil {
-			shellRC = filepath.Join(home, ".zshrc")
-		}
-		pathLine := fmt.Sprintf("\nexport PATH=\"$HOME/.local/bin:$PATH\"\n")
-		if content, err := os.ReadFile(shellRC); err == nil {
-			if !strings.Contains(string(content), ".local/bin") {
-				os.WriteFile(shellRC, append(content, []byte(pathLine)...), 0644)
-				fmt.Printf("  Added ~/.local/bin to PATH in %s\n", filepath.Base(shellRC))
-			}
+		fmt.Println("  Configuring claude in PATH...")
+
+		// Strategy 1: Symlink to /usr/local/bin (works immediately, no shell restart)
+		if err := symlinkClaudeBinary(localBin); err == nil {
+			fmt.Println("  Symlinked claude → /usr/local/bin/claude (available immediately).")
 		} else {
-			os.WriteFile(shellRC, []byte(pathLine), 0644)
-			fmt.Printf("  Added ~/.local/bin to PATH in %s\n", filepath.Base(shellRC))
+			// Strategy 2: Append to shell RC file
+			rcPath, shellName := detectShellRC(home)
+			if modified, err := appendPathToRC(home, shellName, rcPath); err != nil {
+				fmt.Printf("  Warning: could not auto-configure PATH: %v\n", err)
+				fmt.Println("  To fix manually, run:")
+				fmt.Println("    echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/." + shellName + "rc")
+			} else if modified {
+				fmt.Printf("  Added ~/.local/bin to PATH in %s\n", filepath.Base(rcPath))
+				fmt.Printf("  Restart your shell or run: source %s\n", rcPath)
+			}
 		}
+
+		fmt.Println("  Note: Ignore any PATH warning above — already handled.")
 	}
 
 	fmt.Println("  Claude Code installed successfully.")
 	return nil
+}
+
+// detectShellRC determines the user's shell RC file path and shell name.
+// It checks $SHELL first, then falls back to file-existence checks.
+func detectShellRC(home string) (rcPath, shellName string) {
+	shell := os.Getenv("SHELL")
+
+	switch {
+	case strings.HasSuffix(shell, "zsh"):
+		return filepath.Join(home, ".zshrc"), "zsh"
+	case strings.HasSuffix(shell, "fish"):
+		return filepath.Join(home, ".config", "fish", "config.fish"), "fish"
+	case strings.HasSuffix(shell, "bash"):
+		return filepath.Join(home, ".bashrc"), "bash"
+	}
+
+	// Fallback: check if .zshrc exists (common on macOS)
+	if platform.FileExists(filepath.Join(home, ".zshrc")) {
+		return filepath.Join(home, ".zshrc"), "zsh"
+	}
+
+	// Default to bash
+	return filepath.Join(home, ".bashrc"), "bash"
+}
+
+// symlinkClaudeBinary creates a symlink from ~/.local/bin/claude to /usr/local/bin/claude.
+// Returns nil on success; returns an error if both direct and sudo symlink fail.
+func symlinkClaudeBinary(localBin string) error {
+	src := filepath.Join(localBin, "claude")
+	dst := "/usr/local/bin/claude"
+
+	// Skip if /usr/local/bin/claude already exists and resolves to the right target
+	if target, err := os.Readlink(dst); err == nil && target == src {
+		return nil
+	}
+
+	// Try direct symlink
+	if err := platform.SymlinkFile(src, dst); err == nil {
+		return nil
+	}
+
+	// Fall back to sudo ln -sf
+	if err := platform.RunQuiet("sudo", "ln", "-sf", src, dst); err != nil {
+		return fmt.Errorf("symlink failed (direct and sudo): %w", err)
+	}
+	return nil
+}
+
+// appendPathToRC adds ~/.local/bin to PATH in the given shell RC file.
+// For fish, it uses fish_add_path. For bash/zsh, it appends an export line.
+// Returns (true, nil) if the file was modified, (false, nil) if already configured.
+func appendPathToRC(home, shellName, rcPath string) (modified bool, err error) {
+	// Fish uses a different mechanism
+	if shellName == "fish" {
+		fishPath := filepath.Join(home, ".local", "bin")
+		if err := platform.RunQuiet("fish", "-c", "fish_add_path "+fishPath); err != nil {
+			return false, fmt.Errorf("fish_add_path failed: %w", err)
+		}
+		return true, nil
+	}
+
+	// bash/zsh: check idempotency
+	pathLine := "\n# Added by claude-workspace setup\nexport PATH=\"$HOME/.local/bin:$PATH\"\n"
+
+	content, err := os.ReadFile(rcPath)
+	if err != nil && !os.IsNotExist(err) {
+		return false, fmt.Errorf("reading %s: %w", rcPath, err)
+	}
+
+	if strings.Contains(string(content), ".local/bin") {
+		return false, nil // already configured
+	}
+
+	// Ensure parent directory exists (relevant for new files)
+	if err := os.MkdirAll(filepath.Dir(rcPath), 0755); err != nil {
+		return false, fmt.Errorf("creating directory for %s: %w", rcPath, err)
+	}
+
+	if err := os.WriteFile(rcPath, append(content, []byte(pathLine)...), 0644); err != nil {
+		return false, fmt.Errorf("writing %s: %w", rcPath, err)
+	}
+	return true, nil
 }
 
 func provisionApiKey() error {
