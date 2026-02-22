@@ -504,7 +504,7 @@ func checkOptionalTools() {
 		if pkgInstall != nil {
 			var installable []string
 			for _, t := range missing {
-				if t.name != "prettier" { // prettier uses npm
+				if t.name != "prettier" { // prettier uses npm, handled below
 					installable = append(installable, t.name)
 				}
 			}
@@ -520,22 +520,30 @@ func checkOptionalTools() {
 					platform.RunQuiet("sudo", append([]string{"apt-get"}, args...)...)
 				}
 			}
+		}
 
-			// Re-check what's still missing
-			for _, t := range missing {
-				if !platform.Exists(t.name) {
-					stillMissing = append(stillMissing, t)
-				}
+		// Auto-install prettier via npm if npm is available
+		if !platform.Exists("prettier") && platform.Exists("npm") {
+			fmt.Println("\n  Installing prettier via npm (used by auto-format hook)...")
+			if err := platform.RunQuiet("npm", "install", "-g", "prettier"); err == nil {
+				platform.PrintOK(os.Stdout, "Installed prettier globally")
+			} else {
+				platform.PrintWarn(os.Stdout, "Failed to install prettier via npm")
 			}
-		} else {
-			stillMissing = missing
+		}
+
+		// Re-check what's still missing
+		for _, t := range missing {
+			if !platform.Exists(t.name) {
+				stillMissing = append(stillMissing, t)
+			}
 		}
 
 		if len(stillMissing) > 0 {
 			fmt.Println("\n  Optional tools not found (not required, but useful):")
 			for _, t := range stillMissing {
-				fmt.Printf("    - %s: %s\n", t.name, t.purpose)
-				fmt.Printf("      Install: %s\n", t.install)
+				fmt.Printf("    - %s: %s\n", platform.Bold(t.name), t.purpose)
+				platform.PrintCommand(os.Stdout, t.install)
 			}
 		} else {
 			fmt.Println("  All optional tools are available.")
