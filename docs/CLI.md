@@ -31,7 +31,7 @@ Attach platform configuration (agents, hooks, skills, settings) to a project dir
 **Synopsis:**
 
 ```
-claude-workspace attach <project-path> [--symlink] [--force]
+claude-workspace attach <project-path> [--symlink] [--force] [--no-enrich]
 ```
 
 **Flags:**
@@ -40,11 +40,12 @@ claude-workspace attach <project-path> [--symlink] [--force]
 |------|------|---------|-------------|
 | `--symlink` | bool | `false` | Symlink assets from `~/.claude-workspace/assets/` instead of copying. Projects auto-update when the binary is upgraded. |
 | `--force` | bool | `false` | Overwrite existing files (default skips files that already exist). |
+| `--no-enrich` | bool | `false` | Skip AI-powered CLAUDE.md enrichment. By default, `attach` runs `claude -p` to analyze the project and enrich `.claude/CLAUDE.md` with real project context (directories, conventions, important files). Falls back gracefully to the static scaffold if the Claude CLI is unavailable or errors. |
 
 **Examples:**
 
 ```bash
-# Copy platform assets into a project
+# Copy platform assets into a project (includes AI enrichment)
 claude-workspace attach /path/to/my-project
 
 # Use symlinks for automatic updates across projects
@@ -52,6 +53,9 @@ claude-workspace attach /path/to/my-project --symlink
 
 # Refresh all platform files (overwrite existing)
 claude-workspace attach /path/to/my-project --force
+
+# Skip AI enrichment (use static scaffold only)
+claude-workspace attach /path/to/my-project --no-enrich
 ```
 
 **See also:** [Getting Started - Attaching to a Project](GETTING-STARTED.md)

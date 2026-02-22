@@ -2,6 +2,9 @@ package attach
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -121,6 +124,182 @@ func TestDetectTechStack(t *testing.T) {
 				t.Errorf("detectTechStack() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildEnrichmentPrompt(t *testing.T) {
+	prompt := buildEnrichmentPrompt("/tmp/my-project", "/tmp/my-project/.claude/CLAUDE.md")
+
+	// Verify it includes the project path and CLAUDE.md path
+	if !strings.Contains(prompt, "/tmp/my-project") {
+		t.Error("prompt should contain project directory path")
+	}
+	if !strings.Contains(prompt, "/tmp/my-project/.claude/CLAUDE.md") {
+		t.Error("prompt should contain CLAUDE.md path")
+	}
+
+	// Verify it includes the expected section headers
+	for _, section := range []string{
+		"# Project Instructions",
+		"## Project",
+		"## Key Directories",
+		"## Conventions",
+		"## Important Files",
+		"## Important Notes",
+	} {
+		if !strings.Contains(prompt, section) {
+			t.Errorf("prompt should contain section %q", section)
+		}
+	}
+
+	// Verify it includes key instructions
+	if !strings.Contains(prompt, "under 150 lines") {
+		t.Error("prompt should mention the 150 line limit")
+	}
+	if !strings.Contains(prompt, "no code fences") {
+		t.Error("prompt should instruct no code fences")
+	}
+}
+
+func TestEnrichClaudeMd_MissingCLI(t *testing.T) {
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	os.MkdirAll(claudeDir, 0755)
+	os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
+
+	// Save and clear PATH so claude won't be found
+	origPath := os.Getenv("PATH")
+	os.Setenv("PATH", "")
+	defer os.Setenv("PATH", origPath)
+
+	err := enrichClaudeMd(dir, claudeDir)
+	if err == nil {
+		t.Fatal("enrichClaudeMd() expected error when claude CLI missing")
+	}
+	if !strings.Contains(err.Error(), "claude CLI not found") {
+		t.Errorf("error = %q, want to contain 'claude CLI not found'", err.Error())
+	}
+
+	// Verify scaffold is preserved
+	data, _ := os.ReadFile(filepath.Join(claudeDir, "CLAUDE.md"))
+	if string(data) != "# scaffold" {
+		t.Errorf("scaffold was modified: got %q", string(data))
+	}
+}
+
+func TestEnrichClaudeMd_ScriptReturnsInvalidOutput(t *testing.T) {
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	os.MkdirAll(claudeDir, 0755)
+	os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
+
+	// Create a fake "claude" script that outputs non-markdown text
+	binDir := filepath.Join(dir, "bin")
+	os.MkdirAll(binDir, 0755)
+	fakeScript := filepath.Join(binDir, "claude")
+	os.WriteFile(fakeScript, []byte("#!/bin/sh\necho 'not markdown'\n"), 0755)
+
+	origPath := os.Getenv("PATH")
+	os.Setenv("PATH", binDir)
+	defer os.Setenv("PATH", origPath)
+
+	err := enrichClaudeMd(dir, claudeDir)
+	if err == nil {
+		t.Fatal("enrichClaudeMd() expected error for invalid output")
+	}
+	if !strings.Contains(err.Error(), "enrichment produced no output") {
+		t.Errorf("error = %q, want to contain 'enrichment produced no output'", err.Error())
+	}
+
+	// Verify scaffold is preserved
+	data, _ := os.ReadFile(filepath.Join(claudeDir, "CLAUDE.md"))
+	if string(data) != "# scaffold" {
+		t.Errorf("scaffold was modified: got %q", string(data))
+	}
+}
+
+func TestEnrichClaudeMd_ScriptReturnsEmptyOutput(t *testing.T) {
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	os.MkdirAll(claudeDir, 0755)
+	os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
+
+	// Create a fake "claude" script that outputs nothing
+	binDir := filepath.Join(dir, "bin")
+	os.MkdirAll(binDir, 0755)
+	fakeScript := filepath.Join(binDir, "claude")
+	os.WriteFile(fakeScript, []byte("#!/bin/sh\n"), 0755)
+
+	origPath := os.Getenv("PATH")
+	os.Setenv("PATH", binDir)
+	defer os.Setenv("PATH", origPath)
+
+	err := enrichClaudeMd(dir, claudeDir)
+	if err == nil {
+		t.Fatal("enrichClaudeMd() expected error for empty output")
+	}
+	if !strings.Contains(err.Error(), "enrichment produced no output") {
+		t.Errorf("error = %q, want to contain 'enrichment produced no output'", err.Error())
+	}
+}
+
+func TestEnrichClaudeMd_ScriptReturnsValidOutput(t *testing.T) {
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	os.MkdirAll(claudeDir, 0755)
+	os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
+
+	// Create a fake "claude" script that outputs valid enriched markdown
+	binDir := filepath.Join(dir, "bin")
+	os.MkdirAll(binDir, 0755)
+	enrichedContent := "# Project Instructions\n\n## Project\nName: test-project"
+	fakeScript := filepath.Join(binDir, "claude")
+	os.WriteFile(fakeScript, []byte("#!/bin/sh\nprintf '"+enrichedContent+"'\n"), 0755)
+
+	origPath := os.Getenv("PATH")
+	os.Setenv("PATH", binDir)
+	defer os.Setenv("PATH", origPath)
+
+	err := enrichClaudeMd(dir, claudeDir)
+	if err != nil {
+		t.Fatalf("enrichClaudeMd() unexpected error: %v", err)
+	}
+
+	// Verify file was overwritten with enriched content
+	data, _ := os.ReadFile(filepath.Join(claudeDir, "CLAUDE.md"))
+	if !strings.HasPrefix(string(data), "# Project Instructions") {
+		t.Errorf("expected enriched content, got %q", string(data))
+	}
+}
+
+func TestEnrichClaudeMd_ScriptFailsNonZero(t *testing.T) {
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	os.MkdirAll(claudeDir, 0755)
+	os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
+
+	// Create a fake "claude" script that exits non-zero
+	binDir := filepath.Join(dir, "bin")
+	os.MkdirAll(binDir, 0755)
+	fakeScript := filepath.Join(binDir, "claude")
+	os.WriteFile(fakeScript, []byte("#!/bin/sh\nexit 1\n"), 0755)
+
+	origPath := os.Getenv("PATH")
+	os.Setenv("PATH", binDir)
+	defer os.Setenv("PATH", origPath)
+
+	err := enrichClaudeMd(dir, claudeDir)
+	if err == nil {
+		t.Fatal("enrichClaudeMd() expected error for non-zero exit")
+	}
+	if !strings.Contains(err.Error(), "claude enrichment failed") {
+		t.Errorf("error = %q, want to contain 'claude enrichment failed'", err.Error())
+	}
+
+	// Verify scaffold is preserved
+	data, _ := os.ReadFile(filepath.Join(claudeDir, "CLAUDE.md"))
+	if string(data) != "# scaffold" {
+		t.Errorf("scaffold was modified: got %q", string(data))
 	}
 }
 
