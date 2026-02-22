@@ -27,6 +27,9 @@ Usage:
 Commands:
   setup                          First-time setup & API key provisioning
   attach <project-path>          Attach platform config to a project
+    [--symlink]                  Use symlinks instead of copying assets
+    [--force]                    Overwrite existing files
+    [--no-enrich]                Skip AI-powered CLAUDE.md enrichment
   sandbox <project-path> <name>  Create a sandboxed branch worktree
   mcp add <name> [options]       Add an MCP server (local or remote)
   mcp remote <url>               Connect to a remote MCP server/gateway
@@ -63,6 +66,7 @@ func main() {
 		os.Exit(1)
 	}
 	platform.FS = sub
+	platform.InitColor()
 
 	args := os.Args[1:]
 

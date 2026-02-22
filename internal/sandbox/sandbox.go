@@ -36,7 +36,8 @@ func Run(projectPath, branchName string) error {
 	worktreeBase := filepath.Join(filepath.Dir(projectDir), projectName+"-worktrees")
 	worktreeDir := filepath.Join(worktreeBase, branchName)
 
-	fmt.Printf("\n=== Creating Sandboxed Branch: %s ===\n\n", branchName)
+	platform.PrintBanner(os.Stdout, fmt.Sprintf("Creating Sandboxed Branch: %s", branchName))
+	fmt.Println()
 
 	// Create worktrees directory
 	if err := os.MkdirAll(worktreeBase, 0755); err != nil {
@@ -54,7 +55,7 @@ func Run(projectPath, branchName string) error {
 	branchExists := platform.RunQuietDir(projectDir, "git", "rev-parse", "--verify", branchName) == nil
 
 	// Create the worktree
-	fmt.Println("[1/4] Creating git worktree...")
+	platform.PrintStep(os.Stdout, 1, 4, "Creating git worktree...")
 	if branchExists {
 		if err := platform.RunDir(projectDir, "git", "worktree", "add", worktreeDir, branchName); err != nil {
 			return fmt.Errorf("creating worktree: %w", err)
@@ -67,7 +68,7 @@ func Run(projectPath, branchName string) error {
 	fmt.Printf("  Worktree created at: %s\n", worktreeDir)
 
 	// Copy .claude configuration to worktree if it exists in main project
-	fmt.Println("[2/4] Setting up Claude configuration...")
+	platform.PrintStep(os.Stdout, 2, 4, "Setting up Claude configuration...")
 	claudeDir := filepath.Join(projectDir, ".claude")
 	if platform.FileExists(claudeDir) {
 		worktreeClaudeDir := filepath.Join(worktreeDir, ".claude")
@@ -76,33 +77,33 @@ func Run(projectPath, branchName string) error {
 		localSettings := filepath.Join(claudeDir, "settings.local.json")
 		if platform.FileExists(localSettings) {
 			if err := platform.CopyFile(localSettings, filepath.Join(worktreeClaudeDir, "settings.local.json")); err == nil {
-				fmt.Println("  Copied local settings to worktree")
+				platform.PrintSuccess(os.Stdout, "Copied local settings to worktree")
 			}
 		}
 
 		localClaudeMd := filepath.Join(claudeDir, "CLAUDE.local.md")
 		if platform.FileExists(localClaudeMd) {
 			if err := platform.CopyFile(localClaudeMd, filepath.Join(worktreeClaudeDir, "CLAUDE.local.md")); err == nil {
-				fmt.Println("  Copied local CLAUDE.md to worktree")
+				platform.PrintSuccess(os.Stdout, "Copied local CLAUDE.md to worktree")
 			}
 		}
 	}
 
 	// Copy .mcp.json if not tracked by git
-	fmt.Println("[3/4] Setting up MCP configuration...")
+	platform.PrintStep(os.Stdout, 3, 4, "Setting up MCP configuration...")
 	mcpJson := filepath.Join(projectDir, ".mcp.json")
 	worktreeMcp := filepath.Join(worktreeDir, ".mcp.json")
 	if platform.FileExists(mcpJson) && !platform.FileExists(worktreeMcp) {
 		if err := platform.CopyFile(mcpJson, worktreeMcp); err == nil {
-			fmt.Println("  Copied .mcp.json to worktree")
+			platform.PrintSuccess(os.Stdout, "Copied .mcp.json to worktree")
 		}
 	}
 
 	// Install dependencies if needed
-	fmt.Println("[4/4] Setting up dependencies...")
+	platform.PrintStep(os.Stdout, 4, 4, "Setting up dependencies...")
 	installWorktreeDeps(worktreeDir)
 
-	fmt.Println("\n=== Sandbox Ready ===")
+	platform.PrintBanner(os.Stdout, "Sandbox Ready")
 	fmt.Printf("\nBranch:    %s\n", branchName)
 	fmt.Printf("Directory: %s\n", worktreeDir)
 	fmt.Println("\nTo start working:")
@@ -120,27 +121,27 @@ func Run(projectPath, branchName string) error {
 func installWorktreeDeps(worktreeDir string) {
 	if platform.FileExists(filepath.Join(worktreeDir, "bun.lockb")) || platform.FileExists(filepath.Join(worktreeDir, "bun.lock")) {
 		if err := platform.RunQuietDir(worktreeDir, "bun", "install"); err == nil {
-			fmt.Println("  Dependencies installed (bun)")
+			platform.PrintSuccess(os.Stdout, "Dependencies installed (bun)")
 		} else {
-			fmt.Println("  Warning: Could not install bun dependencies")
+			platform.PrintWarningLine(os.Stdout, "Could not install bun dependencies")
 		}
 	} else if platform.FileExists(filepath.Join(worktreeDir, "package-lock.json")) {
 		if err := platform.RunQuietDir(worktreeDir, "npm", "ci"); err == nil {
-			fmt.Println("  Dependencies installed (npm)")
+			platform.PrintSuccess(os.Stdout, "Dependencies installed (npm)")
 		} else {
-			fmt.Println("  Warning: Could not install npm dependencies")
+			platform.PrintWarningLine(os.Stdout, "Could not install npm dependencies")
 		}
 	} else if platform.FileExists(filepath.Join(worktreeDir, "yarn.lock")) {
 		if err := platform.RunQuietDir(worktreeDir, "yarn", "install", "--frozen-lockfile"); err == nil {
-			fmt.Println("  Dependencies installed (yarn)")
+			platform.PrintSuccess(os.Stdout, "Dependencies installed (yarn)")
 		} else {
-			fmt.Println("  Warning: Could not install yarn dependencies")
+			platform.PrintWarningLine(os.Stdout, "Could not install yarn dependencies")
 		}
 	} else if platform.FileExists(filepath.Join(worktreeDir, "pnpm-lock.yaml")) {
 		if err := platform.RunQuietDir(worktreeDir, "pnpm", "install", "--frozen-lockfile"); err == nil {
-			fmt.Println("  Dependencies installed (pnpm)")
+			platform.PrintSuccess(os.Stdout, "Dependencies installed (pnpm)")
 		} else {
-			fmt.Println("  Warning: Could not install pnpm dependencies")
+			platform.PrintWarningLine(os.Stdout, "Could not install pnpm dependencies")
 		}
 	} else if platform.FileExists(filepath.Join(worktreeDir, "package.json")) {
 		fmt.Println("  No lockfile found. Run your package manager to install dependencies.")

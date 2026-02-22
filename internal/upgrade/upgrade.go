@@ -80,10 +80,10 @@ func Run(version string, args []string) error {
 	}
 
 	if !cliOnly {
-		fmt.Println("\n=== Upgrading claude-workspace ===")
+		platform.PrintBanner(os.Stdout, "Upgrading claude-workspace")
 
 		// Step 1: Check for updates
-		fmt.Printf("\n[%d/%d] Checking for updates...\n", nextStep(), totalSteps)
+		platform.PrintStep(os.Stdout, nextStep(), totalSteps, "Checking for updates...")
 		fmt.Printf("  Current: %s\n", version)
 
 		release, err := FetchLatest()
@@ -115,7 +115,7 @@ func Run(version string, args []string) error {
 		}
 
 		if version == "dev" {
-			fmt.Println("\n  Warning: You are running a dev build.")
+			platform.PrintWarningLine(os.Stdout, "You are running a dev build.")
 			fmt.Println("  Upgrading will install the latest stable release.")
 		} else if currentNormalized == latestVersion {
 			fmt.Println("\n  Already up to date.")
@@ -154,7 +154,7 @@ func Run(version string, args []string) error {
 
 		// Confirm
 		if !autoYes {
-			fmt.Print("\n  Proceed? [Y/n] ")
+			fmt.Print("\n"); platform.PrintPrompt(os.Stdout, "  Proceed? [Y/n] ")
 			reader := bufio.NewReader(os.Stdin)
 			answer, _ := reader.ReadString('\n')
 			answer = strings.TrimSpace(strings.ToLower(answer))
@@ -165,7 +165,7 @@ func Run(version string, args []string) error {
 		}
 
 		// Step 2: Download
-		fmt.Printf("\n[%d/%d] Downloading claude-workspace %s...\n", nextStep(), totalSteps, latestVersion)
+		platform.PrintStep(os.Stdout, nextStep(), totalSteps, fmt.Sprintf("Downloading claude-workspace %s...", latestVersion))
 
 		asset, err := FindAsset(release)
 		if err != nil {
@@ -194,7 +194,7 @@ func Run(version string, args []string) error {
 		}
 
 		// Step 3: Replace binary
-		fmt.Printf("\n[%d/%d] Replacing binary...\n", nextStep(), totalSteps)
+		platform.PrintStep(os.Stdout, nextStep(), totalSteps, "Replacing binary...")
 		oldVersion := version
 		if err := ReplaceBinary(binaryPath); err != nil {
 			return fmt.Errorf("replacing binary: %w", err)
@@ -204,22 +204,22 @@ func Run(version string, args []string) error {
 		fmt.Printf("  %s updated (%s → %s)\n", installPath, oldVersion, latestVersion)
 
 		// Step 4: Refresh shared assets
-		fmt.Printf("\n[%d/%d] Refreshing shared assets...\n", nextStep(), totalSteps)
+		platform.PrintStep(os.Stdout, nextStep(), totalSteps, "Refreshing shared assets...")
 		if _, err := platform.ExtractForSymlink(); err != nil {
-			fmt.Printf("  Warning: could not refresh shared assets: %v\n", err)
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not refresh shared assets: %v", err))
 		} else {
 			fmt.Println("  ~/.claude-workspace/assets/ updated")
 			fmt.Println("  Symlinked projects will pick up changes automatically.")
 		}
 
 		// Step 5: Merge global settings
-		fmt.Printf("\n[%d/%d] Merging global settings...\n", nextStep(), totalSteps)
+		platform.PrintStep(os.Stdout, nextStep(), totalSteps, "Merging global settings...")
 		if err := mergeGlobalSettings(); err != nil {
-			fmt.Printf("  Warning: could not merge settings: %v\n", err)
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not merge settings: %v", err))
 		}
 
 		if selfOnly {
-			fmt.Println("\n=== Upgrade Complete ===")
+			platform.PrintBanner(os.Stdout, "Upgrade Complete")
 			fmt.Println("\n  Tip: For projects using copied (non-symlinked) assets,")
 			fmt.Println("       run 'claude-workspace attach --force' to refresh.")
 			fmt.Println()
@@ -232,7 +232,7 @@ func Run(version string, args []string) error {
 		return err
 	}
 
-	fmt.Println("\n=== Upgrade Complete ===")
+	platform.PrintBanner(os.Stdout, "Upgrade Complete")
 	if !cliOnly {
 		fmt.Println("\n  Tip: For projects using copied (non-symlinked) assets,")
 		fmt.Println("       run 'claude-workspace attach --force' to refresh.")
@@ -244,7 +244,7 @@ func Run(version string, args []string) error {
 
 // upgradeCLI detects the current Claude Code CLI and runs the official installer to upgrade it.
 func upgradeCLI(nextStep func() int, totalSteps int, autoYes, checkOnly bool) error {
-	fmt.Printf("\n[%d/%d] Upgrading Claude Code CLI...\n", nextStep(), totalSteps)
+	platform.PrintStep(os.Stdout, nextStep(), totalSteps, "Upgrading Claude Code CLI...")
 
 	home, _ := os.UserHomeDir()
 
@@ -282,7 +282,7 @@ func upgradeCLI(nextStep func() int, totalSteps int, autoYes, checkOnly bool) er
 		if installed {
 			action = "Upgrade"
 		}
-		fmt.Printf("\n  %s Claude Code CLI? [Y/n] ", action)
+		fmt.Print("\n"); platform.PrintPrompt(os.Stdout, fmt.Sprintf("  %s Claude Code CLI? [Y/n] ", action))
 		reader := bufio.NewReader(os.Stdin)
 		answer, _ := reader.ReadString('\n')
 		answer = strings.TrimSpace(strings.ToLower(answer))
@@ -298,7 +298,7 @@ func upgradeCLI(nextStep func() int, totalSteps int, autoYes, checkOnly bool) er
 		fmt.Printf("  Detected Claude Code installed via npm (source: %s).\n", npmInfo.Source)
 		fmt.Println("  Removing npm version before upgrading...")
 		if err := setup.UninstallNpmClaude(npmInfo); err != nil {
-			fmt.Printf("  Warning: could not remove npm Claude: %v\n", err)
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not remove npm Claude: %v", err))
 			fmt.Println("  You may need to run: npm uninstall -g @anthropic-ai/claude-code")
 		} else {
 			fmt.Println("  npm Claude Code removed successfully.")
@@ -308,7 +308,7 @@ func upgradeCLI(nextStep func() int, totalSteps int, autoYes, checkOnly bool) er
 	// Run official installer
 	fmt.Println("  Running official installer...")
 	if err := platform.Run("bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"); err != nil {
-		fmt.Printf("  Warning: Claude Code CLI upgrade failed: %v\n", err)
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Claude Code CLI upgrade failed: %v", err))
 		fmt.Println("  You can upgrade manually: curl -fsSL https://claude.ai/install.sh | bash")
 		return nil // non-fatal
 	}

@@ -23,10 +23,10 @@ func init() {
 }
 
 func Run() error {
-	fmt.Println("\n=== Claude Code Platform Setup ===")
+	platform.PrintBanner(os.Stdout, "Claude Code Platform Setup")
 
 	// Step 1: Check if Claude Code CLI is installed
-	fmt.Println("\n[1/6] Checking Claude Code installation...")
+	platform.PrintStep(os.Stdout, 1, 6, "Checking Claude Code installation...")
 
 	// Check for npm-installed Claude that needs cleanup
 	npmInfo := DetectNpmClaude()
@@ -34,7 +34,7 @@ func Run() error {
 		fmt.Printf("  Detected Claude Code installed via npm (source: %s).\n", npmInfo.Source)
 		fmt.Println("  Removing npm version before installing official binary...")
 		if err := UninstallNpmClaude(npmInfo); err != nil {
-			fmt.Printf("  Warning: could not remove npm Claude: %v\n", err)
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not remove npm Claude: %v", err))
 			fmt.Println("  Please run manually: npm uninstall -g @anthropic-ai/claude-code")
 			fmt.Println("  Then re-run: claude-workspace setup")
 			return fmt.Errorf("npm Claude uninstall failed: %w", err)
@@ -53,32 +53,32 @@ func Run() error {
 	}
 
 	// Step 2: API Key provisioning
-	fmt.Println("\n[2/6] API Key provisioning...")
+	platform.PrintStep(os.Stdout, 2, 6, "API Key provisioning...")
 	if err := provisionApiKey(); err != nil {
 		return err
 	}
 
 	// Step 3: Create global user settings
-	fmt.Println("\n[3/6] Setting up global user configuration...")
+	platform.PrintStep(os.Stdout, 3, 6, "Setting up global user configuration...")
 	if err := setupGlobalSettings(); err != nil {
 		return err
 	}
 
 	// Step 4: Create global CLAUDE.md
-	fmt.Println("\n[4/6] Setting up global CLAUDE.md...")
+	platform.PrintStep(os.Stdout, 4, 6, "Setting up global CLAUDE.md...")
 	if err := setupGlobalClaudeMd(); err != nil {
 		return err
 	}
 
 	// Step 5: Install binary to PATH
-	fmt.Println("\n[5/6] Installing claude-workspace to PATH...")
+	platform.PrintStep(os.Stdout, 5, 6, "Installing claude-workspace to PATH...")
 	installBinaryToPath()
 
 	// Step 6: Check optional system tools
-	fmt.Println("\n[6/6] Checking optional system tools...")
+	platform.PrintStep(os.Stdout, 6, 6, "Checking optional system tools...")
 	checkOptionalTools()
 
-	fmt.Println("\n=== Setup Complete ===")
+	platform.PrintBanner(os.Stdout, "Setup Complete")
 	fmt.Println("\nNext steps:")
 	fmt.Println("  1. Attach to a project:  claude-workspace attach /path/to/project")
 	fmt.Println("  2. Start Claude Code:    cd /path/to/project && claude")
@@ -494,7 +494,7 @@ func checkOptionalTools() {
 	}
 
 	if len(found) > 0 {
-		fmt.Printf("  Found: %s\n", joinStrings(found, ", "))
+		platform.PrintSuccess(os.Stdout, fmt.Sprintf("Found: %s", joinStrings(found, ", ")))
 	}
 
 	if len(missing) > 0 {
