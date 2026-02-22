@@ -320,6 +320,117 @@ func TestExtractBinaryNotFound(t *testing.T) {
 	}
 }
 
+func TestParseFlags(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		want    upgradeFlags
+		wantErr error
+	}{
+		{
+			name: "empty args",
+			args: []string{},
+			want: upgradeFlags{},
+		},
+		{
+			name: "self-only",
+			args: []string{"--self-only"},
+			want: upgradeFlags{selfOnly: true},
+		},
+		{
+			name: "cli-only",
+			args: []string{"--cli-only"},
+			want: upgradeFlags{cliOnly: true},
+		},
+		{
+			name:    "mutually exclusive",
+			args:    []string{"--self-only", "--cli-only"},
+			wantErr: ErrMutuallyExclusive,
+		},
+		{
+			name: "check and yes",
+			args: []string{"--check", "--yes"},
+			want: upgradeFlags{checkOnly: true, autoYes: true},
+		},
+		{
+			name: "short yes alias",
+			args: []string{"-y"},
+			want: upgradeFlags{autoYes: true},
+		},
+		{
+			name: "unknown flags ignored",
+			args: []string{"--verbose", "--self-only", "--unknown"},
+			want: upgradeFlags{selfOnly: true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseFlags(tt.args)
+			if tt.wantErr != nil {
+				if err != tt.wantErr {
+					t.Errorf("parseFlags(%v) error = %v, want %v", tt.args, err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseFlags(%v) unexpected error: %v", tt.args, err)
+			}
+			if got != tt.want {
+				t.Errorf("parseFlags(%v) = %+v, want %+v", tt.args, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStepCount(t *testing.T) {
+	tests := []struct {
+		name  string
+		flags upgradeFlags
+		want  int
+	}{
+		{name: "default", flags: upgradeFlags{}, want: 6},
+		{name: "self-only", flags: upgradeFlags{selfOnly: true}, want: 5},
+		{name: "cli-only", flags: upgradeFlags{cliOnly: true}, want: 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := stepCount(tt.flags); got != tt.want {
+				t.Errorf("stepCount(%+v) = %d, want %d", tt.flags, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRunMutuallyExclusive(t *testing.T) {
+	err := Run("dev", []string{"--self-only", "--cli-only"})
+	if err != ErrMutuallyExclusive {
+		t.Errorf("Run() error = %v, want %v", err, ErrMutuallyExclusive)
+	}
+}
+
+func TestRunSelfOnlyUpToDate(t *testing.T) {
+	release := Release{
+		TagName: "v1.0.0",
+		Assets:  []ReleaseAsset{},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(release)
+	}))
+	defer server.Close()
+
+	origURL := ReleasesURL
+	ReleasesURL = server.URL
+	defer func() { ReleasesURL = origURL }()
+
+	err := Run("1.0.0", []string{"--self-only", "--check"})
+	if err != nil {
+		t.Errorf("Run(self-only, check, up-to-date) error = %v, want nil", err)
+	}
+}
+
 func createTestArchive(t *testing.T, archivePath, fileName, content string) {
 	t.Helper()
 

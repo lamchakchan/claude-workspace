@@ -17,37 +17,59 @@ import (
 // ErrMutuallyExclusive is returned when --self-only and --cli-only are both set.
 var ErrMutuallyExclusive = fmt.Errorf("--self-only and --cli-only are mutually exclusive")
 
-// Run is the entry point for the upgrade command.
-func Run(version string, args []string) error {
-	checkOnly := false
-	autoYes := false
-	selfOnly := false
-	cliOnly := false
+// upgradeFlags holds parsed flags for the upgrade command.
+type upgradeFlags struct {
+	checkOnly bool
+	autoYes   bool
+	selfOnly  bool
+	cliOnly   bool
+}
 
+// parseFlags parses upgrade command arguments into an upgradeFlags struct.
+func parseFlags(args []string) (upgradeFlags, error) {
+	var f upgradeFlags
 	for _, arg := range args {
 		switch arg {
 		case "--check":
-			checkOnly = true
+			f.checkOnly = true
 		case "--yes", "-y":
-			autoYes = true
+			f.autoYes = true
 		case "--self-only":
-			selfOnly = true
+			f.selfOnly = true
 		case "--cli-only":
-			cliOnly = true
+			f.cliOnly = true
 		}
 	}
+	if f.selfOnly && f.cliOnly {
+		return f, ErrMutuallyExclusive
+	}
+	return f, nil
+}
 
-	if selfOnly && cliOnly {
-		return ErrMutuallyExclusive
+// stepCount returns the total number of upgrade steps based on flags.
+func stepCount(f upgradeFlags) int {
+	if f.selfOnly {
+		return 5
+	}
+	if f.cliOnly {
+		return 1
+	}
+	return 6
+}
+
+// Run is the entry point for the upgrade command.
+func Run(version string, args []string) error {
+	f, err := parseFlags(args)
+	if err != nil {
+		return err
 	}
 
-	// Determine step count and labels
-	totalSteps := 6
-	if selfOnly {
-		totalSteps = 5
-	} else if cliOnly {
-		totalSteps = 1
-	}
+	checkOnly := f.checkOnly
+	autoYes := f.autoYes
+	selfOnly := f.selfOnly
+	cliOnly := f.cliOnly
+
+	totalSteps := stepCount(f)
 	step := 0
 	nextStep := func() int {
 		step++
