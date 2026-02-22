@@ -73,10 +73,10 @@ func Run() error {
 }
 
 func installClaude() error {
-	fmt.Println("  Installing Claude Code via npm...")
-	if err := platform.RunQuiet("npm", "install", "-g", "@anthropic-ai/claude-code"); err != nil {
+	fmt.Println("  Installing Claude Code via official installer...")
+	if err := platform.RunQuiet("bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"); err != nil {
 		fmt.Fprintln(os.Stderr, "  Failed to install Claude Code automatically.")
-		fmt.Println("  Please install manually: npm install -g @anthropic-ai/claude-code")
+		fmt.Println("  Please install manually: curl -fsSL https://claude.ai/install.sh | bash")
 		fmt.Println("  Or visit: https://docs.anthropic.com/en/docs/claude-code")
 		os.Exit(1)
 	}
