@@ -38,21 +38,21 @@ The setup wizard checks for these and will guide you if anything is missing. It 
 **One-liner (macOS / Linux):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-platform/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-workspace/main/install.sh | bash
 ```
 
 **Or build from source:**
 
 ```bash
-git clone <platform-repo-url> ~/claude-platform
-cd ~/claude-platform
+git clone <platform-repo-url> ~/claude-workspace
+cd ~/claude-workspace
 make install   # builds and copies to /usr/local/bin
 ```
 
 Then run the setup wizard:
 
 ```bash
-claude-platform setup
+claude-workspace setup
 ```
 
 ---
@@ -64,7 +64,7 @@ claude-platform setup
 The platform uses "Option 2" self-provisioning. When you run setup:
 
 ```bash
-claude-platform setup
+claude-workspace setup
 # The script will:
 # 1. Check if Claude Code CLI is installed (installs if missing)
 # 2. Launch the interactive API key provisioning flow
@@ -83,7 +83,7 @@ export ANTHROPIC_API_KEY=sk-ant-your-key-here
 
 ```bash
 # Run the health check
-claude-platform doctor
+claude-workspace doctor
 
 # Expected output:
 # [OK] Claude Code CLI: 2.x.x
@@ -103,7 +103,7 @@ claude-platform doctor
 
 ```bash
 # Copy platform config into your project
-claude-platform attach /path/to/your/project
+claude-workspace attach /path/to/your/project
 
 # What this creates in your project:
 # .claude/settings.json              - Team settings with safe defaults
@@ -123,7 +123,7 @@ claude-platform attach /path/to/your/project
 If you want your project to always use the latest platform config:
 
 ```bash
-claude-platform attach /path/to/your/project --symlink
+claude-workspace attach /path/to/your/project --symlink
 ```
 
 With symlinks, updating the platform repo automatically updates all attached projects.
@@ -133,7 +133,7 @@ With symlinks, updating the platform repo automatically updates all attached pro
 If a project already has Claude config and you want to replace it:
 
 ```bash
-claude-platform attach /path/to/your/project --force
+claude-workspace attach /path/to/your/project --force
 ```
 
 ### Post-Attach: Customize for Your Project
@@ -343,36 +343,36 @@ The platform ships with three MCP servers in `.mcp.json`:
 **Add a database (with API key):**
 ```bash
 # The --api-key flag prompts securely for the value (masked input)
-claude-platform mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+claude-workspace mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
 # You'll be prompted: Enter value for DATABASE_URL: ****
 # The key is stored as an env var in local Claude config (NOT in .mcp.json)
 ```
 
 **Add a search API:**
 ```bash
-claude-platform mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
+claude-workspace mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
 ```
 
 **Add GitHub (remote, with OAuth):**
 ```bash
-claude-platform mcp remote https://api.githubcopilot.com/mcp/ --name github
+claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github
 # Then in Claude Code: /mcp → Authenticate
 ```
 
 **Add a remote server with Bearer token:**
 ```bash
-claude-platform mcp remote https://mcp-gateway.company.com --name gateway --bearer
+claude-workspace mcp remote https://mcp-gateway.company.com --name gateway --bearer
 # You'll be prompted: Enter Bearer token: ****
 ```
 
 **Add Sentry for error monitoring:**
 ```bash
-claude-platform mcp remote https://mcp.sentry.dev/mcp --name sentry
+claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry
 ```
 
 **Add Notion:**
 ```bash
-claude-platform mcp remote https://mcp.notion.com/mcp --name notion
+claude-workspace mcp remote https://mcp.notion.com/mcp --name notion
 ```
 
 ### MCP Authentication Methods
@@ -389,7 +389,7 @@ All secrets are entered via **masked input** (not visible on screen or in shell 
 
 **OAuth with pre-registered app:**
 ```bash
-claude-platform mcp remote https://mcp.example.com --name example \
+claude-workspace mcp remote https://mcp.example.com --name example \
   --oauth --client-id my-app-id --client-secret
 # Prompts for client secret (masked), then you authenticate via /mcp in Claude Code
 ```
@@ -414,13 +414,13 @@ If your organization runs a centralized MCP gateway:
 
 ```bash
 # Without auth (gateway handles auth internally)
-claude-platform mcp remote https://mcp-gateway.company.com --name company-gateway
+claude-workspace mcp remote https://mcp-gateway.company.com --name company-gateway
 
 # With Bearer token auth
-claude-platform mcp remote https://mcp-gateway.company.com --name company-gateway --bearer
+claude-workspace mcp remote https://mcp-gateway.company.com --name company-gateway --bearer
 
 # With OAuth
-claude-platform mcp remote https://mcp-gateway.company.com --name company-gateway --oauth
+claude-workspace mcp remote https://mcp-gateway.company.com --name company-gateway --oauth
 ```
 
 ### Checking MCP Status
@@ -442,9 +442,9 @@ Work on multiple features simultaneously on the same repo:
 
 ```bash
 # Create sandboxed worktrees
-claude-platform sandbox /path/to/project feature-auth
-claude-platform sandbox /path/to/project feature-api
-claude-platform sandbox /path/to/project bugfix-payments
+claude-workspace sandbox /path/to/project feature-auth
+claude-workspace sandbox /path/to/project feature-api
+claude-workspace sandbox /path/to/project bugfix-payments
 
 # Each creates:
 # /path/to/project-worktrees/feature-auth/  (branch: feature-auth)
@@ -626,7 +626,7 @@ Just close the terminal. Sessions are persisted automatically. Your next `claude
 
 ### Run the Doctor When Things Feel Off
 ```bash
-claude-platform doctor
+claude-workspace doctor
 # Checks everything: CLI, settings, hooks, MCP, auth
 ```
 

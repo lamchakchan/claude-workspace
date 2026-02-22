@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [main]
     paths:
       - '**.go'
       - 'go.mod'
@@ -45,7 +44,7 @@ jobs:
         run: go test ./...
 
       - name: Build
-        run: go build -o claude-platform .
+        run: go build -o claude-workspace .
 
   cross-compile:
     runs-on: ubuntu-latest
@@ -75,3 +74,59 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
         run: go build -o /dev/null .
+
+  pre-release:
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    needs: [build, cross-compile]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute pre-release version
+        id: version
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+
+          # Get the latest stable tag, default to v0.0.0
+          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | grep -v '-' | head -n1)
+          if [ -z "$LATEST_TAG" ]; then
+            LATEST_TAG="v0.0.0"
+          fi
+
+          # Count commits since the last stable tag
+          if git rev-parse "$LATEST_TAG" >/dev/null 2>&1; then
+            COMMITS_SINCE=$(git rev-list "${LATEST_TAG}..HEAD" --count)
+          else
+            COMMITS_SINCE=$(git rev-list HEAD --count)
+          fi
+
+          VERSION="${LATEST_TAG#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          NEXT_PATCH=$((PATCH + 1))
+
+          TAG="v${MAJOR}.${MINOR}.${NEXT_PATCH}-alpha.${COMMITS_SINCE}.${SHORT_SHA}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Pre-release tag: ${TAG}"
+
+      - name: Create and push tag
+        run: |
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

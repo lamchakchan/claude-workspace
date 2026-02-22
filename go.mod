@@ -1,4 +1,4 @@
-module github.com/lamchakchan/claude-platform
+module github.com/lamchakchan/claude-workspace
 
 go 1.21
 

@@ -63,7 +63,7 @@ export async function doctor() {
       warnings++;
     }
   } else {
-    warn("~/.claude/settings.json not found. Run 'claude-platform setup'");
+    warn("~/.claude/settings.json not found. Run 'claude-workspace setup'");
     warnings++;
   }
 
@@ -213,7 +213,7 @@ export async function doctor() {
         if (config.oauthAccount) {
           pass("OAuth authentication configured");
         } else {
-          warn("No API key or OAuth found. Run: claude-platform setup");
+          warn("No API key or OAuth found. Run: claude-workspace setup");
           warnings++;
         }
       } catch {
@@ -221,7 +221,7 @@ export async function doctor() {
         warnings++;
       }
     } else {
-      warn("No authentication configured. Run: claude-platform setup");
+      warn("No authentication configured. Run: claude-workspace setup");
       warnings++;
     }
   }

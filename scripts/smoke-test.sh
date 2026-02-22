@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Smoke test for claude-platform using Multipass.
+# Smoke test for claude-workspace using Multipass.
 #
 # Launches a fresh Ubuntu 24.04 VM, transfers the cross-compiled binary,
 # and exercises setup -> attach -> doctor end-to-end.
@@ -12,16 +12,16 @@
 #   --keep             Don't delete the VM on exit (for debugging)
 #   --reuse            Reuse an existing VM instead of recreating
 #   --skip-claude-cli  Stub the claude binary instead of running the real installer
-#   --name <vm>        Override VM name (default: claude-platform-smoke)
+#   --name <vm>        Override VM name (default: claude-workspace-smoke)
 
 set -euo pipefail
 
 # ---------- defaults ----------
-VM_NAME="claude-platform-smoke"
+VM_NAME="claude-workspace-smoke"
 KEEP=false
 REUSE=false
 SKIP_CLAUDE_CLI=false
-BINARY_OUT="/tmp/claude-platform-linux-amd64"
+BINARY_OUT="/tmp/claude-workspace-linux-amd64"
 PASS_COUNT=0
 FAIL_COUNT=0
 
@@ -146,11 +146,11 @@ echo -e "\n${BOLD}=== Phase 4: Provision ===${NC}"
 
 # Transfer binary
 echo "  Transferring binary..."
-multipass transfer "$BINARY_OUT" "${VM_NAME}:/home/ubuntu/claude-platform"
+multipass transfer "$BINARY_OUT" "${VM_NAME}:/home/ubuntu/claude-workspace"
 
 # Install binary to PATH
 echo "  Installing binary to /usr/local/bin..."
-vm_exec "sudo cp /home/ubuntu/claude-platform /usr/local/bin/claude-platform && sudo chmod +x /usr/local/bin/claude-platform"
+vm_exec "sudo cp /home/ubuntu/claude-workspace /usr/local/bin/claude-workspace && sudo chmod +x /usr/local/bin/claude-workspace"
 
 # Install prerequisites
 echo "  Installing prerequisites (git, curl)..."
@@ -179,9 +179,9 @@ fi
 echo "  Provision complete."
 
 # ========== Phase 5: Run setup ==========
-echo -e "\n${BOLD}=== Phase 5: claude-platform setup ===${NC}"
+echo -e "\n${BOLD}=== Phase 5: claude-workspace setup ===${NC}"
 
-SETUP_OUTPUT=$(vm_exec "claude-platform setup" 2>&1) || true
+SETUP_OUTPUT=$(vm_exec "claude-workspace setup" 2>&1) || true
 echo "$SETUP_OUTPUT" | sed 's/^/  | /'
 
 echo ""
@@ -196,18 +196,18 @@ assert "~/.claude/CLAUDE.md exists" \
     vm_exec_quiet "test -f /home/ubuntu/.claude/CLAUDE.md"
 
 # Assert binary is executable in PATH
-assert "claude-platform is executable in PATH" \
-    vm_exec_quiet "which claude-platform && test -x /usr/local/bin/claude-platform"
+assert "claude-workspace is executable in PATH" \
+    vm_exec_quiet "which claude-workspace && test -x /usr/local/bin/claude-workspace"
 
 # ========== Phase 6: Run attach ==========
-echo -e "\n${BOLD}=== Phase 6: claude-platform attach ===${NC}"
+echo -e "\n${BOLD}=== Phase 6: claude-workspace attach ===${NC}"
 
 # Create a dummy git repo
 echo "  Creating test project..."
 vm_exec "mkdir -p /home/ubuntu/test-project && cd /home/ubuntu/test-project && git init && git config user.email test@example.com && git config user.name Test && touch README.md && git add . && git commit -m 'init' -q"
 
 # Run attach
-ATTACH_OUTPUT=$(vm_exec "claude-platform attach /home/ubuntu/test-project" 2>&1) || true
+ATTACH_OUTPUT=$(vm_exec "claude-workspace attach /home/ubuntu/test-project" 2>&1) || true
 echo "$ATTACH_OUTPUT" | sed 's/^/  | /'
 
 echo ""
@@ -242,9 +242,9 @@ assert ".claude/skills/ is non-empty" \
     vm_exec_quiet "test -d ${PROJECT}/.claude/skills && [ \"\$(ls -A ${PROJECT}/.claude/skills)\" ]"
 
 # ========== Phase 7: Run doctor ==========
-echo -e "\n${BOLD}=== Phase 7: claude-platform doctor ===${NC}"
+echo -e "\n${BOLD}=== Phase 7: claude-workspace doctor ===${NC}"
 
-DOCTOR_OUTPUT=$(vm_exec "cd ${PROJECT} && ANTHROPIC_API_KEY=sk-fake claude-platform doctor" 2>&1) || true
+DOCTOR_OUTPUT=$(vm_exec "cd ${PROJECT} && ANTHROPIC_API_KEY=sk-fake claude-workspace doctor" 2>&1) || true
 echo "$DOCTOR_OUTPUT" | sed 's/^/  | /'
 
 echo ""

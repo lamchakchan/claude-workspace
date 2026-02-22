@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/lamchakchan/claude-platform/internal/platform"
+	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
 
 func Run() error {
@@ -26,13 +26,13 @@ func Run() error {
 		issues++
 	}
 
-	// 2. Check claude-platform in PATH
-	fmt.Println("\n[claude-platform CLI]")
-	if platform.Exists("claude-platform") {
-		pass("claude-platform is in PATH")
+	// 2. Check claude-workspace in PATH
+	fmt.Println("\n[claude-workspace CLI]")
+	if platform.Exists("claude-workspace") {
+		pass("claude-workspace is in PATH")
 	} else {
-		warn("claude-platform not found in PATH")
-		fmt.Println("    Run: claude-platform setup")
+		warn("claude-workspace not found in PATH")
+		fmt.Println("    Run: claude-workspace setup")
 		warnings++
 	}
 
@@ -73,7 +73,7 @@ func Run() error {
 			warnings++
 		}
 	} else {
-		warn("~/.claude/settings.json not found. Run 'claude-platform setup'")
+		warn("~/.claude/settings.json not found. Run 'claude-workspace setup'")
 		warnings++
 	}
 
@@ -235,7 +235,7 @@ func Run() error {
 				if _, ok := config["oauthAccount"]; ok {
 					pass("OAuth authentication configured")
 				} else {
-					warn("No API key or OAuth found. Run: claude-platform setup")
+					warn("No API key or OAuth found. Run: claude-workspace setup")
 					warnings++
 				}
 			} else {
@@ -243,7 +243,7 @@ func Run() error {
 				warnings++
 			}
 		} else {
-			warn("No authentication configured. Run: claude-platform setup")
+			warn("No authentication configured. Run: claude-workspace setup")
 			warnings++
 		}
 	}

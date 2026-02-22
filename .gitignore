@@ -29,5 +29,5 @@ Thumbs.db
 *.log
 
 # Go build output
-claude-platform
+claude-workspace
 dist/

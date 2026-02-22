@@ -27,7 +27,7 @@ jobs:
         id: version
         run: |
           # Get the latest v* tag, default to v0.0.0 if none exists
-          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | grep -v '-' | head -n1)
           if [ -z "$LATEST_TAG" ]; then
             echo "tag=v0.1.0" >> "$GITHUB_OUTPUT"
             exit 0

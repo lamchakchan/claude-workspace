@@ -32,9 +32,9 @@
     }
   },
   "setup_commands": {
-    "postgresql": "claude-platform mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
-    "mysql": "claude-platform mcp add mysql --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
-    "sqlite": "claude-platform mcp add sqlite -- npx -y @anthropic/claude-code-sqlite-server ./db.sqlite"
+    "postgresql": "claude-workspace mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
+    "mysql": "claude-workspace mcp add mysql --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
+    "sqlite": "claude-workspace mcp add sqlite -- npx -y @anthropic/claude-code-sqlite-server ./db.sqlite"
   },
   "notes": {
     "postgresql": "You will be prompted to enter DATABASE_URL securely (e.g., postgresql://user:pass@host:5432/db)",

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# claude-platform installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-platform/main/install.sh | bash
+# claude-workspace installer
+# Usage: curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-workspace/main/install.sh | bash
 
-REPO="lamchakchan/claude-platform"
-BINARY="claude-platform"
+REPO="lamchakchan/claude-workspace"
+BINARY="claude-workspace"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 # Detect OS
@@ -75,8 +75,8 @@ if "${INSTALL_DIR}/${BINARY}" --version; then
   echo "Successfully installed ${BINARY} to ${INSTALL_DIR}/${BINARY}"
   echo ""
   echo "Next steps:"
-  echo "  claude-platform setup                    # First-time setup"
-  echo "  claude-platform attach /path/to/project  # Attach to a project"
+  echo "  claude-workspace setup                    # First-time setup"
+  echo "  claude-workspace attach /path/to/project  # Attach to a project"
 else
   echo "Error: Installation verification failed"
   exit 1

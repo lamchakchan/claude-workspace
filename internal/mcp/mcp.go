@@ -9,7 +9,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/lamchakchan/claude-platform/internal/platform"
+	"github.com/lamchakchan/claude-workspace/internal/platform"
 	"golang.org/x/term"
 )
 
@@ -421,18 +421,18 @@ func List() error {
 	}
 
 	fmt.Println("\n--- Quick Add Commands ---")
-	fmt.Println("  Local server (no auth):     claude-platform mcp add <name> -- <cmd>")
-	fmt.Println("  Local server (API key):     claude-platform mcp add <name> --api-key API_KEY -- <cmd>")
-	fmt.Println("  Remote server (OAuth):      claude-platform mcp remote <url>")
-	fmt.Println("  Remote server (Bearer):     claude-platform mcp remote <url> --bearer")
-	fmt.Println("  Remote server (client creds): claude-platform mcp remote <url> --oauth --client-id <id> --client-secret")
+	fmt.Println("  Local server (no auth):     claude-workspace mcp add <name> -- <cmd>")
+	fmt.Println("  Local server (API key):     claude-workspace mcp add <name> --api-key API_KEY -- <cmd>")
+	fmt.Println("  Remote server (OAuth):      claude-workspace mcp remote <url>")
+	fmt.Println("  Remote server (Bearer):     claude-workspace mcp remote <url> --bearer")
+	fmt.Println("  Remote server (client creds): claude-workspace mcp remote <url> --oauth --client-id <id> --client-secret")
 	fmt.Println()
 
 	return nil
 }
 
 func printMcpAddHelp() {
-	fmt.Print(`Usage: claude-platform mcp add <name> [options] [-- <command> [args...]]
+	fmt.Print(`Usage: claude-workspace mcp add <name> [options] [-- <command> [args...]]
 
 Add a local or remote MCP server with secure API key handling.
 
@@ -458,29 +458,29 @@ Security:
 Examples:
 
   # Server requiring an API key (prompted securely)
-  claude-platform mcp add brave-search --api-key BRAVE_API_KEY \
+  claude-workspace mcp add brave-search --api-key BRAVE_API_KEY \
     -- npx -y @modelcontextprotocol/server-brave-search
 
   # Database with connection string as secret
-  claude-platform mcp add postgres --api-key DATABASE_URL \
+  claude-workspace mcp add postgres --api-key DATABASE_URL \
     -- npx -y @bytebase/dbhub
 
   # Remote server with OAuth (GitHub, Sentry, Notion, etc.)
-  claude-platform mcp add github --transport http \
+  claude-workspace mcp add github --transport http \
     https://api.githubcopilot.com/mcp/
 
   # Remote server with Bearer token
-  claude-platform mcp add my-api --bearer --transport http \
+  claude-workspace mcp add my-api --bearer --transport http \
     https://api.example.com/mcp
 
   # Share server with team (key stays local)
-  claude-platform mcp add sentry --scope project \
+  claude-workspace mcp add sentry --scope project \
     --transport http https://mcp.sentry.dev/mcp
 `)
 }
 
 func printMcpRemoteHelp() {
-	fmt.Print(`Usage: claude-platform mcp remote <url> [options]
+	fmt.Print(`Usage: claude-workspace mcp remote <url> [options]
 
 Connect to a remote MCP server or gateway.
 
@@ -498,20 +498,20 @@ Other Options:
 Examples:
 
   # OAuth servers (most cloud services - authenticate via /mcp)
-  claude-platform mcp remote https://mcp.sentry.dev/mcp --name sentry
-  claude-platform mcp remote https://api.githubcopilot.com/mcp/ --name github
-  claude-platform mcp remote https://mcp.notion.com/mcp --name notion
-  claude-platform mcp remote https://mcp.linear.app/mcp --name linear
+  claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry
+  claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github
+  claude-workspace mcp remote https://mcp.notion.com/mcp --name notion
+  claude-workspace mcp remote https://mcp.linear.app/mcp --name linear
 
   # Bearer token (prompted securely)
-  claude-platform mcp remote https://mcp.example.com --bearer
+  claude-workspace mcp remote https://mcp.example.com --bearer
 
   # Pre-registered OAuth credentials
-  claude-platform mcp remote https://mcp.example.com \
+  claude-workspace mcp remote https://mcp.example.com \
     --oauth --client-id my-client-id --client-secret
 
   # Organization gateway
-  claude-platform mcp remote https://mcp-gateway.company.com --name company
-  claude-platform mcp remote https://mcp-gateway.company.com --bearer --name company
+  claude-workspace mcp remote https://mcp-gateway.company.com --name company
+  claude-workspace mcp remote https://mcp-gateway.company.com --bearer --name company
 `)
 }

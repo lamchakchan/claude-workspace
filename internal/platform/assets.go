@@ -56,7 +56,7 @@ func ExtractTo(efs embed.FS, srcDir, destDir string, force bool) error {
 	})
 }
 
-// ExtractForSymlink extracts embedded assets to ~/.claude-platform/assets/
+// ExtractForSymlink extracts embedded assets to ~/.claude-workspace/assets/
 // and returns the path. Used by attach --symlink to create a shared cache.
 func ExtractForSymlink() (string, error) {
 	home, err := os.UserHomeDir()
@@ -64,7 +64,7 @@ func ExtractForSymlink() (string, error) {
 		return "", err
 	}
 
-	cacheDir := filepath.Join(home, ".claude-platform", "assets")
+	cacheDir := filepath.Join(home, ".claude-workspace", "assets")
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return "", err
 	}

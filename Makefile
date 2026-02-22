@@ -1,6 +1,6 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags "-s -w -X main.version=$(VERSION)"
-BINARY := claude-platform
+BINARY := claude-workspace
 
 .PHONY: build install test clean build-all vet smoke-test smoke-test-keep smoke-test-fast
 

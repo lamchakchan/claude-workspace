@@ -4,7 +4,7 @@ A preconfigured, batteries-included platform for deploying Claude Code AI agents
 
 ## What You Get
 
-`claude-platform attach` overlays these files into your project:
+`claude-workspace attach` overlays these files into your project:
 
 | Path | Purpose |
 |------|---------|
@@ -29,7 +29,7 @@ A preconfigured, batteries-included platform for deploying Claude Code AI agents
 ### Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-platform/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-workspace/main/install.sh | bash
 ```
 
 For manual download or building from source, see [Getting Started - Installation](docs/GETTING-STARTED.md#2-installation).
@@ -38,24 +38,24 @@ For manual download or building from source, see [Getting Started - Installation
 
 ```bash
 # 1. Run setup (installs Claude Code CLI, provisions API key, configures globals)
-claude-platform setup
+claude-workspace setup
 
 # 2. Attach to your project
-claude-platform attach /path/to/your/project
+claude-workspace attach /path/to/your/project
 
 # 3. Start coding
 cd /path/to/your/project && claude
 
 # 4. Verify everything works
-claude-platform doctor
+claude-workspace doctor
 ```
 
 ## Key Features
 
 - **Safe defaults** — Hooks block dangerous commands (rm -rf, force push), detect secrets, and enforce branch policies
 - **Plan-first workflow** — Every significant task starts with a visible plan written to `./plans/` for review
-- **Multi-project support** — `claude-platform attach` copies or symlinks config into any repo; `--symlink` keeps projects in sync
-- **Parallel sandboxing** — `claude-platform sandbox` creates git worktrees for multiple Claude instances on the same repo
+- **Multi-project support** — `claude-workspace attach` copies or symlinks config into any repo; `--symlink` keeps projects in sync
+- **Parallel sandboxing** — `claude-workspace sandbox` creates git worktrees for multiple Claude instances on the same repo
 - **Layered prompt system** — Global, team, project, and personal instructions merge automatically by priority
 - **MCP integration** — Preconfigured local servers (memory, filesystem, git) plus CLI for adding databases, APIs, and remote gateways
 - **Flexible model selection** — Sonnet for coding, Haiku for exploration, Opus for complex reasoning; override per-session or per-subagent

@@ -14,12 +14,12 @@ import { $ } from "bun";
 export async function sandbox(projectPath?: string, branchName?: string) {
   if (!projectPath || !branchName) {
     console.error(
-      "Usage: claude-platform sandbox <project-path> <branch-name>",
+      "Usage: claude-workspace sandbox <project-path> <branch-name>",
     );
     console.log("\nExamples:");
-    console.log("  claude-platform sandbox ./my-project feature-auth");
-    console.log("  claude-platform sandbox ./my-project feature-api");
-    console.log("  claude-platform sandbox ./my-project bugfix-login");
+    console.log("  claude-workspace sandbox ./my-project feature-auth");
+    console.log("  claude-workspace sandbox ./my-project feature-api");
+    console.log("  claude-workspace sandbox ./my-project bugfix-login");
     process.exit(1);
   }
 

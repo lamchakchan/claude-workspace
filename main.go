@@ -4,22 +4,22 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/lamchakchan/claude-platform/internal/attach"
-	"github.com/lamchakchan/claude-platform/internal/doctor"
-	"github.com/lamchakchan/claude-platform/internal/mcp"
-	"github.com/lamchakchan/claude-platform/internal/platform"
-	"github.com/lamchakchan/claude-platform/internal/sandbox"
-	"github.com/lamchakchan/claude-platform/internal/setup"
+	"github.com/lamchakchan/claude-workspace/internal/attach"
+	"github.com/lamchakchan/claude-workspace/internal/doctor"
+	"github.com/lamchakchan/claude-workspace/internal/mcp"
+	"github.com/lamchakchan/claude-workspace/internal/platform"
+	"github.com/lamchakchan/claude-workspace/internal/sandbox"
+	"github.com/lamchakchan/claude-workspace/internal/setup"
 )
 
 // version is set via -ldflags at build time
 var version = "dev"
 
 const helpText = `
-claude-platform - Claude Code Platform Engineering Kit CLI
+claude-workspace - Claude Code Platform Engineering Kit CLI
 
 Usage:
-  claude-platform <command> [options]
+  claude-workspace <command> [options]
 
 Commands:
   setup                          First-time setup & API key provisioning
@@ -42,13 +42,13 @@ MCP Authentication:
   --client-secret        Prompt for OAuth client secret (masked input)
 
 Examples:
-  claude-platform setup
-  claude-platform attach /path/to/my-project
-  claude-platform sandbox /path/to/my-project feature-auth
-  claude-platform mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
-  claude-platform mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
-  claude-platform mcp remote https://mcp.sentry.dev/mcp --name sentry
-  claude-platform mcp remote https://mcp-gateway.company.com --bearer
+  claude-workspace setup
+  claude-workspace attach /path/to/my-project
+  claude-workspace sandbox /path/to/my-project feature-auth
+  claude-workspace mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+  claude-workspace mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
+  claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry
+  claude-workspace mcp remote https://mcp-gateway.company.com --bearer
 `
 
 func main() {
@@ -69,7 +69,7 @@ func main() {
 		fmt.Print(helpText)
 		os.Exit(0)
 	case "--version", "-v":
-		fmt.Printf("claude-platform %s\n", version)
+		fmt.Printf("claude-workspace %s\n", version)
 		os.Exit(0)
 	case "setup":
 		if err := setup.Run(); err != nil {
@@ -99,7 +99,7 @@ func main() {
 		}
 	case "mcp":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "Usage: claude-platform mcp <add|remote|list>")
+			fmt.Fprintln(os.Stderr, "Usage: claude-workspace mcp <add|remote|list>")
 			os.Exit(1)
 		}
 		subcmd := args[1]
