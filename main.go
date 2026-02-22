@@ -29,7 +29,7 @@ Commands:
   mcp add <name> [options]       Add an MCP server (local or remote)
   mcp remote <url>               Connect to a remote MCP server/gateway
   mcp list                       List all configured MCP servers
-  upgrade                        Upgrade to the latest version
+  upgrade [--self-only|--cli-only]  Upgrade claude-workspace and Claude Code CLI
   doctor                         Check platform configuration health
 
 Options:
