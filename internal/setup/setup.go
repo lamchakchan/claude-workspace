@@ -229,7 +229,7 @@ func provisionApiKey() error {
 func setupGlobalSettings() error {
 	settingsPath := filepath.Join(claudeHome, "settings.json")
 
-	defaults := getDefaultGlobalSettings()
+	defaults := GetDefaultGlobalSettings()
 
 	if platform.FileExists(settingsPath) {
 		fmt.Println("  Global settings already exist. Merging platform defaults...")
@@ -238,7 +238,7 @@ func setupGlobalSettings() error {
 			fmt.Println("  Could not merge settings. Skipping global settings update.")
 			return nil
 		}
-		merged := mergeSettings(existing, defaults)
+		merged := MergeSettings(existing, defaults)
 		if err := platform.WriteJSONFile(settingsPath, merged); err != nil {
 			return fmt.Errorf("writing global settings: %w", err)
 		}
@@ -258,7 +258,7 @@ func setupGlobalSettings() error {
 	return nil
 }
 
-func getDefaultGlobalSettings() map[string]interface{} {
+func GetDefaultGlobalSettings() map[string]interface{} {
 	return map[string]interface{}{
 		"$schema": "https://json.schemastore.org/claude-code-settings.json",
 		"env": map[string]interface{}{
@@ -286,7 +286,7 @@ func getDefaultGlobalSettings() map[string]interface{} {
 	}
 }
 
-func mergeSettings(existing, defaults map[string]interface{}) map[string]interface{} {
+func MergeSettings(existing, defaults map[string]interface{}) map[string]interface{} {
 	merged := make(map[string]interface{})
 	for k, v := range existing {
 		merged[k] = v

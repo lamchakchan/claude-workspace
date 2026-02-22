@@ -10,6 +10,7 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 	"github.com/lamchakchan/claude-workspace/internal/sandbox"
 	"github.com/lamchakchan/claude-workspace/internal/setup"
+	"github.com/lamchakchan/claude-workspace/internal/upgrade"
 )
 
 // version is set via -ldflags at build time
@@ -28,6 +29,7 @@ Commands:
   mcp add <name> [options]       Add an MCP server (local or remote)
   mcp remote <url>               Connect to a remote MCP server/gateway
   mcp list                       List all configured MCP servers
+  upgrade                        Upgrade to the latest version
   doctor                         Check platform configuration health
 
 Options:
@@ -126,6 +128,11 @@ func main() {
 		default:
 			fmt.Fprintf(os.Stderr, "Unknown mcp subcommand: %s\n", subcmd)
 			fmt.Println("Available: add, remote, list")
+			os.Exit(1)
+		}
+	case "upgrade":
+		if err := upgrade.Run(version, args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "doctor":

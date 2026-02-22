@@ -18,7 +18,7 @@ func TestMergeSettings_EmptyExisting(t *testing.T) {
 	}
 	existing := map[string]interface{}{}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	env := merged["env"].(map[string]interface{})
 	if env["KEY1"] != "val1" {
@@ -42,7 +42,7 @@ func TestMergeSettings_ExistingEnvTakesPrecedence(t *testing.T) {
 		},
 	}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	env := merged["env"].(map[string]interface{})
 	if env["KEY1"] != "custom" {
@@ -65,7 +65,7 @@ func TestMergeSettings_DenyListUnion(t *testing.T) {
 		},
 	}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	perms := merged["permissions"].(map[string]interface{})
 	deny := perms["deny"].([]string)
@@ -92,7 +92,7 @@ func TestMergeSettings_DenyListFromJSON(t *testing.T) {
 		},
 	}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	perms := merged["permissions"].(map[string]interface{})
 	deny := perms["deny"].([]string)
@@ -114,7 +114,7 @@ func TestMergeSettings_NoDenyInExisting(t *testing.T) {
 	}
 	existing := map[string]interface{}{}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	perms := merged["permissions"].(map[string]interface{})
 	deny := perms["deny"].([]string)
@@ -133,7 +133,7 @@ func TestMergeSettings_BoolFlagsNotOverwritten(t *testing.T) {
 		"alwaysThinkingEnabled": false,
 	}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	if merged["alwaysThinkingEnabled"] != false {
 		t.Errorf("should not overwrite existing alwaysThinkingEnabled: got %v", merged["alwaysThinkingEnabled"])
@@ -149,7 +149,7 @@ func TestMergeSettings_PreservesExtraKeys(t *testing.T) {
 		"customKey": "customValue",
 	}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	if merged["customKey"] != "customValue" {
 		t.Errorf("should preserve extra keys from existing: got %v", merged["customKey"])
@@ -169,7 +169,7 @@ func TestMergeSettings_PreservesExtraPermissions(t *testing.T) {
 		},
 	}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	perms := merged["permissions"].(map[string]interface{})
 	if allow, ok := perms["allow"]; !ok {
@@ -183,7 +183,7 @@ func TestMergeSettings_PreservesExtraPermissions(t *testing.T) {
 }
 
 func TestGetDefaultGlobalSettings(t *testing.T) {
-	settings := getDefaultGlobalSettings()
+	settings := GetDefaultGlobalSettings()
 
 	// Verify env keys exist
 	env, ok := settings["env"].(map[string]interface{})
