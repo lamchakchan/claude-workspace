@@ -9,17 +9,18 @@ Procedures for maintaining the Claude Code Platform, troubleshooting issues, and
 1. [Routine Maintenance](#1-routine-maintenance)
 2. [Updating the Platform](#2-updating-the-platform)
 3. [Development Workflow](#3-development-workflow)
-4. [Updating Claude Code CLI](#4-updating-claude-code-cli)
-5. [Managing API Keys](#5-managing-api-keys)
-6. [Managing MCP Servers](#6-managing-mcp-servers)
-7. [Managing Hooks](#7-managing-hooks)
-8. [Managing Agents and Skills](#8-managing-agents-and-skills)
-9. [Troubleshooting](#9-troubleshooting)
-10. [Rollback Procedures](#10-rollback-procedures)
-11. [Onboarding New Team Members](#11-onboarding-new-team-members)
-12. [Offboarding](#12-offboarding)
-13. [Security Incident Response](#13-security-incident-response)
-14. [Monitoring and Observability](#14-monitoring-and-observability)
+4. [Sandboxed Branches](#4-sandboxed-branches)
+5. [Updating Claude Code CLI](#5-updating-claude-code-cli)
+6. [Managing API Keys](#6-managing-api-keys)
+7. [Managing MCP Servers](#7-managing-mcp-servers)
+8. [Managing Hooks](#8-managing-hooks)
+9. [Managing Agents and Skills](#9-managing-agents-and-skills)
+10. [Troubleshooting](#10-troubleshooting)
+11. [Rollback Procedures](#11-rollback-procedures)
+12. [Onboarding New Team Members](#12-onboarding-new-team-members)
+13. [Offboarding](#13-offboarding)
+14. [Security Incident Response](#14-security-incident-response)
+15. [Monitoring and Observability](#15-monitoring-and-observability)
 
 ---
 
@@ -143,7 +144,48 @@ make build-all
 
 ---
 
-## 4. Updating Claude Code CLI
+## 4. Sandboxed Branches
+
+The `sandbox` command creates an isolated git worktree with a new branch, copies local configuration (`.claude/settings.local.json`, `.claude/CLAUDE.local.md`, `.mcp.json`) into it, and installs dependencies automatically.
+
+### Create a Sandbox
+
+```bash
+claude-platform sandbox <project-path> <branch-name>
+```
+
+Examples:
+```bash
+claude-platform sandbox ./my-project feature-auth
+claude-platform sandbox ./my-project bugfix-login
+```
+
+This will:
+1. Create a git worktree at `<project>-worktrees/<branch-name>/`
+2. Copy local Claude settings and CLAUDE.local.md into the worktree
+3. Copy `.mcp.json` if not already tracked by git
+4. Auto-install dependencies (detects bun, npm, yarn, pnpm)
+
+### Work in the Sandbox
+
+```bash
+cd /path/to/my-project-worktrees/feature-auth
+claude
+```
+
+### List and Clean Up Sandboxes
+
+```bash
+# List all worktrees
+git worktree list
+
+# Remove a sandbox when done
+git worktree remove /path/to/my-project-worktrees/feature-auth
+```
+
+---
+
+## 5. Updating Claude Code CLI
 
 ### Check Current Version
 
@@ -174,7 +216,7 @@ After updating, always:
 
 ---
 
-## 5. Managing API Keys
+## 6. Managing API Keys
 
 ### Self-Provisioning (Option 2)
 
@@ -218,7 +260,7 @@ The script should output the API key to stdout. Claude Code calls it before each
 
 ---
 
-## 6. Managing MCP Servers
+## 7. Managing MCP Servers
 
 ### List All Servers
 
@@ -313,7 +355,7 @@ Edit `.mcp.json` directly:
 
 ---
 
-## 7. Managing Hooks
+## 8. Managing Hooks
 
 ### View Active Hooks
 
@@ -398,7 +440,7 @@ exit 0  # allow, or exit 2 to block
 
 ---
 
-## 8. Managing Agents and Skills
+## 9. Managing Agents and Skills
 
 ### List Available Agents
 
@@ -418,8 +460,8 @@ Key frontmatter fields to adjust:
 - `model`: Change the model (sonnet, haiku, opus)
 - `tools`: Restrict or expand tool access
 - `maxTurns`: Limit how long the agent can run
-- `permissionMode`: `plan` (read-only) or `default` (full access)
-- `memory`: `project` for persistent memory, omit for none
+- `permissionMode`: `plan` (read-only), `default`, `acceptEdits`, `dontAsk`, or `bypassPermissions`
+- `memory`: `project`, `user`, or `local` for persistent memory, omit for none
 
 ### Create a Project-Specific Agent
 
@@ -453,7 +495,7 @@ ls .claude/skills/*/SKILL.md
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 ### "Claude Code not found"
 
@@ -588,7 +630,7 @@ git worktree prune
 
 ---
 
-## 10. Rollback Procedures
+## 11. Rollback Procedures
 
 ### Rollback Platform Config in a Project
 
@@ -611,13 +653,13 @@ curl -fsSL https://claude.ai/install.sh | bash
 
 ### Rollback Settings
 
-Claude Code auto-backs up settings (5 most recent):
+Claude Code auto-backs up settings with timestamps:
 ```bash
 # Find backups
-ls ~/.claude/settings.json.bak*
+ls ~/.claude/backups/.claude.json.backup.*
 
-# Restore
-cp ~/.claude/settings.json.bak.1 ~/.claude/settings.json
+# Restore (pick the most recent timestamp)
+cp ~/.claude/backups/.claude.json.backup.<timestamp> ~/.claude/settings.json
 ```
 
 ### Emergency: Disable All Platform Features
@@ -633,7 +675,7 @@ This instantly disables all hooks while preserving the configuration. Remove whe
 
 ---
 
-## 11. Onboarding New Team Members
+## 12. Onboarding New Team Members
 
 ### Checklist
 
@@ -649,7 +691,7 @@ This instantly disables all hooks while preserving the configuration. Remove whe
    - [ ] Clone their project repo
    - [ ] Attach platform: `claude-platform attach /path/to/project`
    - [ ] Customize `.claude/CLAUDE.local.md` with their personal context
-   - [ ] Copy `settings.local.json.example` → `settings.local.json`
+   - [ ] Copy `.claude/settings.local.json.example` → `.claude/settings.local.json`
 
 4. **Verification**
    - [ ] Run doctor: `claude-platform doctor`
@@ -693,7 +735,7 @@ echo "  cd $PROJECT && claude"
 
 ---
 
-## 12. Offboarding
+## 13. Offboarding
 
 ### Remove Platform from a Project
 
@@ -730,7 +772,7 @@ rm ~/.claude.json
 
 ---
 
-## 13. Security Incident Response
+## 14. Security Incident Response
 
 ### If a Secret Was Committed
 
@@ -777,7 +819,7 @@ claude mcp remove <name>
 
 ---
 
-## 14. Monitoring and Observability
+## 15. Monitoring and Observability
 
 ### OpenTelemetry
 
@@ -798,8 +840,10 @@ The platform enables telemetry by default. Configure your OTEL collector:
 
 All session transcripts are saved to:
 ```
-~/.claude/projects/<project-hash>/<session-id>.jsonl
+~/.claude/projects/<path-encoded-working-directory>/<session-uuid>.jsonl
 ```
+
+The directory name is the working directory with slashes replaced by hyphens (e.g., `/Users/lam/my-project` → `-Users-lam-my-project`).
 
 These are JSONL files containing every message, tool call, and result.
 
