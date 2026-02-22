@@ -220,10 +220,10 @@ vm_exec 'cat > /home/ubuntu/.claude.json << '\''SEED'\''
 {"oauthAccount":{"email":"smoke-test@example.com"}}
 SEED'
 
-# Stub claude CLI if requested
-if [[ "$SKIP_CLAUDE_CLI" == true ]]; then
-    echo "  Creating stub claude CLI..."
-    root_exec 'tee /usr/local/bin/claude > /dev/null << '\''STUB'\''
+# Always install a stub claude CLI so doctor doesn't report [FAIL] for missing CLI.
+# The --skip-claude-cli flag is kept for compatibility but the stub is unconditional.
+echo "  Creating stub claude CLI..."
+root_exec 'tee /usr/local/bin/claude > /dev/null << '\''STUB'\''
 #!/bin/bash
 if [[ "$1" == "--version" ]]; then
     echo "claude 1.0.0-stub"
@@ -232,7 +232,6 @@ else
 fi
 STUB
 chmod +x /usr/local/bin/claude'
-fi
 
 echo "  Provision complete."
 

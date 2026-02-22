@@ -1,6 +1,6 @@
 module github.com/lamchakchan/claude-workspace
 
-go 1.21
+go 1.24
 
 require golang.org/x/term v0.27.0
 

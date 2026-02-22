@@ -453,9 +453,9 @@ Instructions that Claude follows when this skill is invoked.
 
 ### Adding a New MCP Template
 
-1. Create `templates/mcp-configs/my-category.json`
+1. Create `docs/mcp-configs/my-category.json`
 2. Include the JSON config and the CLI command to set it up
-3. Document in README.md
+3. Add a section to `docs/MCP-CONFIGS.md`
 
 ### Adding Organization-Wide Policies
 

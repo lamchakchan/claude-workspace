@@ -2,6 +2,7 @@ package platform
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -30,6 +31,15 @@ func RunDir(dir, name string, args ...string) error {
 // RunQuiet executes a command and discards stdout/stderr.
 func RunQuiet(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	return cmd.Run()
+}
+
+// RunQuietWithEnv executes a command with extra environment variables, discarding output.
+func RunQuietWithEnv(extraEnv []string, name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Env = append(os.Environ(), extraEnv...)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	return cmd.Run()
@@ -69,6 +79,19 @@ func OutputDir(dir, name string, args ...string) (string, error) {
 func Exists(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil
+}
+
+// RunDirWithStdin executes a command in a specific directory with stdin from a string.
+// Returns trimmed stdout. Stderr is discarded.
+func RunDirWithStdin(ctx context.Context, dir string, stdin string, name string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = dir
+	cmd.Stdin = strings.NewReader(stdin)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = nil
+	err := cmd.Run()
+	return strings.TrimSpace(out.String()), err
 }
 
 // RunSpawn runs a command with full I/O passthrough and returns the exit code.

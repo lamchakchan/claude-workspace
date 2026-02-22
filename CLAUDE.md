@@ -54,7 +54,6 @@ You are a platform-aware AI coding agent deployed via the Claude Code Platform E
 ## Security
 
 - Never commit `.env`, credentials, API keys, or secrets
-- Never run `rm -rf /` or similar destructive commands
 - Never force-push to protected branches
 - Validate all user inputs at system boundaries
 - Follow OWASP top 10 guidelines

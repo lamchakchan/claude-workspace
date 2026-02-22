@@ -1,7 +1,6 @@
 package platform
 
 import (
-	"embed"
 	"fmt"
 	"io/fs"
 	"os"
@@ -9,11 +8,11 @@ import (
 )
 
 // FS is set by main to the embedded filesystem.
-var FS embed.FS
+var FS fs.FS
 
 // ExtractTo extracts files from the embedded FS srcDir to destDir on disk.
 // If force is false, existing files are skipped.
-func ExtractTo(efs embed.FS, srcDir, destDir string, force bool) error {
+func ExtractTo(efs fs.FS, srcDir, destDir string, force bool) error {
 	return fs.WalkDir(efs, srcDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -37,7 +36,7 @@ func ExtractTo(efs embed.FS, srcDir, destDir string, force bool) error {
 			}
 		}
 
-		data, err := efs.ReadFile(path)
+		data, err := fs.ReadFile(efs, path)
 		if err != nil {
 			return fmt.Errorf("reading embedded %s: %w", path, err)
 		}
@@ -75,7 +74,7 @@ func ExtractForSymlink() (string, error) {
 	}
 
 	// Extract .mcp.json
-	data, err := FS.ReadFile(".mcp.json")
+	data, err := fs.ReadFile(FS, ".mcp.json")
 	if err != nil {
 		return "", fmt.Errorf("reading embedded .mcp.json: %w", err)
 	}
@@ -88,7 +87,7 @@ func ExtractForSymlink() (string, error) {
 
 // ReadAsset reads a file from the embedded FS and returns its contents.
 func ReadAsset(path string) ([]byte, error) {
-	return FS.ReadFile(path)
+	return fs.ReadFile(FS, path)
 }
 
 // WalkAssets walks the embedded FS directory and calls fn for each file.

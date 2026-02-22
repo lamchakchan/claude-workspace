@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
+	"github.com/lamchakchan/claude-workspace/internal/setup"
 	"github.com/lamchakchan/claude-workspace/internal/upgrade"
 )
 
 func Run() error {
-	fmt.Println("\n=== Claude Platform Health Check ===")
+	platform.PrintBanner(os.Stdout, "Claude Platform Health Check")
 
 	issues := 0
 	warnings := 0
@@ -24,7 +25,7 @@ func Run() error {
 	}
 
 	// 1. Check Claude Code CLI
-	fmt.Println("\n[Claude Code CLI]")
+	platform.PrintSectionLabel(os.Stdout, "Claude Code CLI")
 	claudeBin := "claude"
 	if !platform.Exists(claudeBin) {
 		// The official installer places claude in ~/.local/bin which may not be in PATH
@@ -35,6 +36,14 @@ func Run() error {
 	}
 	if ver, err := platform.Output(claudeBin, "--version"); err == nil {
 		pass("Installed: " + ver)
+		// Check if installed via npm (may shadow official binary)
+		npmInfo := setup.DetectNpmClaude()
+		if npmInfo.Detected {
+			warn("Claude Code is installed via npm (@anthropic-ai/claude-code)")
+			fmt.Println("    The npm version may shadow the official binary in PATH.")
+			fmt.Println("    Fix: npm uninstall -g @anthropic-ai/claude-code")
+			warnings++
+		}
 	} else {
 		fail("Claude Code CLI not found")
 		fmt.Println("    Install: curl -fsSL https://claude.ai/install.sh | bash")
@@ -42,7 +51,7 @@ func Run() error {
 	}
 
 	// 2. Check claude-workspace in PATH
-	fmt.Println("\n[claude-workspace CLI]")
+	platform.PrintSectionLabel(os.Stdout, "claude-workspace CLI")
 	if platform.Exists("claude-workspace") {
 		pass("claude-workspace is in PATH")
 	} else {
@@ -55,7 +64,7 @@ func Run() error {
 	checkForUpdate()
 
 	// 3. Check Git
-	fmt.Println("\n[Git]")
+	platform.PrintSectionLabel(os.Stdout, "Git")
 	if ver, err := platform.Output("git", "--version"); err == nil {
 		pass(ver)
 	} else {
@@ -64,7 +73,7 @@ func Run() error {
 	}
 
 	// 4. Check Global Settings
-	fmt.Println("\n[Global Configuration]")
+	platform.PrintSectionLabel(os.Stdout, "Global Configuration")
 
 	globalSettingsPath := filepath.Join(home, ".claude", "settings.json")
 	if platform.FileExists(globalSettingsPath) {
@@ -100,7 +109,7 @@ func Run() error {
 	}
 
 	// 5. Check Project Configuration
-	fmt.Println("\n[Project Configuration]")
+	platform.PrintSectionLabel(os.Stdout, "Project Configuration")
 	cwd, _ := os.Getwd()
 
 	checks := []struct {
@@ -131,7 +140,7 @@ func Run() error {
 	}
 
 	// 6. Check Agents
-	fmt.Println("\n[Agents]")
+	platform.PrintSectionLabel(os.Stdout, "Agents")
 	agentsDir := filepath.Join(cwd, ".claude/agents")
 	if platform.FileExists(agentsDir) {
 		entries, err := os.ReadDir(agentsDir)
@@ -152,7 +161,7 @@ func Run() error {
 	}
 
 	// 7. Check Skills
-	fmt.Println("\n[Skills]")
+	platform.PrintSectionLabel(os.Stdout, "Skills")
 	skillsDir := filepath.Join(cwd, ".claude/skills")
 	if platform.FileExists(skillsDir) {
 		var skills []string
@@ -175,7 +184,7 @@ func Run() error {
 	}
 
 	// 8. Check Hooks
-	fmt.Println("\n[Hooks]")
+	platform.PrintSectionLabel(os.Stdout, "Hooks")
 	hooksDir := filepath.Join(cwd, ".claude/hooks")
 	if platform.FileExists(hooksDir) {
 		entries, err := os.ReadDir(hooksDir)
@@ -195,7 +204,7 @@ func Run() error {
 	}
 
 	// 9. Check settings.json hooks reference valid scripts
-	fmt.Println("\n[Hook Configuration]")
+	platform.PrintSectionLabel(os.Stdout, "Hook Configuration")
 	settingsPath := filepath.Join(cwd, ".claude/settings.json")
 	if platform.FileExists(settingsPath) {
 		var settings map[string]json.RawMessage
@@ -214,7 +223,7 @@ func Run() error {
 	}
 
 	// 10. Check MCP servers
-	fmt.Println("\n[MCP Servers]")
+	platform.PrintSectionLabel(os.Stdout, "MCP Servers")
 	mcpPath := filepath.Join(cwd, ".mcp.json")
 	if platform.FileExists(mcpPath) {
 		var mcpConfig struct {
@@ -238,7 +247,7 @@ func Run() error {
 	}
 
 	// 11. Check Authentication
-	fmt.Println("\n[Authentication]")
+	platform.PrintSectionLabel(os.Stdout, "Authentication")
 	if os.Getenv("ANTHROPIC_API_KEY") != "" {
 		pass("ANTHROPIC_API_KEY is set")
 	} else {
@@ -263,15 +272,15 @@ func Run() error {
 	}
 
 	// Summary
-	fmt.Println("\n=== Summary ===")
+	platform.PrintBanner(os.Stdout, "Summary")
 	if issues == 0 && warnings == 0 {
-		fmt.Println("All checks passed. Platform is healthy.")
+		fmt.Println(platform.BoldGreen("All checks passed. Platform is healthy."))
 	} else {
 		if issues > 0 {
-			fmt.Printf("Issues: %d (must fix)\n", issues)
+			fmt.Println(platform.Red(fmt.Sprintf("Issues: %d (must fix)", issues)))
 		}
 		if warnings > 0 {
-			fmt.Printf("Warnings: %d (optional)\n", warnings)
+			fmt.Println(platform.Yellow(fmt.Sprintf("Warnings: %d (optional)", warnings)))
 		}
 	}
 	fmt.Println()
@@ -301,15 +310,15 @@ func countHookCommands(hooks map[string]json.RawMessage) int {
 }
 
 func pass(msg string) {
-	fmt.Printf("  [OK] %s\n", msg)
+	platform.PrintOK(os.Stdout, msg)
 }
 
 func fail(msg string) {
-	fmt.Printf("  [FAIL] %s\n", msg)
+	platform.PrintFail(os.Stdout, msg)
 }
 
 func warn(msg string) {
-	fmt.Printf("  [WARN] %s\n", msg)
+	platform.PrintWarn(os.Stdout, msg)
 }
 
 func checkForUpdate() {
@@ -332,7 +341,7 @@ func checkForUpdate() {
 		// currentVer looks like "claude-workspace vX.Y.Z" — extract the version
 		currentVer = strings.TrimPrefix(currentVer, "claude-workspace ")
 		if currentVer != "" && currentVer != res.release.TagName {
-			fmt.Printf("  [INFO] Update available: %s → %s\n", currentVer, res.release.TagName)
+			platform.PrintInfo(os.Stdout, fmt.Sprintf("Update available: %s → %s", currentVer, res.release.TagName))
 			fmt.Println("    Run: claude-workspace upgrade")
 		}
 	case <-time.After(3 * time.Second):

@@ -2,8 +2,8 @@ package main
 
 import "embed"
 
-// PlatformFS embeds the .claude directory and .mcp.json into the binary.
-// The "all:" prefix includes dotfiles (files starting with ".").
+// PlatformFS embeds the _template directory (containing .claude and .mcp.json)
+// into the binary. The "all:" prefix includes dotfiles (files starting with ".").
 //
-//go:embed all:.claude .mcp.json
+//go:embed all:_template
 var PlatformFS embed.FS

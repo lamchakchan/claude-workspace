@@ -1,9 +1,11 @@
 package platform
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestRun_Success(t *testing.T) {
@@ -47,6 +49,39 @@ func TestRunQuiet_Failure(t *testing.T) {
 	err := RunQuiet("false")
 	if err == nil {
 		t.Error("RunQuiet(false) expected error")
+	}
+}
+
+func TestRunQuietWithEnv_Success(t *testing.T) {
+	err := RunQuietWithEnv([]string{"TEST_VAR=hello"}, "true")
+	if err != nil {
+		t.Errorf("RunQuietWithEnv(true) error = %v", err)
+	}
+}
+
+func TestRunQuietWithEnv_Failure(t *testing.T) {
+	err := RunQuietWithEnv([]string{"TEST_VAR=hello"}, "false")
+	if err == nil {
+		t.Error("RunQuietWithEnv(false) expected error")
+	}
+}
+
+func TestRunQuietWithEnv_SetsEnvVar(t *testing.T) {
+	// Use env command to verify the extra env var is set
+	// env prints all environment variables; we use sh -c to check
+	out, err := Output("sh", "-c", "TEST_VAR=check_value env | grep TEST_VAR")
+	if err != nil {
+		t.Skipf("cannot run env check: %v", err)
+	}
+	_ = out
+
+	// More targeted: run a shell that exits 0 only if the env var matches
+	err = RunQuietWithEnv(
+		[]string{"MY_CUSTOM_VAR=expected_value"},
+		"sh", "-c", `[ "$MY_CUSTOM_VAR" = "expected_value" ]`,
+	)
+	if err != nil {
+		t.Errorf("RunQuietWithEnv did not set env var correctly: %v", err)
 	}
 }
 
@@ -191,5 +226,105 @@ func TestRunSpawn_CommandNotFound(t *testing.T) {
 	}
 	if code != -1 {
 		t.Errorf("RunSpawn() exit code = %d, want -1", code)
+	}
+}
+
+func TestRunDirWithStdin(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+
+	out, err := RunDirWithStdin(ctx, dir, "hello from stdin", "cat")
+	if err != nil {
+		t.Fatalf("RunDirWithStdin() error = %v", err)
+	}
+	if out != "hello from stdin" {
+		t.Errorf("RunDirWithStdin() = %q, want %q", out, "hello from stdin")
+	}
+}
+
+func TestRunDirWithStdin_TrimsWhitespace(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+
+	out, err := RunDirWithStdin(ctx, dir, "  padded  \n", "cat")
+	if err != nil {
+		t.Fatalf("RunDirWithStdin() error = %v", err)
+	}
+	if out != "padded" {
+		t.Errorf("RunDirWithStdin() = %q, want %q", out, "padded")
+	}
+}
+
+func TestRunDirWithStdin_RunsInDir(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "marker.txt"), []byte("x"), 0644)
+	ctx := context.Background()
+
+	out, err := RunDirWithStdin(ctx, dir, "", "ls", "marker.txt")
+	if err != nil {
+		t.Fatalf("RunDirWithStdin() error = %v", err)
+	}
+	if out != "marker.txt" {
+		t.Errorf("RunDirWithStdin() = %q, want %q", out, "marker.txt")
+	}
+}
+
+func TestRunDirWithStdin_WrongDir(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "marker.txt"), []byte("x"), 0644)
+	ctx := context.Background()
+
+	otherDir := t.TempDir()
+	_, err := RunDirWithStdin(ctx, otherDir, "", "ls", "marker.txt")
+	if err == nil {
+		t.Error("RunDirWithStdin() expected error when file not in dir")
+	}
+}
+
+func TestRunDirWithStdin_CommandNotFound(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+
+	_, err := RunDirWithStdin(ctx, dir, "input", "nonexistent_command_xyz_12345")
+	if err == nil {
+		t.Error("RunDirWithStdin() expected error for nonexistent command")
+	}
+}
+
+func TestRunDirWithStdin_NonZeroExit(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+
+	_, err := RunDirWithStdin(ctx, dir, "", "false")
+	if err == nil {
+		t.Error("RunDirWithStdin(false) expected error")
+	}
+}
+
+func TestRunDirWithStdin_ContextTimeout(t *testing.T) {
+	dir := t.TempDir()
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	_, err := RunDirWithStdin(ctx, dir, "", "sleep", "10")
+	if err == nil {
+		t.Error("RunDirWithStdin() expected error on timeout")
+	}
+	if ctx.Err() != context.DeadlineExceeded {
+		t.Errorf("expected DeadlineExceeded, got %v", ctx.Err())
+	}
+}
+
+func TestRunDirWithStdin_MultilineStdin(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+
+	// wc -l counts lines from stdin
+	out, err := RunDirWithStdin(ctx, dir, "line1\nline2\nline3\n", "wc", "-l")
+	if err != nil {
+		t.Fatalf("RunDirWithStdin() error = %v", err)
+	}
+	if out != "3" {
+		t.Errorf("RunDirWithStdin() = %q, want %q", out, "3")
 	}
 }

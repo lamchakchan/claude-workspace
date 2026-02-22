@@ -38,7 +38,7 @@ func ReplaceBinary(newBinaryPath string) error {
 	if err != nil {
 		return fmt.Errorf("new binary failed --version check: %w", err)
 	}
-	fmt.Printf("  Verified new binary: %s\n", ver)
+	platform.PrintSuccess(os.Stdout, fmt.Sprintf("Verified new binary: %s", ver))
 
 	// Atomic rename
 	if err := os.Rename(tmpPath, installPath); err != nil {

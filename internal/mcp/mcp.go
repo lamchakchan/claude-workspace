@@ -41,7 +41,7 @@ type remoteConfig struct {
 }
 
 func promptSecret(prompt string) (string, error) {
-	fmt.Print(prompt)
+	platform.PrintPrompt(os.Stdout, prompt)
 	password, err := term.ReadPassword(int(syscall.Stdin))
 	fmt.Println()
 	if err != nil {
@@ -338,7 +338,7 @@ func Add(args []string) error {
 	}
 
 	if exitCode == 0 {
-		fmt.Printf("\nMCP server '%s' added successfully.\n", cfg.Name)
+		fmt.Fprintf(os.Stdout, "\n%s\n", platform.Green(fmt.Sprintf("MCP server '%s' added successfully.", cfg.Name)))
 
 		if cfg.UseOAuth {
 			fmt.Println("Next: Run '/mcp' in Claude Code to complete OAuth authentication.")
@@ -355,7 +355,7 @@ func Add(args []string) error {
 			}
 		}
 	} else {
-		fmt.Fprintf(os.Stderr, "\nFailed to add MCP server. Exit code: %d\n", exitCode)
+		fmt.Fprintf(os.Stderr, "\n%s\n", platform.Red(fmt.Sprintf("Failed to add MCP server. Exit code: %d", exitCode)))
 	}
 
 	return nil
@@ -413,12 +413,12 @@ func Remote(mcpURL string, extraArgs []string) error {
 	}
 
 	if exitCode == 0 {
-		fmt.Printf("\nRemote MCP server '%s' connected.\n", cfg.Name)
+		fmt.Fprintf(os.Stdout, "\n%s\n", platform.Green(fmt.Sprintf("Remote MCP server '%s' connected.", cfg.Name)))
 		if cfg.UseOAuth || cfg.ClientId != "" || !cfg.PromptBearer {
 			fmt.Printf("Next: Run '/mcp' in Claude Code → select '%s' → Authenticate\n", cfg.Name)
 		}
 	} else {
-		fmt.Fprintf(os.Stderr, "\nFailed to connect. Exit code: %d\n", exitCode)
+		fmt.Fprintf(os.Stderr, "\n%s\n", platform.Red(fmt.Sprintf("Failed to connect. Exit code: %d", exitCode)))
 	}
 
 	return nil
@@ -426,14 +426,14 @@ func Remote(mcpURL string, extraArgs []string) error {
 
 // List lists all configured MCP servers.
 func List() error {
-	fmt.Println("\n=== Configured MCP Servers ===")
+	platform.PrintBanner(os.Stdout, "Configured MCP Servers")
 	fmt.Println()
 
 	platform.RunSpawn("claude", "mcp", "list")
 
 	mcpJsonPath := filepath.Join(".", ".mcp.json")
 	if platform.FileExists(mcpJsonPath) {
-		fmt.Println("\n--- Project .mcp.json ---")
+		platform.PrintSection(os.Stdout, "Project .mcp.json")
 		var mcpConfig struct {
 			MCPServers map[string]json.RawMessage `json:"mcpServers"`
 		}
@@ -472,11 +472,11 @@ func List() error {
 				}
 			}
 		} else {
-			fmt.Println("  Could not parse .mcp.json")
+			fmt.Fprintf(os.Stderr, "  %s\n", platform.Red("Could not parse .mcp.json"))
 		}
 	}
 
-	fmt.Println("\n--- Quick Add Commands ---")
+	platform.PrintSection(os.Stdout, "Quick Add Commands")
 	fmt.Println("  Local server (no auth):     claude-workspace mcp add <name> -- <cmd>")
 	fmt.Println("  Local server (API key):     claude-workspace mcp add <name> --api-key API_KEY -- <cmd>")
 	fmt.Println("  Remote server (OAuth):      claude-workspace mcp remote <url>")

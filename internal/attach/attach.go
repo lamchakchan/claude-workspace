@@ -1,19 +1,21 @@
 package attach
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
 
 func Run(targetPath string, allArgs []string) error {
 	if targetPath == "" {
-		fmt.Fprintln(os.Stderr, "Usage: claude-workspace attach <project-path> [--symlink] [--force]")
+		fmt.Fprintln(os.Stderr, "Usage: claude-workspace attach <project-path> [--symlink] [--force] [--no-enrich]")
 		os.Exit(1)
 	}
 
@@ -24,12 +26,14 @@ func Run(targetPath string, allArgs []string) error {
 
 	useSymlinks := contains(allArgs, "--symlink")
 	force := contains(allArgs, "--force")
+	noEnrich := contains(allArgs, "--no-enrich")
 
 	if !platform.FileExists(projectDir) {
 		return fmt.Errorf("project directory not found: %s", projectDir)
 	}
 
-	fmt.Printf("\n=== Attaching Claude Platform to: %s ===\n\n", projectDir)
+	platform.PrintBanner(os.Stdout, fmt.Sprintf("Attaching Claude Platform to: %s", projectDir))
+	fmt.Println()
 
 	claudeDir := filepath.Join(projectDir, ".claude")
 
@@ -54,7 +58,7 @@ func Run(targetPath string, allArgs []string) error {
 	}
 
 	// Copy or symlink agents
-	fmt.Println("[1/6] Setting up agents...")
+	platform.PrintStep(os.Stdout, 1, 7, "Setting up agents...")
 	if useSymlinks {
 		copyOrLinkFromDisk(filepath.Join(assetBase, ".claude", "agents"), filepath.Join(claudeDir, "agents"), true, force, projectDir)
 	} else {
@@ -62,7 +66,7 @@ func Run(targetPath string, allArgs []string) error {
 	}
 
 	// Copy or symlink skills
-	fmt.Println("[2/6] Setting up skills...")
+	platform.PrintStep(os.Stdout, 2, 7, "Setting up skills...")
 	if useSymlinks {
 		copyOrLinkFromDisk(filepath.Join(assetBase, ".claude", "skills"), filepath.Join(claudeDir, "skills"), true, force, projectDir)
 	} else {
@@ -70,7 +74,7 @@ func Run(targetPath string, allArgs []string) error {
 	}
 
 	// Copy or symlink hooks
-	fmt.Println("[3/6] Setting up hooks...")
+	platform.PrintStep(os.Stdout, 3, 7, "Setting up hooks...")
 	if useSymlinks {
 		copyOrLinkFromDisk(filepath.Join(assetBase, ".claude", "hooks"), filepath.Join(claudeDir, "hooks"), true, force, projectDir)
 	} else {
@@ -78,28 +82,40 @@ func Run(targetPath string, allArgs []string) error {
 	}
 
 	// Create or merge settings.json
-	fmt.Println("[4/6] Setting up settings...")
+	platform.PrintStep(os.Stdout, 4, 7, "Setting up settings...")
 	setupProjectSettings(claudeDir, force)
 
 	// Create or merge .mcp.json
-	fmt.Println("[5/6] Setting up MCP configuration...")
+	platform.PrintStep(os.Stdout, 5, 7, "Setting up MCP configuration...")
 	setupMcpConfig(projectDir, force)
 
 	// Create project CLAUDE.md
-	fmt.Println("[6/6] Setting up CLAUDE.md...")
+	platform.PrintStep(os.Stdout, 6, 7, "Setting up CLAUDE.md...")
 	setupProjectClaudeMd(projectDir, claudeDir, force)
+
+	// Enrich CLAUDE.md with AI-powered project analysis
+	if !noEnrich {
+		platform.PrintStep(os.Stdout, 7, 7, "Enriching CLAUDE.md with project context...")
+		if err := enrichClaudeMd(projectDir, claudeDir); err != nil {
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Note: %v", err))
+			fmt.Println("  Using static scaffold. Edit .claude/CLAUDE.md to customize.")
+		}
+	} else {
+		platform.PrintStep(os.Stdout, 7, 7, "Skipping CLAUDE.md enrichment (--no-enrich)")
+	}
 
 	// Setup gitignore
 	setupGitignore(claudeDir)
 
-	fmt.Println("\n=== Attachment Complete ===")
-	fmt.Printf("\nPlatform attached to: %s\n", projectDir)
-	fmt.Println("\nTo start Claude Code:")
-	fmt.Printf("  cd %s\n", projectDir)
-	fmt.Println("  claude")
-	fmt.Println("\nTo customize for this project:")
-	fmt.Printf("  Edit %s for team instructions\n", filepath.Join(claudeDir, "CLAUDE.md"))
-	fmt.Println("  Copy .claude/settings.local.json.example to .claude/settings.local.json for personal overrides")
+	platform.PrintBanner(os.Stdout, "Attachment Complete")
+	fmt.Printf("\n%s %s\n", platform.Bold("Platform attached to:"), projectDir)
+
+	platform.PrintSection(os.Stdout, "Start Claude Code")
+	platform.PrintCommand(os.Stdout, fmt.Sprintf("cd %s && claude", projectDir))
+
+	platform.PrintSection(os.Stdout, "Customize for this project")
+	platform.PrintManual(os.Stdout, fmt.Sprintf("Edit %s for team instructions", filepath.Join(claudeDir, "CLAUDE.md")))
+	platform.PrintManual(os.Stdout, "Copy .claude/settings.local.json.example to .claude/settings.local.json for personal overrides")
 	fmt.Println()
 
 	return nil
@@ -125,11 +141,11 @@ func copyFromEmbed(srcDir, destDir string, force bool, projectDir string) {
 			if relFromCwd == "" {
 				relFromCwd = destFile
 			}
-			fmt.Printf("  Skipping (exists): %s\n", relFromCwd)
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Skipping (exists): %s", relFromCwd))
 			return nil
 		}
 
-		data, err := platform.FS.ReadFile(path)
+		data, err := fs.ReadFile(platform.FS, path)
 		if err != nil {
 			return err
 		}
@@ -145,19 +161,19 @@ func copyFromEmbed(srcDir, destDir string, force bool, projectDir string) {
 			return err
 		}
 
-		fmt.Printf("  Copied: %s\n", rel)
+		platform.PrintSuccess(os.Stdout, fmt.Sprintf("Copied: %s", rel))
 		return nil
 	})
 
 	if err != nil {
-		fmt.Printf("  Error: %v\n", err)
+		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error: %v", err))
 	}
 }
 
 // copyOrLinkFromDisk copies or symlinks files from a disk directory.
 func copyOrLinkFromDisk(src, dest string, symlink, force bool, projectDir string) {
 	if !platform.FileExists(src) {
-		fmt.Printf("  Skipping: %s does not exist\n", src)
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Skipping: %s does not exist", src))
 		return
 	}
 
@@ -172,7 +188,7 @@ func copyOrLinkFromDisk(src, dest string, symlink, force bool, projectDir string
 			if relFromCwd == "" {
 				relFromCwd = destFile
 			}
-			fmt.Printf("  Skipping (exists): %s\n", relFromCwd)
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Skipping (exists): %s", relFromCwd))
 			return nil
 		}
 
@@ -181,16 +197,16 @@ func copyOrLinkFromDisk(src, dest string, symlink, force bool, projectDir string
 				os.Remove(destFile)
 			}
 			if err := platform.SymlinkFile(srcFile, destFile); err != nil {
-				fmt.Printf("  Error symlinking %s: %v\n", relPath, err)
+				platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error symlinking %s: %v", relPath, err))
 				return nil
 			}
-			fmt.Printf("  Linked: %s\n", relPath)
+			platform.PrintSuccess(os.Stdout, fmt.Sprintf("Linked: %s", relPath))
 		} else {
 			if err := platform.CopyFile(srcFile, destFile); err != nil {
-				fmt.Printf("  Error copying %s: %v\n", relPath, err)
+				platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error copying %s: %v", relPath, err))
 				return nil
 			}
-			fmt.Printf("  Copied: %s\n", relPath)
+			platform.PrintSuccess(os.Stdout, fmt.Sprintf("Copied: %s", relPath))
 		}
 		return nil
 	})
@@ -200,29 +216,29 @@ func setupProjectSettings(claudeDir string, force bool) {
 	settingsPath := filepath.Join(claudeDir, "settings.json")
 
 	if platform.FileExists(settingsPath) && !force {
-		fmt.Println("  Project settings already exist. Use --force to overwrite.")
+		platform.PrintWarningLine(os.Stdout, "Project settings already exist. Use --force to overwrite.")
 		return
 	}
 
 	// Read platform settings from embedded FS
 	data, err := platform.ReadAsset(".claude/settings.json")
 	if err != nil {
-		fmt.Printf("  Error reading embedded settings: %v\n", err)
+		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error reading embedded settings: %v", err))
 		return
 	}
 
 	if err := os.WriteFile(settingsPath, data, 0644); err != nil {
-		fmt.Printf("  Error writing settings: %v\n", err)
+		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error writing settings: %v", err))
 		return
 	}
-	fmt.Println("  Created .claude/settings.json")
+	platform.PrintSuccess(os.Stdout, "Created .claude/settings.json")
 
 	// Copy the local settings example
 	if exampleData, err := platform.ReadAsset(".claude/settings.local.json.example"); err == nil {
 		destExample := filepath.Join(claudeDir, "settings.local.json.example")
 		if !platform.FileExists(destExample) || force {
 			os.WriteFile(destExample, exampleData, 0644)
-			fmt.Println("  Created .claude/settings.local.json.example")
+			platform.PrintSuccess(os.Stdout, "Created .claude/settings.local.json.example")
 		}
 	}
 }
@@ -231,28 +247,28 @@ func setupMcpConfig(projectDir string, force bool) {
 	mcpPath := filepath.Join(projectDir, ".mcp.json")
 
 	if platform.FileExists(mcpPath) && !force {
-		fmt.Println("  MCP config already exists. Use --force to overwrite.")
+		platform.PrintWarningLine(os.Stdout, "MCP config already exists. Use --force to overwrite.")
 		return
 	}
 
 	data, err := platform.ReadAsset(".mcp.json")
 	if err != nil {
-		fmt.Printf("  Error reading embedded .mcp.json: %v\n", err)
+		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error reading embedded .mcp.json: %v", err))
 		return
 	}
 
 	if err := os.WriteFile(mcpPath, data, 0644); err != nil {
-		fmt.Printf("  Error writing .mcp.json: %v\n", err)
+		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error writing .mcp.json: %v", err))
 		return
 	}
-	fmt.Println("  Created .mcp.json")
+	platform.PrintSuccess(os.Stdout, "Created .mcp.json")
 }
 
 func setupProjectClaudeMd(projectDir, claudeDir string, force bool) {
 	claudeMdPath := filepath.Join(claudeDir, "CLAUDE.md")
 
 	if platform.FileExists(claudeMdPath) && !force {
-		fmt.Println("  Project CLAUDE.md already exists. Use --force to overwrite.")
+		platform.PrintWarningLine(os.Stdout, "Project CLAUDE.md already exists. Use --force to overwrite.")
 		return
 	}
 
@@ -328,17 +344,17 @@ func setupProjectClaudeMd(projectDir, claudeDir string, force bool) {
 `)
 
 	if err := os.WriteFile(claudeMdPath, []byte(sb.String()), 0644); err != nil {
-		fmt.Printf("  Error writing CLAUDE.md: %v\n", err)
+		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error writing CLAUDE.md: %v", err))
 		return
 	}
-	fmt.Println("  Created .claude/CLAUDE.md (customize for your project)")
+	platform.PrintSuccess(os.Stdout, "Created .claude/CLAUDE.md (customize for your project)")
 
 	// Copy local example
 	if exampleData, err := platform.ReadAsset(".claude/CLAUDE.local.md.example"); err == nil {
 		destExample := filepath.Join(claudeDir, "CLAUDE.local.md.example")
 		if !platform.FileExists(destExample) || force {
 			os.WriteFile(destExample, exampleData, 0644)
-			fmt.Println("  Created .claude/CLAUDE.local.md.example")
+			platform.PrintSuccess(os.Stdout, "Created .claude/CLAUDE.local.md.example")
 		}
 	}
 }
@@ -415,7 +431,83 @@ agent-memory-local/
 `
 
 	os.WriteFile(gitignorePath, []byte(content), 0644)
-	fmt.Println("  Created .claude/.gitignore")
+	platform.PrintSuccess(os.Stdout, "Created .claude/.gitignore")
+}
+
+func enrichClaudeMd(projectDir, claudeDir string) error {
+	if !platform.Exists("claude") {
+		return fmt.Errorf("claude CLI not found. Install with `claude-workspace setup`")
+	}
+
+	claudeMdPath := filepath.Join(claudeDir, "CLAUDE.md")
+	prompt := buildEnrichmentPrompt(projectDir, claudeMdPath)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	sp := platform.StartSpinner(os.Stdout, "Analyzing project with Claude...")
+	output, err := platform.RunDirWithStdin(ctx, projectDir, prompt, "claude", "-p", "--model", "sonnet")
+	sp.Stop()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("enrichment timed out after 90s")
+		}
+		return fmt.Errorf("claude enrichment failed (check API key with `claude-workspace setup`)")
+	}
+
+	if len(output) == 0 || !strings.HasPrefix(output, "#") {
+		return fmt.Errorf("enrichment produced no output")
+	}
+
+	if err := os.WriteFile(claudeMdPath, []byte(output+"\n"), 0644); err != nil {
+		return fmt.Errorf("writing enriched CLAUDE.md: %w", err)
+	}
+
+	platform.PrintSuccess(os.Stdout, "Enriched .claude/CLAUDE.md with project context")
+	return nil
+}
+
+func buildEnrichmentPrompt(projectDir, claudeMdPath string) string {
+	return fmt.Sprintf(`You are analyzing a software project to generate a CLAUDE.md file with real project context.
+
+The project is located at: %s
+There is an existing scaffold at: %s
+
+Your task:
+1. Read the existing scaffold at the path above
+2. Explore the project: README, dependency files, directory layout, config files, and source files
+3. Output ONLY raw markdown (no code fences, no explanations, no preamble) following this exact structure:
+
+# Project Instructions
+
+## Project
+Name: <project name>
+Purpose: <one-line description from README or package metadata>
+Tech Stack: <detected languages/frameworks>
+Build: `+"`<build command>`"+`
+Test: `+"`<test command>`"+`
+Lint: `+"`<lint command if found>`"+`
+
+## Key Directories
+- <dir>/ - <description>
+(list actual directories found in the project)
+
+## Conventions
+- <convention discovered from code>
+(e.g., naming patterns, file organization, import style, error handling patterns)
+
+## Important Files
+- <file path> - <why it matters>
+(list 5-10 files a new developer should read first)
+
+## Important Notes
+- <project-specific gotcha or important detail>
+
+Rules:
+- Only include information you can verify from the project files
+- Do not hallucinate or guess — if unsure, omit the section content
+- Keep the total output under 150 lines
+- Output raw markdown only — no wrapping code fences, no commentary`, projectDir, claudeMdPath)
 }
 
 func contains(slice []string, item string) bool {

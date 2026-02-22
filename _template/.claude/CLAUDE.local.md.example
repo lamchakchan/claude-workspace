@@ -1,0 +1,33 @@
+# Personal Project Instructions (Local - Not Committed)
+
+Copy this file to `.claude/CLAUDE.local.md` and customize for your personal preferences.
+
+## Personal Context
+
+<!-- Add your personal context here -->
+Name: [Your Name]
+Role: [Your Role]
+Focus Areas: [What you typically work on]
+
+## Personal Preferences
+
+- Preferred language for responses: English
+- Level of explanation detail: [brief/moderate/detailed]
+- Preferred testing approach: [TDD/test-after/manual]
+
+## Local Environment
+
+- OS: [macOS/Linux/Windows WSL]
+- Shell: [bash/zsh/fish]
+- Editor: [vscode/vim/etc]
+- Node version: [version]
+- Python version: [version]
+
+## Personal MCP Servers
+
+<!-- List any personal MCP servers you use -->
+<!-- These should be added via: claude mcp add --scope local -->
+
+## Notes
+
+<!-- Personal notes, reminders, or context for Claude -->

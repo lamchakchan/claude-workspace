@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/lamchakchan/claude-workspace/internal/attach"
@@ -25,11 +27,14 @@ Usage:
 Commands:
   setup                          First-time setup & API key provisioning
   attach <project-path>          Attach platform config to a project
+    [--symlink]                  Use symlinks instead of copying assets
+    [--force]                    Overwrite existing files
+    [--no-enrich]                Skip AI-powered CLAUDE.md enrichment
   sandbox <project-path> <name>  Create a sandboxed branch worktree
   mcp add <name> [options]       Add an MCP server (local or remote)
   mcp remote <url>               Connect to a remote MCP server/gateway
   mcp list                       List all configured MCP servers
-  upgrade                        Upgrade to the latest version
+  upgrade [--self-only|--cli-only]  Upgrade claude-workspace and Claude Code CLI
   doctor                         Check platform configuration health
 
 Options:
@@ -54,8 +59,14 @@ Examples:
 `
 
 func main() {
-	// Wire embedded assets to the platform package
-	platform.FS = PlatformFS
+	// Wire embedded assets to the platform package, stripping the _template prefix
+	sub, err := fs.Sub(PlatformFS, "_template")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing embedded assets: %v\n", err)
+		os.Exit(1)
+	}
+	platform.FS = sub
+	platform.InitColor()
 
 	args := os.Args[1:]
 
@@ -132,6 +143,9 @@ func main() {
 		}
 	case "upgrade":
 		if err := upgrade.Run(version, args[1:]); err != nil {
+			if errors.Is(err, upgrade.ErrUpdateAvailable) {
+				os.Exit(1)
+			}
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

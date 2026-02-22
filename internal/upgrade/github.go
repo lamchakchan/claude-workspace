@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
 
 // ReleasesURL is the GitHub API endpoint for fetching the latest release.
@@ -129,7 +131,7 @@ func VerifyChecksum(release *Release, filePath, assetName string) error {
 		}
 	}
 	if checksumAsset == nil {
-		fmt.Println("  No checksums.txt found in release, skipping verification.")
+		platform.PrintWarningLine(os.Stdout, "No checksums.txt found in release, skipping verification.")
 		return nil
 	}
 
@@ -176,6 +178,6 @@ func VerifyChecksum(release *Release, filePath, assetName string) error {
 		return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedHash, actualHash)
 	}
 
-	fmt.Println("  Checksum verified.")
+	platform.PrintSuccess(os.Stdout, "Checksum verified.")
 	return nil
 }
