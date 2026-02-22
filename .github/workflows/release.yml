@@ -61,7 +61,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.24"
 
       - name: Run tests
         run: go test ./... -v 2>&1 | tee /tmp/test-output.txt
