@@ -1,8 +1,11 @@
 package setup
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -15,7 +18,7 @@ func TestMergeSettings_EmptyExisting(t *testing.T) {
 	}
 	existing := map[string]interface{}{}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	env := merged["env"].(map[string]interface{})
 	if env["KEY1"] != "val1" {
@@ -39,7 +42,7 @@ func TestMergeSettings_ExistingEnvTakesPrecedence(t *testing.T) {
 		},
 	}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	env := merged["env"].(map[string]interface{})
 	if env["KEY1"] != "custom" {
@@ -62,7 +65,7 @@ func TestMergeSettings_DenyListUnion(t *testing.T) {
 		},
 	}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	perms := merged["permissions"].(map[string]interface{})
 	deny := perms["deny"].([]string)
@@ -89,7 +92,7 @@ func TestMergeSettings_DenyListFromJSON(t *testing.T) {
 		},
 	}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	perms := merged["permissions"].(map[string]interface{})
 	deny := perms["deny"].([]string)
@@ -111,7 +114,7 @@ func TestMergeSettings_NoDenyInExisting(t *testing.T) {
 	}
 	existing := map[string]interface{}{}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	perms := merged["permissions"].(map[string]interface{})
 	deny := perms["deny"].([]string)
@@ -130,7 +133,7 @@ func TestMergeSettings_BoolFlagsNotOverwritten(t *testing.T) {
 		"alwaysThinkingEnabled": false,
 	}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	if merged["alwaysThinkingEnabled"] != false {
 		t.Errorf("should not overwrite existing alwaysThinkingEnabled: got %v", merged["alwaysThinkingEnabled"])
@@ -146,7 +149,7 @@ func TestMergeSettings_PreservesExtraKeys(t *testing.T) {
 		"customKey": "customValue",
 	}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	if merged["customKey"] != "customValue" {
 		t.Errorf("should preserve extra keys from existing: got %v", merged["customKey"])
@@ -166,7 +169,7 @@ func TestMergeSettings_PreservesExtraPermissions(t *testing.T) {
 		},
 	}
 
-	merged := mergeSettings(existing, defaults)
+	merged := MergeSettings(existing, defaults)
 
 	perms := merged["permissions"].(map[string]interface{})
 	if allow, ok := perms["allow"]; !ok {
@@ -180,7 +183,7 @@ func TestMergeSettings_PreservesExtraPermissions(t *testing.T) {
 }
 
 func TestGetDefaultGlobalSettings(t *testing.T) {
-	settings := getDefaultGlobalSettings()
+	settings := GetDefaultGlobalSettings()
 
 	// Verify env keys exist
 	env, ok := settings["env"].(map[string]interface{})
@@ -219,6 +222,147 @@ func TestGetDefaultGlobalSettings(t *testing.T) {
 	}
 	if settings["showTurnDuration"] != true {
 		t.Error("showTurnDuration should be true")
+	}
+}
+
+func TestDetectShellRC_ZshFromEnv(t *testing.T) {
+	t.Setenv("SHELL", "/bin/zsh")
+	home := t.TempDir()
+
+	rcPath, shellName := detectShellRC(home)
+
+	if shellName != "zsh" {
+		t.Errorf("expected shellName=zsh, got %s", shellName)
+	}
+	if filepath.Base(rcPath) != ".zshrc" {
+		t.Errorf("expected .zshrc, got %s", rcPath)
+	}
+}
+
+func TestDetectShellRC_BashFromEnv(t *testing.T) {
+	t.Setenv("SHELL", "/usr/bin/bash")
+	home := t.TempDir()
+
+	rcPath, shellName := detectShellRC(home)
+
+	if shellName != "bash" {
+		t.Errorf("expected shellName=bash, got %s", shellName)
+	}
+	if filepath.Base(rcPath) != ".bashrc" {
+		t.Errorf("expected .bashrc, got %s", rcPath)
+	}
+}
+
+func TestDetectShellRC_FishFromEnv(t *testing.T) {
+	t.Setenv("SHELL", "/usr/bin/fish")
+	home := t.TempDir()
+
+	rcPath, shellName := detectShellRC(home)
+
+	if shellName != "fish" {
+		t.Errorf("expected shellName=fish, got %s", shellName)
+	}
+	if !strings.HasSuffix(rcPath, filepath.Join(".config", "fish", "config.fish")) {
+		t.Errorf("expected config.fish path, got %s", rcPath)
+	}
+}
+
+func TestDetectShellRC_FallbackFileExists(t *testing.T) {
+	t.Setenv("SHELL", "")
+	home := t.TempDir()
+
+	// Create .zshrc so file-existence fallback triggers
+	os.WriteFile(filepath.Join(home, ".zshrc"), []byte(""), 0644)
+
+	rcPath, shellName := detectShellRC(home)
+
+	if shellName != "zsh" {
+		t.Errorf("expected shellName=zsh from fallback, got %s", shellName)
+	}
+	if filepath.Base(rcPath) != ".zshrc" {
+		t.Errorf("expected .zshrc, got %s", rcPath)
+	}
+}
+
+func TestDetectShellRC_FallbackDefault(t *testing.T) {
+	t.Setenv("SHELL", "")
+	home := t.TempDir()
+
+	rcPath, shellName := detectShellRC(home)
+
+	if shellName != "bash" {
+		t.Errorf("expected shellName=bash as default, got %s", shellName)
+	}
+	if filepath.Base(rcPath) != ".bashrc" {
+		t.Errorf("expected .bashrc, got %s", rcPath)
+	}
+}
+
+func TestAppendPathToRC_AddsWhenAbsent(t *testing.T) {
+	home := t.TempDir()
+	rcPath := filepath.Join(home, ".bashrc")
+	os.WriteFile(rcPath, []byte("# existing content\n"), 0644)
+
+	modified, err := appendPathToRC(home, "bash", rcPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !modified {
+		t.Error("expected modified=true")
+	}
+
+	content, _ := os.ReadFile(rcPath)
+	if !strings.Contains(string(content), ".local/bin") {
+		t.Error("expected .local/bin in RC file content")
+	}
+	if !strings.Contains(string(content), "# Added by claude-workspace setup") {
+		t.Error("expected comment marker in RC file content")
+	}
+	// Verify original content preserved
+	if !strings.Contains(string(content), "# existing content") {
+		t.Error("expected original content to be preserved")
+	}
+}
+
+func TestAppendPathToRC_Idempotent(t *testing.T) {
+	home := t.TempDir()
+	rcPath := filepath.Join(home, ".bashrc")
+	os.WriteFile(rcPath, []byte("export PATH=\"$HOME/.local/bin:$PATH\"\n"), 0644)
+
+	modified, err := appendPathToRC(home, "bash", rcPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if modified {
+		t.Error("expected modified=false when .local/bin already present")
+	}
+
+	content, _ := os.ReadFile(rcPath)
+	count := strings.Count(string(content), ".local/bin")
+	if count != 1 {
+		t.Errorf("expected 1 occurrence of .local/bin, got %d", count)
+	}
+}
+
+func TestAppendPathToRC_CreatesFile(t *testing.T) {
+	home := t.TempDir()
+	rcPath := filepath.Join(home, ".bashrc")
+	// Don't create the file — appendPathToRC should create it
+
+	modified, err := appendPathToRC(home, "bash", rcPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !modified {
+		t.Error("expected modified=true for new file")
+	}
+
+	content, err := os.ReadFile(rcPath)
+	if err != nil {
+		t.Fatalf("expected file to exist: %v", err)
+	}
+	if !strings.Contains(string(content), ".local/bin") {
+		t.Error("expected .local/bin in newly created RC file")
 	}
 }
 

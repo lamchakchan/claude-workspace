@@ -6,8 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
+	"github.com/lamchakchan/claude-workspace/internal/upgrade"
 )
 
 func Run() error {
@@ -48,6 +50,9 @@ func Run() error {
 		fmt.Println("    Run: claude-workspace setup")
 		warnings++
 	}
+
+	// Soft update check (3s timeout, skip on failure)
+	checkForUpdate()
 
 	// 3. Check Git
 	fmt.Println("\n[Git]")
@@ -305,4 +310,32 @@ func fail(msg string) {
 
 func warn(msg string) {
 	fmt.Printf("  [WARN] %s\n", msg)
+}
+
+func checkForUpdate() {
+	type result struct {
+		release *upgrade.Release
+		err     error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		r, err := upgrade.FetchLatest()
+		ch <- result{r, err}
+	}()
+
+	select {
+	case res := <-ch:
+		if res.err != nil {
+			return // silently skip on failure
+		}
+		currentVer, _ := platform.Output("claude-workspace", "--version")
+		// currentVer looks like "claude-workspace vX.Y.Z" — extract the version
+		currentVer = strings.TrimPrefix(currentVer, "claude-workspace ")
+		if currentVer != "" && currentVer != res.release.TagName {
+			fmt.Printf("  [INFO] Update available: %s → %s\n", currentVer, res.release.TagName)
+			fmt.Println("    Run: claude-workspace upgrade")
+		}
+	case <-time.After(3 * time.Second):
+		return // timeout, skip silently
+	}
 }

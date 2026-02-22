@@ -115,6 +115,15 @@ git clone --branch v1.0.0 <platform-repo> ~/claude-workspace
 | `smoke-test-fast` | `make smoke-test-fast` | Smoke test with stubbed Claude CLI (~1-2 min) |
 | `smoke-test-docker` | `make smoke-test-docker` | Full smoke test using Docker (no VM required) |
 | `smoke-test-docker-fast` | `make smoke-test-docker-fast` | Docker smoke test with stubbed Claude CLI (used in CI) |
+| `check` | `make check` | Pre-push validation: vet + test + build |
+| `dev-docker` | `make dev-docker` | Create persistent Docker dev environment |
+| `dev-vm` | `make dev-vm` | Create persistent Multipass VM dev environment |
+| `deploy-docker` | `make deploy-docker` | Fast deploy binary to Docker dev env (~10s) |
+| `deploy-vm` | `make deploy-vm` | Fast deploy binary to Multipass VM dev env (~10s) |
+| `shell-docker` | `make shell-docker` | Open shell in Docker dev environment |
+| `shell-vm` | `make shell-vm` | Open shell in Multipass VM dev environment |
+| `destroy-docker` | `make destroy-docker` | Remove Docker dev environment |
+| `destroy-vm` | `make destroy-vm` | Remove Multipass VM dev environment |
 
 ### Typical Development Cycle
 
@@ -126,6 +135,40 @@ make smoke-test-fast   # end-to-end via Multipass (fast mode)
 # or
 make smoke-test-docker-fast  # end-to-end via Docker (no VM needed)
 ```
+
+### Rapid Iteration Workflow
+
+For faster edit-compile-test cycles (~10 seconds per iteration instead of ~2-3 minutes), use a persistent dev environment instead of recreating a container each time.
+
+**One-time setup:**
+
+```bash
+make dev-docker       # or: make dev-vm
+```
+
+This creates a persistent Docker container (or Multipass VM) named `claude-workspace-dev`, cross-compiles the binary, provisions the environment with prerequisites, and pre-seeds configuration. Takes ~2-3 minutes on first run.
+
+**Inner loop (the fast part):**
+
+```bash
+make deploy-docker                        # cross-compile + copy binary (~10s)
+bash scripts/dev-env.sh test --docker     # deploy + run all assertion phases
+```
+
+`deploy` only recompiles and copies the binary — it skips provisioning entirely. The `test` subcommand deploys, wipes test state (`~/.claude/` and `~/test-project/`), then runs the same assertion phases as the smoke test (setup, attach, doctor, upgrade --check).
+
+**All dev-env.sh subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `create` | Create and provision a new dev environment |
+| `deploy` | Cross-compile and copy binary to existing env (~10s) |
+| `shell` | Open interactive bash shell inside the env |
+| `test` | Deploy + wipe test state + run assertion phases |
+| `destroy` | Remove the dev environment |
+| `status` | Show whether the env exists and its state |
+
+**Dev environment vs smoke test:** The dev environment (`claude-workspace-dev`) is completely separate from the smoke test container (`claude-workspace-smoke`). They use different names, different lifecycle semantics (persistent vs ephemeral), and can coexist without conflict. The smoke test remains the CI/pre-merge gate; the dev environment is for rapid local iteration.
 
 ### Smoke Tests
 
@@ -163,6 +206,25 @@ sudo apt update && sudo apt install multipass
 ```bash
 make build-all
 # Produces: claude-workspace-{darwin,linux}-{arm64,amd64}
+```
+
+### Developer Quick Reference
+
+| Goal | Command |
+|------|---------|
+| Validate before pushing | `make check` |
+| First-time dev environment | `make dev-docker` |
+| Deploy code change | `make deploy-docker` |
+| Run assertions | `bash scripts/dev-env.sh test --docker` |
+| Open shell | `make shell-docker` |
+| Destroy dev env | `make destroy-docker` |
+| Full CI smoke test | `make smoke-test-docker-fast` |
+
+**Typical inner loop:**
+
+```bash
+# edit code...
+make deploy-docker && bash scripts/dev-env.sh test --docker
 ```
 
 ---

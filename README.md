@@ -66,5 +66,6 @@ claude-workspace doctor
 | Guide | Contents |
 |-------|----------|
 | [Getting Started](docs/GETTING-STARTED.md) | Installation, setup, first session, subagents, skills, MCP servers, parallel dev, configuration reference, environment variables |
+| [CLI Reference](docs/CLI.md) | Every command, flag, and option with examples |
 | [Architecture](docs/ARCHITECTURE.md) | Design philosophy, prompt layering, hook system, model strategy, sandboxing |
 | [Runbook](docs/RUNBOOK.md) | Maintenance, troubleshooting, onboarding, security, rollback procedures |
