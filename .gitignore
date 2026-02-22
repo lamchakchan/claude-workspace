@@ -30,4 +30,5 @@ Thumbs.db
 
 # Go build output
 claude-workspace
+bin/
 dist/
