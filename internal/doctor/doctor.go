@@ -22,7 +22,7 @@ func Run() error {
 		pass("Installed: " + ver)
 	} else {
 		fail("Claude Code CLI not found")
-		fmt.Println("    Install: npm install -g @anthropic-ai/claude-code")
+		fmt.Println("    Install: curl -fsSL https://claude.ai/install.sh | bash")
 		issues++
 	}
 

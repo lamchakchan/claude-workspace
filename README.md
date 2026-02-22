@@ -50,7 +50,7 @@ claude-platform/
 
 ### Prerequisites
 
-- **Node.js 18+** and **npm** (for Claude Code CLI)
+- **Node.js 18+** and **npm** (for MCP servers; optional)
 - **Git** (for version control and worktree sandboxing)
 
 ### Install

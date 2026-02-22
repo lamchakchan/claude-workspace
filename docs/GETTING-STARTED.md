@@ -24,7 +24,7 @@ This guide walks you through setting up the platform, attaching it to your first
 ## 1. Prerequisites
 
 You need:
-- **Node.js 18+** and **npm** — for Claude Code CLI and MCP servers
+- **Node.js 18+** and **npm** — for MCP servers (optional)
 - **Git** — for version control and worktree sandboxing
 
 The setup wizard checks for these and will guide you if anything is missing. It also checks for optional tools like shellcheck, jq, prettier, and tmux.

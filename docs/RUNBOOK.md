@@ -8,17 +8,18 @@ Procedures for maintaining the Claude Code Platform, troubleshooting issues, and
 
 1. [Routine Maintenance](#1-routine-maintenance)
 2. [Updating the Platform](#2-updating-the-platform)
-3. [Updating Claude Code CLI](#3-updating-claude-code-cli)
-4. [Managing API Keys](#4-managing-api-keys)
-5. [Managing MCP Servers](#5-managing-mcp-servers)
-6. [Managing Hooks](#6-managing-hooks)
-7. [Managing Agents and Skills](#7-managing-agents-and-skills)
-8. [Troubleshooting](#8-troubleshooting)
-9. [Rollback Procedures](#9-rollback-procedures)
-10. [Onboarding New Team Members](#10-onboarding-new-team-members)
-11. [Offboarding](#11-offboarding)
-12. [Security Incident Response](#12-security-incident-response)
-13. [Monitoring and Observability](#13-monitoring-and-observability)
+3. [Development Workflow](#3-development-workflow)
+4. [Updating Claude Code CLI](#4-updating-claude-code-cli)
+5. [Managing API Keys](#5-managing-api-keys)
+6. [Managing MCP Servers](#6-managing-mcp-servers)
+7. [Managing Hooks](#7-managing-hooks)
+8. [Managing Agents and Skills](#8-managing-agents-and-skills)
+9. [Troubleshooting](#9-troubleshooting)
+10. [Rollback Procedures](#10-rollback-procedures)
+11. [Onboarding New Team Members](#11-onboarding-new-team-members)
+12. [Offboarding](#12-offboarding)
+13. [Security Incident Response](#13-security-incident-response)
+14. [Monitoring and Observability](#14-monitoring-and-observability)
 
 ---
 
@@ -37,7 +38,7 @@ Procedures for maintaining the Claude Code Platform, troubleshooting issues, and
 
 | Task | Command | Purpose |
 |------|---------|---------|
-| Update Claude Code CLI | `npm update -g @anthropic-ai/claude-code` | Get latest features/fixes |
+| Update Claude Code CLI | `curl -fsSL https://claude.ai/install.sh \| bash` | Get latest features/fixes |
 | Update MCP servers | `npm update` in project | Update MCP dependencies |
 | Review permission rules | Read `.claude/settings.json` | Adjust as needed |
 | Review CLAUDE.md files | Read all CLAUDE.md layers | Keep context current |
@@ -96,7 +97,53 @@ git clone --branch v1.0.0 <platform-repo> ~/claude-platform
 
 ---
 
-## 3. Updating Claude Code CLI
+## 3. Development Workflow
+
+### Makefile Targets
+
+| Target | Command | Purpose |
+|--------|---------|---------|
+| `build` | `make build` | Compile the binary for the current platform |
+| `install` | `make install` | Build and copy to `/usr/local/bin` (requires sudo) |
+| `test` | `make test` | Run `go test ./...` |
+| `vet` | `make vet` | Run `go vet ./...` for static analysis |
+| `clean` | `make clean` | Remove compiled binaries |
+| `build-all` | `make build-all` | Cross-compile for darwin/linux × amd64/arm64 |
+| `smoke-test` | `make smoke-test` | Full end-to-end smoke test in a Multipass VM |
+| `smoke-test-keep` | `make smoke-test-keep` | Smoke test, keep VM for debugging |
+| `smoke-test-fast` | `make smoke-test-fast` | Smoke test with stubbed Claude CLI (~1-2 min) |
+
+### Typical Development Cycle
+
+```bash
+make vet          # static analysis
+make test         # unit tests
+make build        # compile
+make smoke-test-fast  # end-to-end (fast mode)
+```
+
+### Smoke Tests
+
+The smoke test (`scripts/smoke-test.sh`) uses [Multipass](https://multipass.run) to launch a fresh Ubuntu 24.04 VM and exercises `setup` → `attach` → `doctor` end-to-end.
+
+**Prerequisites:** `brew install multipass`
+
+**Flags:**
+- `--keep` — preserve VM after test for manual inspection (`multipass shell claude-platform-smoke`)
+- `--reuse` — reuse an existing VM instead of recreating
+- `--skip-claude-cli` — stub the `claude` binary (faster, no network required)
+- `--name <vm>` — override VM name (default: `claude-platform-smoke`)
+
+### Cross-Compiling for Release
+
+```bash
+make build-all
+# Produces: claude-platform-{darwin,linux}-{arm64,amd64}
+```
+
+---
+
+## 4. Updating Claude Code CLI
 
 ### Check Current Version
 
@@ -107,8 +154,8 @@ claude --version
 ### Update
 
 ```bash
-# Via npm (native install)
-npm update -g @anthropic-ai/claude-code
+# Via official installer
+curl -fsSL https://claude.ai/install.sh | bash
 ```
 
 ### Breaking Changes
@@ -127,7 +174,7 @@ After updating, always:
 
 ---
 
-## 4. Managing API Keys
+## 5. Managing API Keys
 
 ### Self-Provisioning (Option 2)
 
@@ -171,7 +218,7 @@ The script should output the API key to stdout. Claude Code calls it before each
 
 ---
 
-## 5. Managing MCP Servers
+## 6. Managing MCP Servers
 
 ### List All Servers
 
@@ -266,7 +313,7 @@ Edit `.mcp.json` directly:
 
 ---
 
-## 6. Managing Hooks
+## 7. Managing Hooks
 
 ### View Active Hooks
 
@@ -351,7 +398,7 @@ exit 0  # allow, or exit 2 to block
 
 ---
 
-## 7. Managing Agents and Skills
+## 8. Managing Agents and Skills
 
 ### List Available Agents
 
@@ -406,7 +453,7 @@ ls .claude/skills/*/SKILL.md
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 ### "Claude Code not found"
 
@@ -415,7 +462,7 @@ ls .claude/skills/*/SKILL.md
 which claude
 
 # Install
-npm install -g @anthropic-ai/claude-code
+curl -fsSL https://claude.ai/install.sh | bash
 ```
 
 ### "API key invalid" or "Authentication failed"
@@ -541,7 +588,7 @@ git worktree prune
 
 ---
 
-## 9. Rollback Procedures
+## 10. Rollback Procedures
 
 ### Rollback Platform Config in a Project
 
@@ -558,8 +605,8 @@ git checkout v1.0.0
 ### Rollback Claude Code CLI
 
 ```bash
-# Install specific version
-npm install -g @anthropic-ai/claude-code@2.0.0
+# Reinstall via official installer (version pinning may not be supported)
+curl -fsSL https://claude.ai/install.sh | bash
 ```
 
 ### Rollback Settings
@@ -586,12 +633,11 @@ This instantly disables all hooks while preserving the configuration. Remove whe
 
 ---
 
-## 10. Onboarding New Team Members
+## 11. Onboarding New Team Members
 
 ### Checklist
 
 1. **Prerequisites**
-   - [ ] Node.js 18+ and npm installed
    - [ ] Git configured (name, email, SSH key)
    - [ ] Access to Anthropic Console (for API key) or org API key
 
@@ -647,7 +693,7 @@ echo "  cd $PROJECT && claude"
 
 ---
 
-## 11. Offboarding
+## 12. Offboarding
 
 ### Remove Platform from a Project
 
@@ -684,7 +730,7 @@ rm ~/.claude.json
 
 ---
 
-## 12. Security Incident Response
+## 13. Security Incident Response
 
 ### If a Secret Was Committed
 
@@ -731,7 +777,7 @@ claude mcp remove <name>
 
 ---
 
-## 13. Monitoring and Observability
+## 14. Monitoring and Observability
 
 ### OpenTelemetry
 
