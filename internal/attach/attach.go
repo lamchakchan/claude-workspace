@@ -129,7 +129,7 @@ func copyFromEmbed(srcDir, destDir string, force bool, projectDir string) {
 			return nil
 		}
 
-		data, err := platform.FS.ReadFile(path)
+		data, err := fs.ReadFile(platform.FS, path)
 		if err != nil {
 			return err
 		}

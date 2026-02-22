@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/lamchakchan/claude-workspace/internal/attach"
@@ -55,8 +56,13 @@ Examples:
 `
 
 func main() {
-	// Wire embedded assets to the platform package
-	platform.FS = PlatformFS
+	// Wire embedded assets to the platform package, stripping the _template prefix
+	sub, err := fs.Sub(PlatformFS, "_template")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing embedded assets: %v\n", err)
+		os.Exit(1)
+	}
+	platform.FS = sub
 
 	args := os.Args[1:]
 

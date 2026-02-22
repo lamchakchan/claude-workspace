@@ -1,0 +1,9 @@
+# Personal local settings (not shared)
+settings.local.json
+CLAUDE.local.md
+
+# Agent memory (personal)
+agent-memory-local/
+
+# Example files are tracked
+!*.example
