@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
@@ -74,12 +75,37 @@ func Run() error {
 
 func installClaude() error {
 	fmt.Println("  Installing Claude Code via official installer...")
-	if err := platform.RunQuiet("bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"); err != nil {
+	if err := platform.Run("bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"); err != nil {
 		fmt.Fprintln(os.Stderr, "  Failed to install Claude Code automatically.")
 		fmt.Println("  Please install manually: curl -fsSL https://claude.ai/install.sh | bash")
 		fmt.Println("  Or visit: https://docs.anthropic.com/en/docs/claude-code")
 		os.Exit(1)
 	}
+
+	// The installer places claude in ~/.local/bin which may not be in PATH.
+	// Add it to PATH for the current process so subsequent steps can find it.
+	home, _ := os.UserHomeDir()
+	localBin := filepath.Join(home, ".local", "bin")
+	if platform.FileExists(filepath.Join(localBin, "claude")) {
+		os.Setenv("PATH", localBin+":"+os.Getenv("PATH"))
+
+		// Also persist to shell profile so it's available in future sessions
+		shellRC := filepath.Join(home, ".bashrc")
+		if _, err := os.Stat(filepath.Join(home, ".zshrc")); err == nil {
+			shellRC = filepath.Join(home, ".zshrc")
+		}
+		pathLine := fmt.Sprintf("\nexport PATH=\"$HOME/.local/bin:$PATH\"\n")
+		if content, err := os.ReadFile(shellRC); err == nil {
+			if !strings.Contains(string(content), ".local/bin") {
+				os.WriteFile(shellRC, append(content, []byte(pathLine)...), 0644)
+				fmt.Printf("  Added ~/.local/bin to PATH in %s\n", filepath.Base(shellRC))
+			}
+		} else {
+			os.WriteFile(shellRC, []byte(pathLine), 0644)
+			fmt.Printf("  Added ~/.local/bin to PATH in %s\n", filepath.Base(shellRC))
+		}
+	}
+
 	fmt.Println("  Claude Code installed successfully.")
 	return nil
 }

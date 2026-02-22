@@ -9,6 +9,7 @@ on:
       - '.claude/**'
       - '.mcp.json'
       - 'Makefile'
+      - 'scripts/**'
       - '.github/workflows/ci.yml'
       - '.goreleaser.yaml'
   pull_request:
@@ -19,6 +20,7 @@ on:
       - '.claude/**'
       - '.mcp.json'
       - 'Makefile'
+      - 'scripts/**'
       - '.github/workflows/ci.yml'
       - '.goreleaser.yaml'
 
@@ -41,7 +43,15 @@ jobs:
         run: go vet ./...
 
       - name: Test
-        run: go test ./...
+        run: go test ./... -v 2>&1 | tee /tmp/test-output.txt
+
+      - name: Job Summary
+        if: always()
+        run: |
+          echo '## Build (`${{ matrix.os }}`)' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -20 /tmp/test-output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build
         run: go build -o claude-workspace .
@@ -75,9 +85,30 @@ jobs:
           CGO_ENABLED: "0"
         run: go build -o /dev/null .
 
+      - name: Job Summary
+        if: always()
+        run: |
+          echo "## Cross-compile \`${{ matrix.goos }}/${{ matrix.goarch }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo ':white_check_mark: Build succeeded' >> "$GITHUB_STEP_SUMMARY"
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Smoke test (Docker)
+        run: make smoke-test-docker
+
   pre-release:
     if: github.event_name == 'push' && github.ref != 'refs/heads/main'
-    needs: [build, cross-compile]
+    needs: [build, cross-compile, smoke-test]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -130,3 +161,15 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Job Summary
+        if: always()
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          echo "## Pre-release \`${TAG}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| | |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Tag** | \`${TAG}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Commit** | \`${{ github.sha }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Release** | [View on GitHub](https://github.com/${{ github.repository }}/releases/tag/${TAG}) |" >> "$GITHUB_STEP_SUMMARY"

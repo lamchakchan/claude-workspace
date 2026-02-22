@@ -16,9 +16,22 @@ func Run() error {
 	issues := 0
 	warnings := 0
 
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("getting home directory: %w", err)
+	}
+
 	// 1. Check Claude Code CLI
 	fmt.Println("\n[Claude Code CLI]")
-	if ver, err := platform.Output("claude", "--version"); err == nil {
+	claudeBin := "claude"
+	if !platform.Exists(claudeBin) {
+		// The official installer places claude in ~/.local/bin which may not be in PATH
+		localBin := filepath.Join(home, ".local", "bin", "claude")
+		if platform.FileExists(localBin) {
+			claudeBin = localBin
+		}
+	}
+	if ver, err := platform.Output(claudeBin, "--version"); err == nil {
 		pass("Installed: " + ver)
 	} else {
 		fail("Claude Code CLI not found")
@@ -47,10 +60,6 @@ func Run() error {
 
 	// 4. Check Global Settings
 	fmt.Println("\n[Global Configuration]")
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("getting home directory: %w", err)
-	}
 
 	globalSettingsPath := filepath.Join(home, ".claude", "settings.json")
 	if platform.FileExists(globalSettingsPath) {
