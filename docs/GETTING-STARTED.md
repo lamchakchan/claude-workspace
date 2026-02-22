@@ -18,6 +18,8 @@ This guide walks you through setting up the platform, attaching it to your first
 10. [Agent Teams](#10-agent-teams)
 11. [Day-to-Day Workflow](#11-day-to-day-workflow)
 12. [Tips and Tricks](#12-tips-and-tricks)
+13. [Configuration File Reference](#13-configuration-file-reference)
+14. [Environment Variables](#14-environment-variables)
 
 ---
 
@@ -104,13 +106,16 @@ claude-platform doctor
 claude-platform attach /path/to/your/project
 
 # What this creates in your project:
-# .claude/settings.json     - Team settings with safe defaults
-# .claude/CLAUDE.md         - Project instructions (auto-detected tech stack)
-# .claude/agents/            - All 5 subagent definitions
-# .claude/skills/            - All 4 skill definitions
-# .claude/hooks/             - All 4 safety hooks
-# .mcp.json                  - MCP server configurations
-# plans/                     - Directory for implementation plans
+# .claude/settings.json              - Team settings with safe defaults
+# .claude/settings.local.json.example - Template for personal overrides
+# .claude/CLAUDE.md                  - Project instructions (auto-detected tech stack)
+# .claude/CLAUDE.local.md.example    - Template for personal context
+# .claude/agents/                    - All 5 subagent definitions
+# .claude/skills/                    - All 4 skill definitions
+# .claude/hooks/                     - All 4 safety hooks
+# .claude/.gitignore                 - Ignores local overrides
+# .mcp.json                         - MCP server configurations
+# plans/                            - Directory for implementation plans
 ```
 
 ### Symlink Attach (Keep in Sync)
@@ -631,3 +636,38 @@ claude-platform doctor
 ```
 
 This runs in an isolated context and returns a concise summary, keeping your main conversation clean.
+
+---
+
+## 13. Configuration File Reference
+
+All configuration files used by the platform, with their purpose and whether they are committed to git.
+
+| File | Purpose | Shared? |
+|------|---------|---------|
+| `.claude/settings.json` | Team defaults, permissions, hooks | Yes (git) |
+| `.claude/settings.local.json` | Personal overrides | No (gitignored) |
+| `.claude/CLAUDE.md` | Team instructions | Yes (git) |
+| `.claude/CLAUDE.local.md` | Personal instructions | No (gitignored) |
+| `.claude/agents/*.md` | Subagent definitions | Yes (git) |
+| `.claude/skills/*/SKILL.md` | Skill definitions | Yes (git) |
+| `.claude/hooks/*.sh` | Hook scripts | Yes (git) |
+| `.mcp.json` | Project MCP servers | Yes (git) |
+| `~/.claude/settings.json` | Global user settings | No (local) |
+| `~/.claude/CLAUDE.md` | Global user instructions | No (local) |
+| `~/.claude/agents/*.md` | User-level agents | No (local) |
+
+---
+
+## 14. Environment Variables
+
+Environment variables that control platform behavior. Set these in your shell profile or in `.claude/settings.json` under the `env` key.
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `ANTHROPIC_API_KEY` | API authentication | (required) |
+| `ANTHROPIC_MODEL` | Override default model | `sonnet` |
+| `CLAUDE_CODE_SUBAGENT_MODEL` | Subagent model | `sonnet` |
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | Enable agent teams | `1` |
+| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | Auto-compact threshold | `80` |
+| `CLAUDE_CODE_ENABLE_TASKS` | Enable task tracking | `true` |
