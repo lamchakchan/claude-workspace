@@ -25,15 +25,6 @@ KEEP=false
 REUSE=false
 SKIP_CLAUDE_CLI=false
 BINARY_OUT="/tmp/claude-workspace-linux"
-PASS_COUNT=0
-FAIL_COUNT=0
-
-# ---------- colors ----------
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BOLD='\033[1m'
-NC='\033[0m'
 
 # ---------- summary (GitHub Job Summary) ----------
 SUMMARY=""
@@ -85,7 +76,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# ---------- helpers ----------
+# ---------- shared helpers ----------
+source "$(dirname "$0")/lib.sh"
+
+# Override assert_pass/assert_fail to add GitHub Step Summary tracking
 assert_pass() {
     local desc="$1"
     PASS_COUNT=$((PASS_COUNT + 1))
@@ -98,37 +92,6 @@ assert_fail() {
     FAIL_COUNT=$((FAIL_COUNT + 1))
     echo -e "  ${RED}[FAIL]${NC} $desc"
     summary_append "- :x: $desc"
-}
-
-assert() {
-    local desc="$1"
-    shift
-    if "$@"; then
-        assert_pass "$desc"
-    else
-        assert_fail "$desc"
-    fi
-}
-
-vm_exec() {
-    if [[ "$MODE" == "docker" ]]; then
-        docker exec --user ubuntu -e HOME=/home/ubuntu "$VM_NAME" bash -c "$1"
-    else
-        multipass exec "$VM_NAME" -- bash -c "$1"
-    fi
-}
-
-vm_exec_quiet() {
-    vm_exec "$1" >/dev/null 2>&1
-}
-
-# Run a command as root inside the VM/container (for provisioning only)
-root_exec() {
-    if [[ "$MODE" == "docker" ]]; then
-        docker exec "$VM_NAME" bash -c "$1"
-    else
-        multipass exec "$VM_NAME" -- sudo bash -c "$1"
-    fi
 }
 
 cleanup() {
@@ -180,22 +143,8 @@ echo "  go: $(go version)"
 # ========== Phase 2: Cross-compile ==========
 echo -e "\n${BOLD}=== Phase 2: Cross-compile ===${NC}"
 
-PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 echo "  Project: $PROJECT_DIR"
-
-# Detect target architecture based on host
-HOST_ARCH="$(uname -m)"
-case "$HOST_ARCH" in
-    arm64|aarch64) TARGET_GOARCH="arm64" ;;
-    x86_64|amd64)  TARGET_GOARCH="amd64" ;;
-    *)             echo "  Unsupported host architecture: $HOST_ARCH"; exit 1 ;;
-esac
-
-echo "  Target:  linux/${TARGET_GOARCH} -> $BINARY_OUT"
-
-GOOS=linux GOARCH="$TARGET_GOARCH" go build -ldflags "-s -w" -o "$BINARY_OUT" "$PROJECT_DIR"
-BINARY_SIZE="$(ls -lh "$BINARY_OUT" | awk '{print $5}')"
-echo "  Built: ${BINARY_SIZE}"
+cross_compile
 
 # ========== Phase 3: VM/Container lifecycle ==========
 echo -e "\n${BOLD}=== Phase 3: VM/Container lifecycle ===${NC}"
@@ -256,19 +205,10 @@ if [[ "$MODE" == "docker" ]]; then
     # Create ubuntu user in the container so /home/ubuntu paths work
     echo "  Creating ubuntu user..."
     docker exec "$VM_NAME" bash -c "useradd -m -s /bin/bash ubuntu" 2>/dev/null || true
-
-    # Transfer binary via docker cp
-    echo "  Transferring binary..."
-    docker cp "$BINARY_OUT" "${VM_NAME}:/home/ubuntu/claude-workspace"
-else
-    # Transfer binary via multipass
-    echo "  Transferring binary..."
-    multipass transfer "$BINARY_OUT" "${VM_NAME}:/home/ubuntu/claude-workspace"
 fi
 
-# Install binary to PATH
-echo "  Installing binary to /usr/local/bin..."
-root_exec "cp /home/ubuntu/claude-workspace /usr/local/bin/claude-workspace && chmod +x /usr/local/bin/claude-workspace"
+echo "  Transferring binary..."
+copy_binary
 
 # Install prerequisites
 echo "  Installing prerequisites (git, curl)..."
