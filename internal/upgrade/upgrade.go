@@ -297,7 +297,7 @@ func upgradeCLI(nextStep func() int, totalSteps int, autoYes, checkOnly bool) er
 	if npmInfo.Detected {
 		fmt.Printf("  Detected Claude Code installed via npm (source: %s).\n", npmInfo.Source)
 		fmt.Println("  Removing npm version before upgrading...")
-		if err := setup.UninstallNpmClaude(); err != nil {
+		if err := setup.UninstallNpmClaude(npmInfo); err != nil {
 			fmt.Printf("  Warning: could not remove npm Claude: %v\n", err)
 			fmt.Println("  You may need to run: npm uninstall -g @anthropic-ai/claude-code")
 		} else {

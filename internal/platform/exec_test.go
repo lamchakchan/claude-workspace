@@ -50,6 +50,39 @@ func TestRunQuiet_Failure(t *testing.T) {
 	}
 }
 
+func TestRunQuietWithEnv_Success(t *testing.T) {
+	err := RunQuietWithEnv([]string{"TEST_VAR=hello"}, "true")
+	if err != nil {
+		t.Errorf("RunQuietWithEnv(true) error = %v", err)
+	}
+}
+
+func TestRunQuietWithEnv_Failure(t *testing.T) {
+	err := RunQuietWithEnv([]string{"TEST_VAR=hello"}, "false")
+	if err == nil {
+		t.Error("RunQuietWithEnv(false) expected error")
+	}
+}
+
+func TestRunQuietWithEnv_SetsEnvVar(t *testing.T) {
+	// Use env command to verify the extra env var is set
+	// env prints all environment variables; we use sh -c to check
+	out, err := Output("sh", "-c", "TEST_VAR=check_value env | grep TEST_VAR")
+	if err != nil {
+		t.Skipf("cannot run env check: %v", err)
+	}
+	_ = out
+
+	// More targeted: run a shell that exits 0 only if the env var matches
+	err = RunQuietWithEnv(
+		[]string{"MY_CUSTOM_VAR=expected_value"},
+		"sh", "-c", `[ "$MY_CUSTOM_VAR" = "expected_value" ]`,
+	)
+	if err != nil {
+		t.Errorf("RunQuietWithEnv did not set env var correctly: %v", err)
+	}
+}
+
 func TestRunQuietDir_Success(t *testing.T) {
 	dir := t.TempDir()
 	err := RunQuietDir(dir, "true")

@@ -35,6 +35,15 @@ func RunQuiet(name string, args ...string) error {
 	return cmd.Run()
 }
 
+// RunQuietWithEnv executes a command with extra environment variables, discarding output.
+func RunQuietWithEnv(extraEnv []string, name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Env = append(os.Environ(), extraEnv...)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	return cmd.Run()
+}
+
 // RunQuietDir executes a command in a specific directory, discarding output.
 func RunQuietDir(dir, name string, args ...string) error {
 	cmd := exec.Command(name, args...)

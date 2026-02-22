@@ -33,7 +33,7 @@ func Run() error {
 	if npmInfo.Detected {
 		fmt.Printf("  Detected Claude Code installed via npm (source: %s).\n", npmInfo.Source)
 		fmt.Println("  Removing npm version before installing official binary...")
-		if err := UninstallNpmClaude(); err != nil {
+		if err := UninstallNpmClaude(npmInfo); err != nil {
 			fmt.Printf("  Warning: could not remove npm Claude: %v\n", err)
 			fmt.Println("  Please run manually: npm uninstall -g @anthropic-ai/claude-code")
 			fmt.Println("  Then re-run: claude-workspace setup")
