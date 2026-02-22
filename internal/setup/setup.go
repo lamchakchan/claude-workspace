@@ -80,9 +80,10 @@ func Run() error {
 
 	platform.PrintBanner(os.Stdout, "Setup Complete")
 	fmt.Println("\nNext steps:")
-	fmt.Println("  1. Attach to a project:  claude-workspace attach /path/to/project")
-	fmt.Println("  2. Start Claude Code:    cd /path/to/project && claude")
-	fmt.Println("  3. Add MCP servers:      claude-workspace mcp add <name> -- <command>")
+	fmt.Println()
+	platform.PrintCommand(os.Stdout, "claude-workspace attach /path/to/project")
+	platform.PrintCommand(os.Stdout, "cd /path/to/project && claude")
+	platform.PrintCommand(os.Stdout, "claude-workspace mcp add <name> -- <command>")
 	fmt.Println()
 
 	return nil

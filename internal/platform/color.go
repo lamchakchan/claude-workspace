@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
+	"sync"
+	"time"
 
 	"golang.org/x/term"
 )
@@ -118,4 +121,75 @@ func PrintErrorLine(w io.Writer, msg string) {
 // PrintPrompt prints a bold prompt without a trailing newline.
 func PrintPrompt(w io.Writer, prompt string) {
 	fmt.Fprint(w, Bold(prompt))
+}
+
+// PrintCommand prints a command hint: "  $ command" (bold cyan $ + bold command)
+func PrintCommand(w io.Writer, cmd string) {
+	fmt.Fprintf(w, "  %s %s\n", BoldCyan("$"), Bold(cmd))
+}
+
+// PrintManual prints a manual action hint: "  → description" (yellow arrow + message)
+func PrintManual(w io.Writer, msg string) {
+	fmt.Fprintf(w, "  %s %s\n", Yellow("→"), msg)
+}
+
+// --- Spinner ---
+
+// Spinner displays an animated progress indicator on a TTY.
+type Spinner struct {
+	stop chan struct{}
+	done chan struct{}
+}
+
+// StartSpinner starts a terminal spinner with the given message.
+// On non-TTY (colorEnabled=false), it prints a static line and Stop is a no-op.
+func StartSpinner(w io.Writer, msg string) *Spinner {
+	s := &Spinner{
+		stop: make(chan struct{}),
+		done: make(chan struct{}),
+	}
+
+	if !colorEnabled {
+		fmt.Fprintf(w, "  ... %s\n", msg)
+		close(s.done)
+		return s
+	}
+
+	frames := []rune("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
+	var mu sync.Mutex
+
+	go func() {
+		defer close(s.done)
+		ticker := time.NewTicker(80 * time.Millisecond)
+		defer ticker.Stop()
+		i := 0
+		for {
+			select {
+			case <-s.stop:
+				mu.Lock()
+				// Clear the spinner line
+				fmt.Fprintf(w, "\r%s\r", strings.Repeat(" ", len(msg)+6))
+				mu.Unlock()
+				return
+			case <-ticker.C:
+				mu.Lock()
+				fmt.Fprintf(w, "\r  %s %s", Cyan(string(frames[i%len(frames)])), msg)
+				mu.Unlock()
+				i++
+			}
+		}
+	}()
+
+	return s
+}
+
+// Stop halts the spinner and clears its line.
+func (s *Spinner) Stop() {
+	select {
+	case <-s.stop:
+		// Already stopped
+	default:
+		close(s.stop)
+	}
+	<-s.done
 }

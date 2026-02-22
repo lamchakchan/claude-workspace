@@ -108,13 +108,14 @@ func Run(targetPath string, allArgs []string) error {
 	setupGitignore(claudeDir)
 
 	platform.PrintBanner(os.Stdout, "Attachment Complete")
-	fmt.Printf("\nPlatform attached to: %s\n", projectDir)
-	fmt.Println("\nTo start Claude Code:")
-	fmt.Printf("  cd %s\n", projectDir)
-	fmt.Println("  claude")
-	fmt.Println("\nTo customize for this project:")
-	fmt.Printf("  Edit %s for team instructions\n", filepath.Join(claudeDir, "CLAUDE.md"))
-	fmt.Println("  Copy .claude/settings.local.json.example to .claude/settings.local.json for personal overrides")
+	fmt.Printf("\n%s %s\n", platform.Bold("Platform attached to:"), projectDir)
+
+	platform.PrintSection(os.Stdout, "Start Claude Code")
+	platform.PrintCommand(os.Stdout, fmt.Sprintf("cd %s && claude", projectDir))
+
+	platform.PrintSection(os.Stdout, "Customize for this project")
+	platform.PrintManual(os.Stdout, fmt.Sprintf("Edit %s for team instructions", filepath.Join(claudeDir, "CLAUDE.md")))
+	platform.PrintManual(os.Stdout, "Copy .claude/settings.local.json.example to .claude/settings.local.json for personal overrides")
 	fmt.Println()
 
 	return nil
@@ -444,7 +445,9 @@ func enrichClaudeMd(projectDir, claudeDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
+	sp := platform.StartSpinner(os.Stdout, "Analyzing project with Claude...")
 	output, err := platform.RunDirWithStdin(ctx, projectDir, prompt, "claude", "-p", "--model", "sonnet")
+	sp.Stop()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return fmt.Errorf("enrichment timed out after 90s")
