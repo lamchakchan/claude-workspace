@@ -292,6 +292,19 @@ func upgradeCLI(nextStep func() int, totalSteps int, autoYes, checkOnly bool) er
 		}
 	}
 
+	// Check for npm-installed Claude before running installer
+	npmInfo := setup.DetectNpmClaude()
+	if npmInfo.Detected {
+		fmt.Printf("  Detected Claude Code installed via npm (source: %s).\n", npmInfo.Source)
+		fmt.Println("  Removing npm version before upgrading...")
+		if err := setup.UninstallNpmClaude(); err != nil {
+			fmt.Printf("  Warning: could not remove npm Claude: %v\n", err)
+			fmt.Println("  You may need to run: npm uninstall -g @anthropic-ai/claude-code")
+		} else {
+			fmt.Println("  npm Claude Code removed successfully.")
+		}
+	}
+
 	// Run official installer
 	fmt.Println("  Running official installer...")
 	if err := platform.Run("bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"); err != nil {

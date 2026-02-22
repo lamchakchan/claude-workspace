@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
+	"github.com/lamchakchan/claude-workspace/internal/setup"
 	"github.com/lamchakchan/claude-workspace/internal/upgrade"
 )
 
@@ -35,6 +36,14 @@ func Run() error {
 	}
 	if ver, err := platform.Output(claudeBin, "--version"); err == nil {
 		pass("Installed: " + ver)
+		// Check if installed via npm (may shadow official binary)
+		npmInfo := setup.DetectNpmClaude()
+		if npmInfo.Detected {
+			warn("Claude Code is installed via npm (@anthropic-ai/claude-code)")
+			fmt.Println("    The npm version may shadow the official binary in PATH.")
+			fmt.Println("    Fix: npm uninstall -g @anthropic-ai/claude-code")
+			warnings++
+		}
 	} else {
 		fail("Claude Code CLI not found")
 		fmt.Println("    Install: curl -fsSL https://claude.ai/install.sh | bash")

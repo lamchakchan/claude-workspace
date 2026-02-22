@@ -27,6 +27,21 @@ func Run() error {
 
 	// Step 1: Check if Claude Code CLI is installed
 	fmt.Println("\n[1/6] Checking Claude Code installation...")
+
+	// Check for npm-installed Claude that needs cleanup
+	npmInfo := DetectNpmClaude()
+	if npmInfo.Detected {
+		fmt.Printf("  Detected Claude Code installed via npm (source: %s).\n", npmInfo.Source)
+		fmt.Println("  Removing npm version before installing official binary...")
+		if err := UninstallNpmClaude(); err != nil {
+			fmt.Printf("  Warning: could not remove npm Claude: %v\n", err)
+			fmt.Println("  Please run manually: npm uninstall -g @anthropic-ai/claude-code")
+			fmt.Println("  Then re-run: claude-workspace setup")
+			return fmt.Errorf("npm Claude uninstall failed: %w", err)
+		}
+		fmt.Println("  npm Claude Code removed successfully.")
+	}
+
 	if platform.Exists("claude") {
 		ver, _ := platform.Output("claude", "--version")
 		fmt.Printf("  Claude Code CLI found: %s\n", ver)
