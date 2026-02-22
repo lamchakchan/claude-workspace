@@ -26,8 +26,10 @@ build-all: clean
 	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY)-darwin-amd64 .
 	GOOS=linux  GOARCH=arm64 go build $(LDFLAGS) -o bin/$(BINARY)-linux-arm64 .
 	GOOS=linux  GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY)-linux-amd64 .
+	chmod +x bin/$(BINARY)-*
 	@echo "Built binaries:"
 	@ls -lh bin/
+	@echo "$$PATH" | tr ':' '\n' | grep -qx '$(CURDIR)/bin' || echo "\nTo add to your PATH:\n  export PATH=\"$(CURDIR)/bin:$$PATH\""
 
 smoke-test:
 	bash scripts/smoke-test.sh
