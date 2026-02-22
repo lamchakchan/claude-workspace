@@ -34,7 +34,6 @@ Tech Stack: Go, Shell scripts, YAML, JSON, Markdown
 .claude/hooks/    - Safety and quality gate scripts
 main.go           - Go CLI entry point
 internal/         - Go command implementations
-templates/        - Templates for project adaptation
 docs/             - Detailed documentation
 ```
 

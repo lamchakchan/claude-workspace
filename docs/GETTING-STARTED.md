@@ -396,17 +396,17 @@ claude-workspace mcp remote https://mcp.example.com --name example \
 
 ### Using MCP Templates
 
-Check `templates/mcp-configs/` for ready-to-use configurations:
+The platform includes ready-to-use MCP server configurations in [`docs/mcp-configs/`](mcp-configs/). See the full reference guide at [`docs/MCP-CONFIGS.md`](MCP-CONFIGS.md).
 
 ```bash
 # See what's available
-ls templates/mcp-configs/
+ls docs/mcp-configs/
 # database.json       - PostgreSQL, MySQL, SQLite
 # observability.json  - Sentry, Grafana
 # collaboration.json  - GitHub, Notion, Slack, Linear, Jira
 ```
 
-Each template file includes the setup command to copy and run.
+Each file includes the `setup_commands` to copy and run.
 
 ### Connecting to a Remote MCP Gateway
 
