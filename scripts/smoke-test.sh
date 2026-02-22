@@ -383,8 +383,8 @@ fi
 echo -e "\n${BOLD}=== Phase 8: claude-workspace upgrade --check ===${NC}"
 
 # upgrade --check should exit 1 (update available) since the binary is a dev build
-UPGRADE_OUTPUT=$(vm_exec "claude-workspace upgrade --check" 2>&1) || true
-UPGRADE_EXIT=$?
+UPGRADE_EXIT=0
+UPGRADE_OUTPUT=$(vm_exec "claude-workspace upgrade --check" 2>&1) || UPGRADE_EXIT=$?
 echo "$UPGRADE_OUTPUT" | sed 's/^/  | /'
 
 echo ""
