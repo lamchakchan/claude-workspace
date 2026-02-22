@@ -43,7 +43,15 @@ jobs:
         run: go vet ./...
 
       - name: Test
-        run: go test ./...
+        run: go test ./... -v 2>&1 | tee /tmp/test-output.txt
+
+      - name: Job Summary
+        if: always()
+        run: |
+          echo '## Build (`${{ matrix.os }}`)' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -20 /tmp/test-output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build
         run: go build -o claude-workspace .
@@ -76,6 +84,12 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
         run: go build -o /dev/null .
+
+      - name: Job Summary
+        if: always()
+        run: |
+          echo "## Cross-compile \`${{ matrix.goos }}/${{ matrix.goarch }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo ':white_check_mark: Build succeeded' >> "$GITHUB_STEP_SUMMARY"
 
   smoke-test:
     runs-on: ubuntu-latest

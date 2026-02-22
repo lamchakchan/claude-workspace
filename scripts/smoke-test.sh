@@ -35,6 +35,41 @@ YELLOW='\033[1;33m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+# ---------- summary (GitHub Job Summary) ----------
+SUMMARY=""
+BINARY_SIZE=""
+
+summary_append() {
+    SUMMARY="${SUMMARY}$1"$'\n'
+}
+
+summary_phase() {
+    summary_append ""
+    summary_append "## Phase $1: $2"
+}
+
+write_summary() {
+    if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+        local TOTAL=$((PASS_COUNT + FAIL_COUNT))
+        {
+            echo "# Smoke Test Results"
+            echo ""
+            echo "| Result | Count |"
+            echo "|--------|-------|"
+            echo "| Passed | ${PASS_COUNT} |"
+            echo "| Failed | ${FAIL_COUNT} |"
+            echo "| Total  | ${TOTAL} |"
+            echo ""
+            echo "## Environment"
+            echo "- **Mode:** ${MODE}"
+            echo "- **Target:** linux/${TARGET_GOARCH}"
+            echo "- **Binary size:** ${BINARY_SIZE}"
+            echo ""
+            echo "$SUMMARY"
+        } >> "$GITHUB_STEP_SUMMARY"
+    fi
+}
+
 # ---------- parse flags ----------
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -55,12 +90,14 @@ assert_pass() {
     local desc="$1"
     PASS_COUNT=$((PASS_COUNT + 1))
     echo -e "  ${GREEN}[PASS]${NC} $desc"
+    summary_append "- :white_check_mark: $desc"
 }
 
 assert_fail() {
     local desc="$1"
     FAIL_COUNT=$((FAIL_COUNT + 1))
     echo -e "  ${RED}[FAIL]${NC} $desc"
+    summary_append "- :x: $desc"
 }
 
 assert() {
@@ -157,7 +194,8 @@ esac
 echo "  Target:  linux/${TARGET_GOARCH} -> $BINARY_OUT"
 
 GOOS=linux GOARCH="$TARGET_GOARCH" go build -ldflags "-s -w" -o "$BINARY_OUT" "$PROJECT_DIR"
-echo "  Built: $(ls -lh "$BINARY_OUT" | awk '{print $5}')"
+BINARY_SIZE="$(ls -lh "$BINARY_OUT" | awk '{print $5}')"
+echo "  Built: ${BINARY_SIZE}"
 
 # ========== Phase 3: VM/Container lifecycle ==========
 echo -e "\n${BOLD}=== Phase 3: VM/Container lifecycle ===${NC}"
@@ -266,6 +304,7 @@ echo "$SETUP_OUTPUT" | sed 's/^/  | /'
 
 echo ""
 echo "  Assertions:"
+summary_phase 5 "claude-workspace setup"
 
 # Assert ~/.claude/settings.json exists
 assert "~/.claude/settings.json exists" \
@@ -292,6 +331,7 @@ echo "$ATTACH_OUTPUT" | sed 's/^/  | /'
 
 echo ""
 echo "  Assertions:"
+summary_phase 6 "claude-workspace attach"
 
 PROJECT="/home/ubuntu/test-project"
 
@@ -329,6 +369,7 @@ echo "$DOCTOR_OUTPUT" | sed 's/^/  | /'
 
 echo ""
 echo "  Assertions:"
+summary_phase 7 "claude-workspace doctor"
 
 # Assert no [FAIL] lines in output
 FAIL_LINES=$(echo "$DOCTOR_OUTPUT" | grep -c '\[FAIL\]' || true)
@@ -343,6 +384,8 @@ echo -e "\n${BOLD}=== Summary ===${NC}"
 
 TOTAL=$((PASS_COUNT + FAIL_COUNT))
 echo -e "  Total: ${TOTAL}  ${GREEN}Passed: ${PASS_COUNT}${NC}  ${RED}Failed: ${FAIL_COUNT}${NC}"
+
+write_summary
 
 if [[ "$FAIL_COUNT" -gt 0 ]]; then
     echo -e "\n${RED}SMOKE TEST FAILED${NC}"
