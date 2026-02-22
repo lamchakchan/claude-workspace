@@ -113,38 +113,50 @@ git clone --branch v1.0.0 <platform-repo> ~/claude-workspace
 | `smoke-test` | `make smoke-test` | Full end-to-end smoke test in a Multipass VM |
 | `smoke-test-keep` | `make smoke-test-keep` | Smoke test, keep VM for debugging |
 | `smoke-test-fast` | `make smoke-test-fast` | Smoke test with stubbed Claude CLI (~1-2 min) |
+| `smoke-test-docker` | `make smoke-test-docker` | Full smoke test using Docker (no VM required) |
+| `smoke-test-docker-fast` | `make smoke-test-docker-fast` | Docker smoke test with stubbed Claude CLI (used in CI) |
 
 ### Typical Development Cycle
 
 ```bash
-make vet          # static analysis
-make test         # unit tests
-make build        # compile
-make smoke-test-fast  # end-to-end (fast mode)
+make vet               # static analysis
+make test              # unit tests
+make build             # compile
+make smoke-test-fast   # end-to-end via Multipass (fast mode)
+# or
+make smoke-test-docker-fast  # end-to-end via Docker (no VM needed)
 ```
 
 ### Smoke Tests
 
-The smoke test (`scripts/smoke-test.sh`) uses [Multipass](https://multipass.run) to launch a fresh Ubuntu 24.04 VM and exercises `setup` → `attach` → `doctor` end-to-end.
+The smoke test (`scripts/smoke-test.sh`) launches a fresh Ubuntu 24.04 environment and exercises `setup` → `attach` → `doctor` end-to-end. It supports two backends:
+
+- **Multipass** (default) — launches a full VM. Best for local development on macOS.
+- **Docker** (`--docker`) — uses a container. Works in CI and anywhere Docker is available (no nested virtualization required).
+
+The CI pipeline runs `make smoke-test-docker-fast` automatically on every push.
 
 **Prerequisites:**
 
 ```bash
+# Multipass mode (default)
 # macOS (Homebrew)
 brew install multipass
-
 # Linux (snap)
 sudo snap install multipass
-
 # Linux (apt — Ubuntu/Debian)
 sudo apt update && sudo apt install multipass
+
+# Docker mode
+# Install Docker: https://docs.docker.com/get-docker/
 ```
 
 **Flags:**
-- `--keep` — preserve VM after test for manual inspection (`multipass shell claude-workspace-smoke`)
-- `--reuse` — reuse an existing VM instead of recreating
+- `--docker` — use Docker instead of Multipass
+- `--keep` — preserve VM/container after test for manual inspection
+- `--reuse` — reuse an existing VM/container instead of recreating
 - `--skip-claude-cli` — stub the `claude` binary (faster, no network required)
-- `--name <vm>` — override VM name (default: `claude-workspace-smoke`)
+- `--name <vm>` — override VM/container name (default: `claude-workspace-smoke`)
 
 ### Cross-Compiling for Release
 

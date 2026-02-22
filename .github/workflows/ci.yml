@@ -9,6 +9,7 @@ on:
       - '.claude/**'
       - '.mcp.json'
       - 'Makefile'
+      - 'scripts/**'
       - '.github/workflows/ci.yml'
       - '.goreleaser.yaml'
   pull_request:
@@ -19,6 +20,7 @@ on:
       - '.claude/**'
       - '.mcp.json'
       - 'Makefile'
+      - 'scripts/**'
       - '.github/workflows/ci.yml'
       - '.goreleaser.yaml'
 
@@ -75,9 +77,24 @@ jobs:
           CGO_ENABLED: "0"
         run: go build -o /dev/null .
 
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Smoke test (Docker)
+        run: make smoke-test-docker-fast
+
   pre-release:
     if: github.event_name == 'push' && github.ref != 'refs/heads/main'
-    needs: [build, cross-compile]
+    needs: [build, cross-compile, smoke-test]
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -2,7 +2,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 LDFLAGS := -ldflags "-s -w -X main.version=$(VERSION)"
 BINARY := claude-workspace
 
-.PHONY: build install test clean build-all vet smoke-test smoke-test-keep smoke-test-fast
+.PHONY: build install test clean build-all vet smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast
 
 build:
 	go build $(LDFLAGS) -o $(BINARY) .
@@ -36,3 +36,9 @@ smoke-test-keep:
 
 smoke-test-fast:
 	bash scripts/smoke-test.sh --skip-claude-cli
+
+smoke-test-docker:
+	bash scripts/smoke-test.sh --docker
+
+smoke-test-docker-fast:
+	bash scripts/smoke-test.sh --docker --skip-claude-cli
