@@ -127,7 +127,18 @@ make smoke-test-fast  # end-to-end (fast mode)
 
 The smoke test (`scripts/smoke-test.sh`) uses [Multipass](https://multipass.run) to launch a fresh Ubuntu 24.04 VM and exercises `setup` → `attach` → `doctor` end-to-end.
 
-**Prerequisites:** `brew install multipass`
+**Prerequisites:**
+
+```bash
+# macOS (Homebrew)
+brew install multipass
+
+# Linux (snap)
+sudo snap install multipass
+
+# Linux (apt — Ubuntu/Debian)
+sudo apt update && sudo apt install multipass
+```
 
 **Flags:**
 - `--keep` — preserve VM after test for manual inspection (`multipass shell claude-platform-smoke`)

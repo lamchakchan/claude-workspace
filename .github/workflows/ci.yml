@@ -3,7 +3,25 @@ name: CI
 on:
   push:
     branches: [main]
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.claude/**'
+      - '.mcp.json'
+      - 'Makefile'
+      - '.github/workflows/ci.yml'
+      - '.goreleaser.yaml'
   pull_request:
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.claude/**'
+      - '.mcp.json'
+      - 'Makefile'
+      - '.github/workflows/ci.yml'
+      - '.goreleaser.yaml'
 
 jobs:
   build:
