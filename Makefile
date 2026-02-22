@@ -2,7 +2,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 LDFLAGS := -ldflags "-s -w -X main.version=$(VERSION)"
 BINARY := claude-workspace
 
-.PHONY: build install test clean build-all vet smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast check dev-docker dev-multipass deploy-docker deploy-multipass shell-docker shell-multipass destroy-docker destroy-multipass
+.PHONY: build install test clean build-all vet smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast check dev-docker dev-vm deploy-docker deploy-vm shell-docker shell-vm destroy-docker destroy-vm
 
 build:
 	go build $(LDFLAGS) -o $(BINARY) .
@@ -52,26 +52,26 @@ check: vet test build
 dev-docker:
 	bash scripts/dev-env.sh create --docker
 
-dev-multipass:
-	bash scripts/dev-env.sh create --multipass
+dev-vm:
+	bash scripts/dev-env.sh create --vm
 
 # Fast deploy to existing dev environment (cross-compile + copy binary)
 deploy-docker:
 	bash scripts/dev-env.sh deploy --docker
 
-deploy-multipass:
-	bash scripts/dev-env.sh deploy --multipass
+deploy-vm:
+	bash scripts/dev-env.sh deploy --vm
 
 # Interactive shell into dev environment
 shell-docker:
 	bash scripts/dev-env.sh shell --docker
 
-shell-multipass:
-	bash scripts/dev-env.sh shell --multipass
+shell-vm:
+	bash scripts/dev-env.sh shell --vm
 
 # Tear down dev environment
 destroy-docker:
 	bash scripts/dev-env.sh destroy --docker
 
-destroy-multipass:
-	bash scripts/dev-env.sh destroy --multipass
+destroy-vm:
+	bash scripts/dev-env.sh destroy --vm

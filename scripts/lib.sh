@@ -3,7 +3,7 @@
 # Shared helper library for dev-env.sh and smoke-test.sh.
 #
 # Expects the caller to set these before sourcing:
-#   MODE        — "docker" or "multipass"
+#   MODE        — "docker" or "vm"
 #   VM_NAME     — container/VM name
 #   BINARY_OUT  — path for cross-compiled binary
 

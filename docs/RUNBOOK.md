@@ -117,13 +117,13 @@ git clone --branch v1.0.0 <platform-repo> ~/claude-workspace
 | `smoke-test-docker-fast` | `make smoke-test-docker-fast` | Docker smoke test with stubbed Claude CLI (used in CI) |
 | `check` | `make check` | Pre-push validation: vet + test + build |
 | `dev-docker` | `make dev-docker` | Create persistent Docker dev environment |
-| `dev-multipass` | `make dev-multipass` | Create persistent Multipass dev environment |
+| `dev-vm` | `make dev-vm` | Create persistent Multipass VM dev environment |
 | `deploy-docker` | `make deploy-docker` | Fast deploy binary to Docker dev env (~10s) |
-| `deploy-multipass` | `make deploy-multipass` | Fast deploy binary to Multipass dev env (~10s) |
+| `deploy-vm` | `make deploy-vm` | Fast deploy binary to Multipass VM dev env (~10s) |
 | `shell-docker` | `make shell-docker` | Open shell in Docker dev environment |
-| `shell-multipass` | `make shell-multipass` | Open shell in Multipass dev environment |
+| `shell-vm` | `make shell-vm` | Open shell in Multipass VM dev environment |
 | `destroy-docker` | `make destroy-docker` | Remove Docker dev environment |
-| `destroy-multipass` | `make destroy-multipass` | Remove Multipass dev environment |
+| `destroy-vm` | `make destroy-vm` | Remove Multipass VM dev environment |
 
 ### Typical Development Cycle
 
@@ -143,7 +143,7 @@ For faster edit-compile-test cycles (~10 seconds per iteration instead of ~2-3 m
 **One-time setup:**
 
 ```bash
-make dev-docker       # or: make dev-multipass
+make dev-docker       # or: make dev-vm
 ```
 
 This creates a persistent Docker container (or Multipass VM) named `claude-workspace-dev`, cross-compiles the binary, provisions the environment with prerequisites, and pre-seeds configuration. Takes ~2-3 minutes on first run.

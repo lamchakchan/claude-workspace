@@ -19,7 +19,7 @@
 set -euo pipefail
 
 # ---------- defaults ----------
-MODE="multipass"
+MODE="vm"
 VM_NAME="claude-workspace-smoke"
 KEEP=false
 REUSE=false

@@ -19,7 +19,7 @@
 #
 # Options:
 #   --docker       Use Docker (default)
-#   --multipass    Use Multipass
+#   --vm           Use Multipass VM
 #   --name <n>     Override env name (default: claude-workspace-dev)
 
 set -euo pipefail
@@ -34,7 +34,7 @@ if [[ $# -lt 1 ]]; then
     echo "Usage: bash scripts/dev-env.sh <subcommand> [OPTIONS]"
     echo ""
     echo "Subcommands: create, deploy, shell, test, destroy, status"
-    echo "Options:     --docker (default), --multipass, --name <n>"
+    echo "Options:     --docker (default), --vm, --name <n>"
     exit 1
 fi
 
@@ -45,7 +45,7 @@ shift
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --docker)    MODE="docker";    shift ;;
-        --multipass) MODE="multipass"; shift ;;
+        --vm) MODE="vm"; shift ;;
         --name)      VM_NAME="$2";    shift 2 ;;
         *)
             echo "Unknown option: $1" >&2
