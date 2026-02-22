@@ -30,7 +30,7 @@ Procedures for maintaining the Claude Code Platform, troubleshooting issues, and
 
 | Task | Command | Purpose |
 |------|---------|---------|
-| Run health check | `claude-platform doctor` | Catch config drift |
+| Run health check | `claude-workspace doctor` | Catch config drift |
 | Check Claude Code version | `claude --version` | Stay current |
 | Review hook scripts | `ls -la .claude/hooks/` | Verify still executable |
 | Check MCP server status | Run `/mcp` in Claude Code | Verify connections |
@@ -66,7 +66,7 @@ When you update the platform repo, projects using `--symlink` get changes automa
 
 ```bash
 # Re-attach with force to overwrite old config
-claude-platform attach /path/to/project --force
+claude-workspace attach /path/to/project --force
 ```
 
 ### Updating Specific Components
@@ -93,7 +93,7 @@ git tag v1.0.0
 git push origin v1.0.0
 
 # Projects can pin to a version
-git clone --branch v1.0.0 <platform-repo> ~/claude-platform
+git clone --branch v1.0.0 <platform-repo> ~/claude-workspace
 ```
 
 ---
@@ -141,16 +141,16 @@ sudo apt update && sudo apt install multipass
 ```
 
 **Flags:**
-- `--keep` — preserve VM after test for manual inspection (`multipass shell claude-platform-smoke`)
+- `--keep` — preserve VM after test for manual inspection (`multipass shell claude-workspace-smoke`)
 - `--reuse` — reuse an existing VM instead of recreating
 - `--skip-claude-cli` — stub the `claude` binary (faster, no network required)
-- `--name <vm>` — override VM name (default: `claude-platform-smoke`)
+- `--name <vm>` — override VM name (default: `claude-workspace-smoke`)
 
 ### Cross-Compiling for Release
 
 ```bash
 make build-all
-# Produces: claude-platform-{darwin,linux}-{arm64,amd64}
+# Produces: claude-workspace-{darwin,linux}-{arm64,amd64}
 ```
 
 ---
@@ -162,13 +162,13 @@ The `sandbox` command creates an isolated git worktree with a new branch, copies
 ### Create a Sandbox
 
 ```bash
-claude-platform sandbox <project-path> <branch-name>
+claude-workspace sandbox <project-path> <branch-name>
 ```
 
 Examples:
 ```bash
-claude-platform sandbox ./my-project feature-auth
-claude-platform sandbox ./my-project bugfix-login
+claude-workspace sandbox ./my-project feature-auth
+claude-workspace sandbox ./my-project bugfix-login
 ```
 
 This will:
@@ -220,7 +220,7 @@ Claude Code releases can change:
 - Agent/skill frontmatter options
 
 After updating, always:
-1. Run `claude-platform doctor`
+1. Run `claude-workspace doctor`
 2. Test hooks with `claude --debug`
 3. Check `/mcp` status
 4. Verify agents appear in `/agents`
@@ -233,7 +233,7 @@ After updating, always:
 
 ```bash
 # Initial provisioning via setup
-claude-platform setup
+claude-workspace setup
 
 # Re-provisioning (if key expires)
 claude  # Launches interactive login flow
@@ -277,7 +277,7 @@ The script should output the API key to stdout. Claude Code calls it before each
 
 ```bash
 # Via CLI
-claude-platform mcp list
+claude-workspace mcp list
 
 # Via Claude Code (includes status)
 # Inside a session: /mcp
@@ -287,19 +287,19 @@ claude-platform mcp list
 
 ```bash
 # Local stdio server (no auth)
-claude-platform mcp add <name> -- <command> [args...]
+claude-workspace mcp add <name> -- <command> [args...]
 
 # Local server with API key (securely prompted, masked input)
-claude-platform mcp add <name> --api-key ENV_VAR_NAME -- <command> [args...]
+claude-workspace mcp add <name> --api-key ENV_VAR_NAME -- <command> [args...]
 
 # Remote HTTP server (no auth or OAuth via /mcp)
-claude-platform mcp remote <url> --name <name>
+claude-workspace mcp remote <url> --name <name>
 
 # Remote server with Bearer token (securely prompted)
-claude-platform mcp remote <url> --name <name> --bearer
+claude-workspace mcp remote <url> --name <name> --bearer
 
 # Remote server with OAuth + pre-registered client
-claude-platform mcp remote <url> --name <name> --oauth --client-id <id> --client-secret
+claude-workspace mcp remote <url> --name <name> --oauth --client-id <id> --client-secret
 
 # Directly via Claude Code CLI
 claude mcp add --transport http <name> <url>
@@ -311,7 +311,7 @@ Secrets added via `--api-key`, `--bearer`, or `--client-secret` are stored in yo
 
 ```bash
 # Re-run the add command to update a secret (will overwrite)
-claude-platform mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+claude-workspace mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
 
 # Check where secrets are stored
 # Local servers: env vars in Claude's local MCP config
@@ -571,10 +571,10 @@ claude mcp add --transport stdio <name> -- <command>
 
 ```bash
 # Re-add with fresh credentials (masked prompt)
-claude-platform mcp add <name> --api-key ENV_VAR_NAME -- <command>
+claude-workspace mcp add <name> --api-key ENV_VAR_NAME -- <command>
 
 # For remote servers with expired Bearer token
-claude-platform mcp remote <url> --name <name> --bearer
+claude-workspace mcp remote <url> --name <name> --bearer
 
 # For OAuth servers, re-authenticate in Claude Code
 # /mcp → select server → Authenticate
@@ -651,7 +651,7 @@ cd /path/to/project
 git checkout HEAD~1 -- .claude/ .mcp.json
 
 # If using symlinks, checkout previous platform version
-cd ~/claude-platform
+cd ~/claude-workspace
 git checkout v1.0.0
 ```
 
@@ -695,17 +695,17 @@ This instantly disables all hooks while preserving the configuration. Remove whe
    - [ ] Access to Anthropic Console (for API key) or org API key
 
 2. **Setup**
-   - [ ] Install CLI: `curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-platform/main/install.sh | bash`
-   - [ ] Run setup: `claude-platform setup`
+   - [ ] Install CLI: `curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-workspace/main/install.sh | bash`
+   - [ ] Run setup: `claude-workspace setup`
 
 3. **Project Onboarding**
    - [ ] Clone their project repo
-   - [ ] Attach platform: `claude-platform attach /path/to/project`
+   - [ ] Attach platform: `claude-workspace attach /path/to/project`
    - [ ] Customize `.claude/CLAUDE.local.md` with their personal context
    - [ ] Copy `.claude/settings.local.json.example` → `.claude/settings.local.json`
 
 4. **Verification**
-   - [ ] Run doctor: `claude-platform doctor`
+   - [ ] Run doctor: `claude-workspace doctor`
    - [ ] Start Claude Code: `cd /path/to/project && claude`
    - [ ] Verify hooks: `Ctrl+O` and try a test command
    - [ ] Verify MCP: `/mcp`
@@ -727,17 +727,17 @@ set -euo pipefail
 echo "=== New Member Setup ==="
 
 # 1. Install the CLI
-curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-platform/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lamchakchan/claude-workspace/main/install.sh | bash
 
 # 2. Setup (interactive - API key provisioning)
-claude-platform setup
+claude-workspace setup
 
 # 3. Attach to project (pass project path as argument)
 PROJECT=${1:?Usage: ./new-member-setup.sh /path/to/project}
-claude-platform attach "$PROJECT"
+claude-workspace attach "$PROJECT"
 
 # 4. Verify
-claude-platform doctor
+claude-workspace doctor
 
 echo ""
 echo "Setup complete. Start Claude Code:"

@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/lamchakchan/claude-platform/internal/platform"
+	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
 
 func Run(targetPath string, allArgs []string) error {
 	if targetPath == "" {
-		fmt.Fprintln(os.Stderr, "Usage: claude-platform attach <project-path> [--symlink] [--force]")
+		fmt.Fprintln(os.Stderr, "Usage: claude-workspace attach <project-path> [--symlink] [--force]")
 		os.Exit(1)
 	}
 

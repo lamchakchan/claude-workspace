@@ -53,11 +53,11 @@ export async function setup() {
   console.log("\n=== Setup Complete ===");
   console.log("\nNext steps:");
   console.log(
-    "  1. Attach to a project:  claude-platform attach /path/to/project",
+    "  1. Attach to a project:  claude-workspace attach /path/to/project",
   );
   console.log("  2. Start Claude Code:    cd /path/to/project && claude");
   console.log(
-    "  3. Add MCP servers:      claude-platform mcp add <name> -- <command>",
+    "  3. Add MCP servers:      claude-workspace mcp add <name> -- <command>",
   );
   console.log("");
 }
@@ -263,13 +263,13 @@ async function installDependencies() {
     await $`cd ${platformDir} && bun install`.quiet();
     console.log("  Dependencies installed.");
 
-    // Register claude-platform as a global command via bun link
-    console.log("  Registering claude-platform command...");
+    // Register claude-workspace as a global command via bun link
+    console.log("  Registering claude-workspace command...");
     await $`cd ${platformDir} && bun link`.quiet();
-    console.log("  Registered: claude-platform is now available globally.");
+    console.log("  Registered: claude-workspace is now available globally.");
   } catch {
     console.log("  Bun not found. Install Bun: https://bun.sh");
-    console.log("  Then run: cd ~/claude-platform && bun install && bun link");
+    console.log("  Then run: cd ~/claude-workspace && bun install && bun link");
   }
 }
 

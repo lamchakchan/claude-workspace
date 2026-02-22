@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/lamchakchan/claude-platform/internal/platform"
+	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
 
 var (
@@ -55,7 +55,7 @@ func Run() error {
 	}
 
 	// Step 5: Install binary to PATH
-	fmt.Println("\n[5/6] Installing claude-platform to PATH...")
+	fmt.Println("\n[5/6] Installing claude-workspace to PATH...")
 	installBinaryToPath()
 
 	// Step 6: Check optional system tools
@@ -64,9 +64,9 @@ func Run() error {
 
 	fmt.Println("\n=== Setup Complete ===")
 	fmt.Println("\nNext steps:")
-	fmt.Println("  1. Attach to a project:  claude-platform attach /path/to/project")
+	fmt.Println("  1. Attach to a project:  claude-workspace attach /path/to/project")
 	fmt.Println("  2. Start Claude Code:    cd /path/to/project && claude")
-	fmt.Println("  3. Add MCP servers:      claude-platform mcp add <name> -- <command>")
+	fmt.Println("  3. Add MCP servers:      claude-workspace mcp add <name> -- <command>")
 	fmt.Println()
 
 	return nil
@@ -294,13 +294,13 @@ func installBinaryToPath() {
 	}
 
 	// Check if already in a standard PATH location
-	if _, err := platform.Output("which", "claude-platform"); err == nil {
-		fmt.Println("  claude-platform is already in PATH.")
+	if _, err := platform.Output("which", "claude-workspace"); err == nil {
+		fmt.Println("  claude-workspace is already in PATH.")
 		return
 	}
 
 	installDir := "/usr/local/bin"
-	destPath := filepath.Join(installDir, "claude-platform")
+	destPath := filepath.Join(installDir, "claude-workspace")
 
 	// Try to copy the binary
 	fmt.Printf("  Installing to %s...\n", destPath)
@@ -317,7 +317,7 @@ func installBinaryToPath() {
 	} else {
 		os.Chmod(destPath, 0755)
 	}
-	fmt.Println("  Installed: claude-platform is now available globally.")
+	fmt.Println("  Installed: claude-workspace is now available globally.")
 }
 
 func checkOptionalTools() {

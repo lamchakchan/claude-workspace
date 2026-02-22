@@ -5,16 +5,16 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/lamchakchan/claude-platform/internal/platform"
+	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
 
 func Run(projectPath, branchName string) error {
 	if projectPath == "" || branchName == "" {
-		fmt.Fprintln(os.Stderr, "Usage: claude-platform sandbox <project-path> <branch-name>")
+		fmt.Fprintln(os.Stderr, "Usage: claude-workspace sandbox <project-path> <branch-name>")
 		fmt.Println("\nExamples:")
-		fmt.Println("  claude-platform sandbox ./my-project feature-auth")
-		fmt.Println("  claude-platform sandbox ./my-project feature-api")
-		fmt.Println("  claude-platform sandbox ./my-project bugfix-login")
+		fmt.Println("  claude-workspace sandbox ./my-project feature-auth")
+		fmt.Println("  claude-workspace sandbox ./my-project feature-api")
+		fmt.Println("  claude-workspace sandbox ./my-project bugfix-login")
 		os.Exit(1)
 	}
 

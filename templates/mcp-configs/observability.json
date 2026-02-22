@@ -11,8 +11,8 @@
     }
   },
   "setup_commands": {
-    "sentry": "claude-platform mcp remote https://mcp.sentry.dev/mcp --name sentry",
-    "grafana": "claude-platform mcp remote $GRAFANA_MCP_URL --name grafana --bearer"
+    "sentry": "claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry",
+    "grafana": "claude-workspace mcp remote $GRAFANA_MCP_URL --name grafana --bearer"
   },
   "notes": {
     "sentry": "Uses OAuth - authenticate via /mcp in Claude Code after adding",

@@ -26,10 +26,10 @@ const args = process.argv.slice(2);
 const command = args[0];
 
 const HELP = `
-claude-platform - Claude Code Platform Engineering Kit CLI
+claude-workspace - Claude Code Platform Engineering Kit CLI
 
 Usage:
-  claude-platform <command> [options]
+  claude-workspace <command> [options]
 
 Commands:
   setup                          First-time setup & API key provisioning
@@ -51,13 +51,13 @@ MCP Authentication:
   --client-secret        Prompt for OAuth client secret (masked input)
 
 Examples:
-  claude-platform setup
-  claude-platform attach /path/to/my-project
-  claude-platform sandbox /path/to/my-project feature-auth
-  claude-platform mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
-  claude-platform mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
-  claude-platform mcp remote https://mcp.sentry.dev/mcp --name sentry
-  claude-platform mcp remote https://mcp-gateway.company.com --bearer
+  claude-workspace setup
+  claude-workspace attach /path/to/my-project
+  claude-workspace sandbox /path/to/my-project feature-auth
+  claude-workspace mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+  claude-workspace mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
+  claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry
+  claude-workspace mcp remote https://mcp-gateway.company.com --bearer
 `;
 
 async function main() {

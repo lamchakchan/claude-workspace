@@ -31,10 +31,10 @@
     }
   },
   "setup_commands": {
-    "github": "claude-platform mcp remote https://api.githubcopilot.com/mcp/ --name github",
-    "notion": "claude-platform mcp remote https://mcp.notion.com/mcp --name notion",
-    "linear": "claude-platform mcp remote https://mcp.linear.app/sse --name linear",
-    "jira": "claude-platform mcp add jira --api-key JIRA_API_TOKEN -- npx -y @anthropic/claude-code-jira-server"
+    "github": "claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github",
+    "notion": "claude-workspace mcp remote https://mcp.notion.com/mcp --name notion",
+    "linear": "claude-workspace mcp remote https://mcp.linear.app/sse --name linear",
+    "jira": "claude-workspace mcp add jira --api-key JIRA_API_TOKEN -- npx -y @anthropic/claude-code-jira-server"
   },
   "notes": {
     "github": "Uses OAuth - authenticate via /mcp in Claude Code after adding",

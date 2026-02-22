@@ -17,7 +17,7 @@ const PLATFORM_DIR = resolve(import.meta.dir, "../..");
 export async function attach(targetPath?: string) {
   if (!targetPath) {
     console.error(
-      "Usage: claude-platform attach <project-path> [--symlink] [--force]",
+      "Usage: claude-workspace attach <project-path> [--symlink] [--force]",
     );
     process.exit(1);
   }

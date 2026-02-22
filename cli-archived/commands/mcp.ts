@@ -34,11 +34,11 @@ async function promptSecret(prompt: string): Promise<string> {
  *   --oauth / --client-id    Use OAuth 2.0 flow (authenticate via /mcp)
  *
  * Usage:
- *   claude-platform mcp add <name> -- <command> [args...]
- *   claude-platform mcp add <name> --api-key API_KEY -- <command>
- *   claude-platform mcp add <name> --transport http <url>
- *   claude-platform mcp add <name> --bearer --transport http <url>
- *   claude-platform mcp add <name> --oauth --client-id <id> --transport http <url>
+ *   claude-workspace mcp add <name> -- <command> [args...]
+ *   claude-workspace mcp add <name> --api-key API_KEY -- <command>
+ *   claude-workspace mcp add <name> --transport http <url>
+ *   claude-workspace mcp add <name> --bearer --transport http <url>
+ *   claude-workspace mcp add <name> --oauth --client-id <id> --transport http <url>
  *
  * Options:
  *   --scope local|project|user    Where to save (default: local)
@@ -421,23 +421,23 @@ export async function mcpList() {
 
   console.log("\n--- Quick Add Commands ---");
   console.log(
-    "  Local server (no auth):     claude-platform mcp add <name> -- <cmd>",
+    "  Local server (no auth):     claude-workspace mcp add <name> -- <cmd>",
   );
   console.log(
-    "  Local server (API key):     claude-platform mcp add <name> --api-key API_KEY -- <cmd>",
+    "  Local server (API key):     claude-workspace mcp add <name> --api-key API_KEY -- <cmd>",
   );
-  console.log("  Remote server (OAuth):      claude-platform mcp remote <url>");
+  console.log("  Remote server (OAuth):      claude-workspace mcp remote <url>");
   console.log(
-    "  Remote server (Bearer):     claude-platform mcp remote <url> --bearer",
+    "  Remote server (Bearer):     claude-workspace mcp remote <url> --bearer",
   );
   console.log(
-    "  Remote server (client creds): claude-platform mcp remote <url> --oauth --client-id <id> --client-secret",
+    "  Remote server (client creds): claude-workspace mcp remote <url> --oauth --client-id <id> --client-secret",
   );
   console.log("");
 }
 
 function printMcpAddHelp() {
-  console.log(`Usage: claude-platform mcp add <name> [options] [-- <command> [args...]]
+  console.log(`Usage: claude-workspace mcp add <name> [options] [-- <command> [args...]]
 
 Add a local or remote MCP server with secure API key handling.
 
@@ -463,39 +463,39 @@ Security:
 Examples:
 
   # Server requiring an API key (prompted securely)
-  claude-platform mcp add brave-search --api-key BRAVE_API_KEY \\
+  claude-workspace mcp add brave-search --api-key BRAVE_API_KEY \\
     -- npx -y @modelcontextprotocol/server-brave-search
 
   # Database with connection string as secret
-  claude-platform mcp add postgres --api-key DATABASE_URL \\
+  claude-workspace mcp add postgres --api-key DATABASE_URL \\
     -- npx -y @bytebase/dbhub
 
   # Airtable with explicit env var (key visible in command)
-  claude-platform mcp add airtable \\
+  claude-workspace mcp add airtable \\
     --env AIRTABLE_API_KEY=patXXXXXXXX \\
     -- npx -y airtable-mcp-server
 
   # Remote server with OAuth (GitHub, Sentry, Notion, etc.)
-  claude-platform mcp add github --transport http \\
+  claude-workspace mcp add github --transport http \\
     https://api.githubcopilot.com/mcp/
   # Then: /mcp in Claude Code → Authenticate
 
   # Remote server with Bearer token
-  claude-platform mcp add my-api --bearer --transport http \\
+  claude-workspace mcp add my-api --bearer --transport http \\
     https://api.example.com/mcp
 
   # Remote with pre-registered OAuth credentials
-  claude-platform mcp add my-server --oauth --client-id abc123 \\
+  claude-workspace mcp add my-server --oauth --client-id abc123 \\
     --client-secret --transport http https://mcp.example.com/mcp
 
   # Share server with team (key stays local)
-  claude-platform mcp add sentry --scope project \\
+  claude-workspace mcp add sentry --scope project \\
     --transport http https://mcp.sentry.dev/mcp
 `);
 }
 
 function printMcpRemoteHelp() {
-  console.log(`Usage: claude-platform mcp remote <url> [options]
+  console.log(`Usage: claude-workspace mcp remote <url> [options]
 
 Connect to a remote MCP server or gateway.
 
@@ -513,20 +513,20 @@ Other Options:
 Examples:
 
   # OAuth servers (most cloud services - authenticate via /mcp)
-  claude-platform mcp remote https://mcp.sentry.dev/mcp --name sentry
-  claude-platform mcp remote https://api.githubcopilot.com/mcp/ --name github
-  claude-platform mcp remote https://mcp.notion.com/mcp --name notion
-  claude-platform mcp remote https://mcp.linear.app/mcp --name linear
+  claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry
+  claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github
+  claude-workspace mcp remote https://mcp.notion.com/mcp --name notion
+  claude-workspace mcp remote https://mcp.linear.app/mcp --name linear
 
   # Bearer token (prompted securely)
-  claude-platform mcp remote https://mcp.example.com --bearer
+  claude-workspace mcp remote https://mcp.example.com --bearer
 
   # Pre-registered OAuth credentials
-  claude-platform mcp remote https://mcp.example.com \\
+  claude-workspace mcp remote https://mcp.example.com \\
     --oauth --client-id my-client-id --client-secret
 
   # Organization gateway
-  claude-platform mcp remote https://mcp-gateway.company.com --name company
-  claude-platform mcp remote https://mcp-gateway.company.com --bearer --name company
+  claude-workspace mcp remote https://mcp-gateway.company.com --name company
+  claude-workspace mcp remote https://mcp-gateway.company.com --bearer --name company
 `);
 }
