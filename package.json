@@ -1,8 +1,0 @@
-{
-  "name": "claude-platform",
-  "version": "1.0.0",
-  "description": "Claude Code Platform Engineering Kit - Preconfigured AI agent platform for teams",
-  "type": "module",
-  "dependencies": {},
-  "devDependencies": {}
-}
