@@ -17,6 +17,9 @@ import (
 // ErrMutuallyExclusive is returned when --self-only and --cli-only are both set.
 var ErrMutuallyExclusive = fmt.Errorf("--self-only and --cli-only are mutually exclusive")
 
+// ErrUpdateAvailable is returned when --check detects an available update (exit 1).
+var ErrUpdateAvailable = fmt.Errorf("update available")
+
 // upgradeFlags holds parsed flags for the upgrade command.
 type upgradeFlags struct {
 	checkOnly bool
@@ -136,14 +139,17 @@ func Run(version string, args []string) error {
 
 		if checkOnly && selfOnly {
 			fmt.Println()
-			os.Exit(1) // exit 1 = update available (as documented)
+			return ErrUpdateAvailable
 		}
 
 		if checkOnly && !selfOnly {
 			// In check mode with CLI step, show self status then check CLI
 			fmt.Println()
 			fmt.Println("  Update available for claude-workspace.")
-			return upgradeCLI(nextStep, totalSteps, autoYes, checkOnly)
+			if err := upgradeCLI(nextStep, totalSteps, autoYes, checkOnly); err != nil {
+				return err
+			}
+			return ErrUpdateAvailable
 		}
 
 		// Confirm

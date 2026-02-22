@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -132,6 +133,9 @@ func main() {
 		}
 	case "upgrade":
 		if err := upgrade.Run(version, args[1:]); err != nil {
+			if errors.Is(err, upgrade.ErrUpdateAvailable) {
+				os.Exit(1)
+			}
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
