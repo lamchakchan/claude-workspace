@@ -5,6 +5,11 @@
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/"
     },
+    "github_pat": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer <your_pat>" }
+    },
     "notion": {
       "type": "http",
       "url": "https://mcp.notion.com/mcp"
@@ -19,10 +24,7 @@
     },
     "jira": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@anthropic/claude-code-jira-server"
-      ],
+      "args": ["-y", "@anthropic/claude-code-jira-server"],
       "env": {
         "JIRA_URL": "${JIRA_URL}",
         "JIRA_EMAIL": "${JIRA_EMAIL}",
@@ -32,12 +34,14 @@
   },
   "setup_commands": {
     "github": "claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github",
+    "github_pat": "claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github --bearer",
     "notion": "claude-workspace mcp remote https://mcp.notion.com/mcp --name notion",
     "linear": "claude-workspace mcp remote https://mcp.linear.app/sse --name linear",
     "jira": "claude-workspace mcp add jira --api-key JIRA_API_TOKEN -- npx -y @anthropic/claude-code-jira-server"
   },
   "notes": {
     "github": "Uses OAuth - authenticate via /mcp in Claude Code after adding",
+    "github_pat": "Uses PAT - you will be prompted to enter your GitHub Personal Access Token securely",
     "notion": "Uses OAuth - authenticate via /mcp in Claude Code after adding",
     "linear": "Uses OAuth - authenticate via /mcp in Claude Code after adding",
     "jira": "You will be prompted to enter JIRA_API_TOKEN securely. Also set JIRA_URL and JIRA_EMAIL env vars."

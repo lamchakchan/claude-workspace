@@ -124,9 +124,11 @@ claude-workspace mcp add brave-search --api-key BRAVE_API_KEY \
 claude-workspace mcp add postgres --api-key DATABASE_URL \
   -- npx -y @bytebase/dbhub
 
-# Remote server with auto-detected OAuth
-claude-workspace mcp add github --transport http \
-  https://api.githubcopilot.com/mcp/
+# GitHub (OAuth — authenticate via /mcp in Claude Code)
+claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github
+
+# GitHub (PAT — you'll be prompted for your Personal Access Token)
+claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github --bearer
 ```
 
 **See also:** [Getting Started - MCP Servers](GETTING-STARTED.md)

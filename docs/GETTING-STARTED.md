@@ -338,10 +338,9 @@ MCP (Model Context Protocol) servers give Claude access to external tools and da
 The platform ships with one project-scoped MCP server in `.mcp.json`:
 - **filesystem** - Secure file operations scoped to the project directory
 
-General-purpose servers like `memory` and `git` are better added at user scope so they're available across all projects:
+The `memory` server is better added at user scope so it's available across all projects:
 ```bash
 claude mcp add --scope user memory -- npx -y @anthropic/claude-code-memory-server
-claude mcp add --scope user git -- npx -y @modelcontextprotocol/server-git
 ```
 
 ### Adding More Servers
@@ -359,10 +358,15 @@ claude-workspace mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbh
 claude-workspace mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
 ```
 
-**Add GitHub (remote, with OAuth):**
+**Add GitHub (remote):**
 ```bash
+# OAuth (browser-based):
 claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github
 # Then in Claude Code: /mcp → Authenticate
+
+# PAT (token-based):
+claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github --bearer
+# You'll be prompted: Enter Bearer token: ****
 ```
 
 **Add a remote server with Bearer token:**

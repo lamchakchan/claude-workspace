@@ -34,12 +34,15 @@ Project management, issue tracking, and team communication servers.
 | Server | Type | Auth Method | Setup Command |
 |--------|------|-------------|---------------|
 | **GitHub** | Remote (HTTP) | OAuth | `claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github` |
+| **GitHub (PAT)** | Remote (HTTP) | Bearer token | `claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github --bearer` |
 | **Notion** | Remote (HTTP) | OAuth | `claude-workspace mcp remote https://mcp.notion.com/mcp --name notion` |
 | **Linear** | Remote (HTTP) | OAuth | `claude-workspace mcp remote https://mcp.linear.app/sse --name linear` |
 | **Slack** | Remote (HTTP) | Env var | Requires `SLACK_MCP_URL` — see your Slack admin for the MCP endpoint |
 | **Jira** | Local (npx) | API key | `claude-workspace mcp add jira --api-key JIRA_API_TOKEN -- npx -y @anthropic/claude-code-jira-server` |
 
-**OAuth servers** (GitHub, Notion, Linear): after adding, run `/mcp` inside Claude Code and authenticate via the browser flow.
+**GitHub (OAuth)**: after adding, run `/mcp` inside Claude Code and authenticate via the browser flow. Alternatively, use the **GitHub (PAT)** option if you prefer token-based auth — you'll be prompted to enter your Personal Access Token securely (stored in `~/.claude.json`, never in `.mcp.json`).
+
+**Notion, Linear (OAuth)**: after adding, run `/mcp` inside Claude Code and authenticate via the browser flow.
 
 **Jira**: you'll be prompted to enter `JIRA_API_TOKEN` securely. Also set `JIRA_URL` and `JIRA_EMAIL` as environment variables.
 

@@ -321,11 +321,6 @@ func platformMCPServers() map[string]interface{} {
 			"args":    []string{"-y", "@modelcontextprotocol/server-memory"},
 			"env":     map[string]interface{}{},
 		},
-		"git": map[string]interface{}{
-			"command": "npx",
-			"args":    []string{"-y", "@modelcontextprotocol/server-git"},
-			"env":     map[string]interface{}{},
-		},
 	}
 }
 
@@ -362,7 +357,6 @@ func setupUserMCPServers() error {
 		fmt.Println("  Node.js installation may have failed or npx is not in PATH.")
 		fmt.Println("  Install Node.js (https://nodejs.org), then run manually:")
 		fmt.Println("    claude mcp add --scope user memory -- npx -y @modelcontextprotocol/server-memory")
-		fmt.Println("    claude mcp add --scope user git -- npx -y @modelcontextprotocol/server-git")
 		return nil
 	}
 
