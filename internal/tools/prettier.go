@@ -16,7 +16,15 @@ func Prettier() Tool {
 			if !platform.Exists("npm") {
 				return fmt.Errorf("npm not available")
 			}
-			return platform.RunQuiet("npm", "install", "-g", "prettier")
+			// Try without sudo first
+			if err := platform.RunQuiet("npm", "install", "-g", "prettier"); err == nil {
+				return nil
+			}
+			// Retry with sudo (needed when node is installed system-wide via apt)
+			if platform.Exists("sudo") {
+				return platform.RunQuiet("sudo", "npm", "install", "-g", "prettier")
+			}
+			return fmt.Errorf("npm install -g prettier failed (no write access to global npm directory)")
 		},
 	}
 }

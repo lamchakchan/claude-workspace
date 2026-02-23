@@ -85,6 +85,8 @@ func Run() error {
 		if err := nodeTool.Install(); err != nil {
 			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Node.js install failed: %v", err))
 			fmt.Println("  MCP servers require Node.js. Install manually: https://nodejs.org")
+		} else if ver, err := platform.Output("node", "--version"); err == nil {
+			fmt.Printf("  Node.js installed: %s\n", ver)
 		}
 	}
 
