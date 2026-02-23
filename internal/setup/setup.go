@@ -26,7 +26,7 @@ func Run() error {
 	platform.PrintBanner(os.Stdout, "Claude Code Platform Setup")
 
 	// Step 1: Check if Claude Code CLI is installed
-	platform.PrintStep(os.Stdout, 1, 6, "Checking Claude Code installation...")
+	platform.PrintStep(os.Stdout, 1, 7, "Checking Claude Code installation...")
 
 	// Check for npm-installed Claude that needs cleanup
 	npmInfo := DetectNpmClaude()
@@ -53,29 +53,35 @@ func Run() error {
 	}
 
 	// Step 2: API Key provisioning
-	platform.PrintStep(os.Stdout, 2, 6, "API Key provisioning...")
+	platform.PrintStep(os.Stdout, 2, 7, "API Key provisioning...")
 	if err := provisionApiKey(); err != nil {
 		return err
 	}
 
 	// Step 3: Create global user settings
-	platform.PrintStep(os.Stdout, 3, 6, "Setting up global user configuration...")
+	platform.PrintStep(os.Stdout, 3, 7, "Setting up global user configuration...")
 	if err := setupGlobalSettings(); err != nil {
 		return err
 	}
 
 	// Step 4: Create global CLAUDE.md
-	platform.PrintStep(os.Stdout, 4, 6, "Setting up global CLAUDE.md...")
+	platform.PrintStep(os.Stdout, 4, 7, "Setting up global CLAUDE.md...")
 	if err := setupGlobalClaudeMd(); err != nil {
 		return err
 	}
 
 	// Step 5: Install binary to PATH
-	platform.PrintStep(os.Stdout, 5, 6, "Installing claude-workspace to PATH...")
+	platform.PrintStep(os.Stdout, 5, 7, "Installing claude-workspace to PATH...")
 	installBinaryToPath()
 
-	// Step 6: Check optional system tools
-	platform.PrintStep(os.Stdout, 6, 6, "Checking optional system tools...")
+	// Step 6: Register user-scoped MCP servers
+	platform.PrintStep(os.Stdout, 6, 7, "Registering user-scoped MCP servers...")
+	if err := setupUserMCPServers(); err != nil {
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("MCP server registration skipped: %v", err))
+	}
+
+	// Step 7: Check optional system tools
+	platform.PrintStep(os.Stdout, 7, 7, "Checking optional system tools...")
 	checkOptionalTools()
 
 	platform.PrintBanner(os.Stdout, "Setup Complete")
@@ -278,11 +284,11 @@ func GetDefaultGlobalSettings() map[string]interface{} {
 	return map[string]interface{}{
 		"$schema": "https://json.schemastore.org/claude-code-settings.json",
 		"env": map[string]interface{}{
-			"CLAUDE_CODE_ENABLE_TELEMETRY":           "1",
-			"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":   "1",
-			"CLAUDE_CODE_ENABLE_TASKS":               "true",
-			"CLAUDE_CODE_SUBAGENT_MODEL":             "sonnet",
-			"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE":        "80",
+			"CLAUDE_CODE_ENABLE_TELEMETRY":         "1",
+			"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+			"CLAUDE_CODE_ENABLE_TASKS":             "true",
+			"CLAUDE_CODE_SUBAGENT_MODEL":           "sonnet",
+			"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE":      "80",
 		},
 		"permissions": map[string]interface{}{
 			"deny": []string{
@@ -411,6 +417,97 @@ Follow the platform conventions, use subagents for delegation, and plan before i
 		return fmt.Errorf("writing CLAUDE.md: %w", err)
 	}
 	fmt.Println("  Global CLAUDE.md created at ~/.claude/CLAUDE.md")
+	return nil
+}
+
+// platformMCPServers returns the user-scoped MCP servers the platform registers by default.
+func platformMCPServers() map[string]interface{} {
+	return map[string]interface{}{
+		"memory": map[string]interface{}{
+			"command": "npx",
+			"args":    []string{"-y", "@anthropic/claude-code-memory-server"},
+			"env":     map[string]interface{}{},
+		},
+		"git": map[string]interface{}{
+			"command": "npx",
+			"args":    []string{"-y", "@modelcontextprotocol/server-git"},
+			"env":     map[string]interface{}{},
+		},
+	}
+}
+
+// MergeUserMCPServers merges platform MCP servers into an existing ~/.claude.json config map.
+// Only adds servers that are not already present; never overwrites existing entries.
+func MergeUserMCPServers(config map[string]interface{}, servers map[string]interface{}) map[string]interface{} {
+	merged := make(map[string]interface{})
+	for k, v := range config {
+		merged[k] = v
+	}
+
+	existing, _ := merged["mcpServers"].(map[string]interface{})
+	if existing == nil {
+		existing = make(map[string]interface{})
+	}
+
+	result := make(map[string]interface{})
+	for k, v := range existing {
+		result[k] = v
+	}
+	for name, cfg := range servers {
+		if _, alreadySet := result[name]; !alreadySet {
+			result[name] = cfg
+		}
+	}
+
+	merged["mcpServers"] = result
+	return merged
+}
+
+func setupUserMCPServers() error {
+	if !platform.Exists("npx") {
+		fmt.Println("  npx not found — skipping automatic MCP server registration.")
+		fmt.Println("  Install Node.js, then run manually:")
+		fmt.Println("    claude mcp add --scope user memory -- npx -y @anthropic/claude-code-memory-server")
+		fmt.Println("    claude mcp add --scope user git -- npx -y @modelcontextprotocol/server-git")
+		return nil
+	}
+
+	var config map[string]interface{}
+	if platform.FileExists(claudeConfig) {
+		if err := platform.ReadJSONFile(claudeConfig, &config); err != nil {
+			return fmt.Errorf("reading %s: %w", claudeConfig, err)
+		}
+	}
+	if config == nil {
+		config = make(map[string]interface{})
+	}
+
+	merged := MergeUserMCPServers(config, platformMCPServers())
+
+	if err := platform.WriteJSONFile(claudeConfig, merged); err != nil {
+		return fmt.Errorf("writing %s: %w", claudeConfig, err)
+	}
+
+	// Report what was registered vs already present
+	existing, _ := config["mcpServers"].(map[string]interface{})
+	var added, skipped []string
+	for name := range platformMCPServers() {
+		if existing != nil {
+			if _, found := existing[name]; found {
+				skipped = append(skipped, name)
+				continue
+			}
+		}
+		added = append(added, name)
+	}
+
+	if len(added) > 0 {
+		platform.PrintOK(os.Stdout, fmt.Sprintf("Registered: %s", joinStrings(added, ", ")))
+	}
+	if len(skipped) > 0 {
+		fmt.Printf("  Already registered: %s\n", joinStrings(skipped, ", "))
+	}
+
 	return nil
 }
 

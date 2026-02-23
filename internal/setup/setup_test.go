@@ -366,6 +366,87 @@ func TestAppendPathToRC_CreatesFile(t *testing.T) {
 	}
 }
 
+func TestMergeUserMCPServers_AddsWhenAbsent(t *testing.T) {
+	config := map[string]interface{}{}
+	servers := map[string]interface{}{
+		"memory": map[string]interface{}{"command": "npx", "args": []string{"-y", "memory-server"}},
+		"git":    map[string]interface{}{"command": "npx", "args": []string{"-y", "git-server"}},
+	}
+
+	merged := MergeUserMCPServers(config, servers)
+
+	mcp, ok := merged["mcpServers"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected mcpServers to be a map")
+	}
+	if _, ok := mcp["memory"]; !ok {
+		t.Error("expected memory server to be added")
+	}
+	if _, ok := mcp["git"]; !ok {
+		t.Error("expected git server to be added")
+	}
+}
+
+func TestMergeUserMCPServers_DoesNotOverwriteExisting(t *testing.T) {
+	customCfg := map[string]interface{}{"command": "custom", "args": []string{"--custom"}}
+	config := map[string]interface{}{
+		"mcpServers": map[string]interface{}{
+			"memory": customCfg,
+		},
+	}
+	servers := map[string]interface{}{
+		"memory": map[string]interface{}{"command": "npx", "args": []string{"-y", "memory-server"}},
+		"git":    map[string]interface{}{"command": "npx", "args": []string{"-y", "git-server"}},
+	}
+
+	merged := MergeUserMCPServers(config, servers)
+
+	mcp := merged["mcpServers"].(map[string]interface{})
+	memory := mcp["memory"].(map[string]interface{})
+	if memory["command"] != "custom" {
+		t.Errorf("existing memory server should not be overwritten, got command=%v", memory["command"])
+	}
+	if _, ok := mcp["git"]; !ok {
+		t.Error("expected git server to be added alongside existing memory")
+	}
+}
+
+func TestMergeUserMCPServers_PreservesOtherConfigKeys(t *testing.T) {
+	config := map[string]interface{}{
+		"primaryApiKey": "sk-test",
+		"mcpServers":    map[string]interface{}{},
+	}
+	servers := map[string]interface{}{
+		"git": map[string]interface{}{"command": "npx"},
+	}
+
+	merged := MergeUserMCPServers(config, servers)
+
+	if merged["primaryApiKey"] != "sk-test" {
+		t.Error("expected primaryApiKey to be preserved")
+	}
+}
+
+func TestMergeUserMCPServers_NilMcpServers(t *testing.T) {
+	config := map[string]interface{}{
+		"primaryApiKey": "sk-test",
+		// no mcpServers key
+	}
+	servers := map[string]interface{}{
+		"git": map[string]interface{}{"command": "npx"},
+	}
+
+	merged := MergeUserMCPServers(config, servers)
+
+	mcp, ok := merged["mcpServers"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected mcpServers map to be created")
+	}
+	if _, ok := mcp["git"]; !ok {
+		t.Error("expected git server to be present")
+	}
+}
+
 func TestJoinStrings(t *testing.T) {
 	tests := []struct {
 		name string
