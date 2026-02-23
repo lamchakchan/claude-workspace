@@ -45,13 +45,18 @@ case "$EXT" in
     fi
     ;;
   json)
-    if command -v jq &>/dev/null; then
+    # Try prettier first, then biome, then jq as fallback
+    if command -v prettier &>/dev/null; then
+      prettier --write "$FILE_PATH" 2>/dev/null || true
+    elif command -v biome &>/dev/null; then
+      biome format --write "$FILE_PATH" 2>/dev/null || true
+    elif command -v jq &>/dev/null; then
       TMP=$(mktemp)
-      if jq '.' "$FILE_PATH" > "$TMP" 2>/dev/null; then
+      trap 'rm -f "$TMP"' EXIT
+      if jq --indent 2 '.' "$FILE_PATH" > "$TMP" 2>/dev/null; then
         mv "$TMP" "$FILE_PATH"
-      else
-        rm -f "$TMP"
       fi
+      trap - EXIT
     fi
     ;;
   yaml|yml)
