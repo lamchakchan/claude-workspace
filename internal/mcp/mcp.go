@@ -26,6 +26,7 @@ type addConfig struct {
 	UseOAuth           bool
 	ClientId           string
 	PromptClientSecret bool
+	ClientSecret       string
 }
 
 type remoteConfig struct {
@@ -37,17 +38,56 @@ type remoteConfig struct {
 	UseOAuth           bool
 	ClientId           string
 	PromptClientSecret bool
+	ClientSecret       string
 	Transport          string
 }
 
 func promptSecret(prompt string) (string, error) {
 	platform.PrintPrompt(os.Stdout, prompt)
-	password, err := term.ReadPassword(int(syscall.Stdin))
-	fmt.Println()
+
+	fd := int(syscall.Stdin)
+	oldState, err := term.MakeRaw(fd)
 	if err != nil {
-		return "", fmt.Errorf("reading secret: %w", err)
+		// Fall back to hidden input if raw mode is unavailable.
+		password, err := term.ReadPassword(fd)
+		fmt.Println()
+		if err != nil {
+			return "", fmt.Errorf("reading secret: %w", err)
+		}
+		return strings.TrimSpace(string(password)), nil
 	}
-	return strings.TrimSpace(string(password)), nil
+	defer term.Restore(fd, oldState)
+
+	var buf []byte
+	b := make([]byte, 1)
+	for {
+		_, err := os.Stdin.Read(b)
+		if err != nil {
+			fmt.Println()
+			return "", fmt.Errorf("reading secret: %w", err)
+		}
+		switch b[0] {
+		case '\r', '\n': // Enter
+			fmt.Println()
+			return strings.TrimSpace(string(buf)), nil
+		case '\x03': // Ctrl+C
+			fmt.Println()
+			return "", fmt.Errorf("interrupted")
+		case '\x04': // Ctrl+D / EOF
+			fmt.Println()
+			return strings.TrimSpace(string(buf)), nil
+		case '\x7f', '\x08': // Backspace / Delete
+			if len(buf) > 0 {
+				buf = buf[:len(buf)-1]
+				fmt.Print("\b \b")
+			}
+		default:
+			if b[0] >= 0x20 && b[0] < 0x7f { // printable ASCII
+				buf = append(buf, b[0])
+				fmt.Print("*")
+			}
+		}
+	}
 }
 
 func parseAddArgs(args []string) (*addConfig, error) {
@@ -218,15 +258,11 @@ func buildAddClaudeArgs(cfg *addConfig) ([]string, error) {
 		claudeArgs = append(claudeArgs, "--env", key+"="+value)
 	}
 
-	for _, header := range cfg.Headers {
-		claudeArgs = append(claudeArgs, "--header", header)
-	}
-
 	if cfg.ClientId != "" {
 		claudeArgs = append(claudeArgs, "--client-id", cfg.ClientId)
 	}
-	if cfg.PromptClientSecret {
-		claudeArgs = append(claudeArgs, "--client-secret")
+	if cfg.ClientSecret != "" {
+		claudeArgs = append(claudeArgs, "--client-secret", cfg.ClientSecret)
 	}
 
 	claudeArgs = append(claudeArgs, cfg.Name)
@@ -241,24 +277,32 @@ func buildAddClaudeArgs(cfg *addConfig) ([]string, error) {
 		claudeArgs = append(claudeArgs, cfg.CommandArgs...)
 	}
 
+	// --header is variadic in the Claude CLI and must come after positional args
+	// to prevent it from consuming <name> and <url> as header values.
+	for _, header := range cfg.Headers {
+		claudeArgs = append(claudeArgs, "--header", header)
+	}
+
 	return claudeArgs, nil
 }
 
 func buildRemoteClaudeArgs(cfg *remoteConfig) []string {
 	claudeArgs := []string{"mcp", "add", "--transport", cfg.Transport, "--scope", cfg.Scope}
 
-	for _, header := range cfg.Headers {
-		claudeArgs = append(claudeArgs, "--header", header)
-	}
-
 	if cfg.ClientId != "" {
 		claudeArgs = append(claudeArgs, "--client-id", cfg.ClientId)
 	}
-	if cfg.PromptClientSecret {
-		claudeArgs = append(claudeArgs, "--client-secret")
+	if cfg.ClientSecret != "" {
+		claudeArgs = append(claudeArgs, "--client-secret", cfg.ClientSecret)
 	}
 
 	claudeArgs = append(claudeArgs, cfg.Name, cfg.McpURL)
+
+	// --header is variadic in the Claude CLI and must come after positional args
+	// to prevent it from consuming <name> and <url> as header values.
+	for _, header := range cfg.Headers {
+		claudeArgs = append(claudeArgs, "--header", header)
+	}
 
 	return claudeArgs
 }
@@ -275,6 +319,10 @@ func maskSensitiveArgs(args []string) []string {
 			}
 			if prev == "--header" && strings.Contains(strings.ToLower(arg), "bearer") {
 				safeArgs[idx] = "Authorization: Bearer ****"
+				continue
+			}
+			if prev == "--client-secret" {
+				safeArgs[idx] = "****"
 				continue
 			}
 		}
@@ -320,6 +368,21 @@ func Add(args []string) error {
 			return fmt.Errorf("no token provided")
 		}
 		cfg.Headers = append(cfg.Headers, "Authorization: Bearer "+token)
+	}
+
+	if cfg.PromptClientSecret {
+		fmt.Printf("\nOAuth client secret required for '%s' server.\n", cfg.Name)
+		fmt.Println("Stored in your Claude config (~/.claude.json), NOT in project files.")
+		fmt.Println()
+
+		secret, err := promptSecret("Enter OAuth client secret: ")
+		if err != nil {
+			return err
+		}
+		if secret == "" {
+			return fmt.Errorf("no client secret provided")
+		}
+		cfg.ClientSecret = secret
 	}
 
 	claudeArgs, err := buildAddClaudeArgs(cfg)
@@ -381,6 +444,21 @@ func Remote(mcpURL string, extraArgs []string) error {
 			return fmt.Errorf("no token provided")
 		}
 		cfg.Headers = append(cfg.Headers, "Authorization: Bearer "+token)
+	}
+
+	if cfg.PromptClientSecret {
+		fmt.Printf("\nOAuth client secret required for '%s'.\n", cfg.Name)
+		fmt.Println("Stored securely in your Claude config.")
+		fmt.Println()
+
+		secret, err := promptSecret("Enter OAuth client secret: ")
+		if err != nil {
+			return err
+		}
+		if secret == "" {
+			return fmt.Errorf("no client secret provided")
+		}
+		cfg.ClientSecret = secret
 	}
 
 	claudeArgs := buildRemoteClaudeArgs(cfg)
