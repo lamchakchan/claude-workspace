@@ -333,10 +333,14 @@ MCP (Model Context Protocol) servers give Claude access to external tools and da
 
 ### Pre-Configured Servers
 
-The platform ships with three MCP servers in `.mcp.json`:
-- **memory** - Persistent knowledge graph (remembers across sessions)
-- **filesystem** - Secure file operations
-- **git** - Git repository operations
+The platform ships with one project-scoped MCP server in `.mcp.json`:
+- **filesystem** - Secure file operations scoped to the project directory
+
+General-purpose servers like `memory` and `git` are better added at user scope so they're available across all projects:
+```bash
+claude mcp add --scope user memory -- npx -y @anthropic/claude-code-memory-server
+claude mcp add --scope user git -- npx -y @modelcontextprotocol/server-git
+```
 
 ### Adding More Servers
 
