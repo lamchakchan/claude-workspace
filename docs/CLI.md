@@ -4,7 +4,7 @@ Complete reference for all `claude-workspace` commands, flags, and options.
 
 ## claude-workspace setup
 
-First-time setup: installs Claude Code CLI, provisions API keys, configures global settings, and installs the binary to PATH.
+First-time setup: installs Claude Code CLI, provisions API keys, configures global settings, installs the binary to PATH, installs Node.js if missing, and registers MCP servers.
 
 **Synopsis:**
 

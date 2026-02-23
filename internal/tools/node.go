@@ -20,7 +20,7 @@ const (
 	// NodeMinMajor is the minimum Node.js major version for MCP compatibility.
 	NodeMinMajor = 18
 	// NodeLTSVersion is the pinned LTS version for binary download fallback.
-	NodeLTSVersion = "22.14.0"
+	NodeLTSVersion = "24.13.1"
 )
 
 // Node returns the Node.js tool definition.
@@ -135,7 +135,7 @@ func installNodeViaAsdf() error {
 // installNodeViaApt installs Node.js using the NodeSource repository for modern LTS.
 func installNodeViaApt() error {
 	// Run NodeSource setup script
-	setupCmd := "curl -fsSL https://deb.nodesource.com/setup_22.x | "
+	setupCmd := "curl -fsSL https://deb.nodesource.com/setup_24.x | "
 	if platform.Exists("sudo") {
 		setupCmd += "sudo -E bash -"
 	} else {
@@ -259,7 +259,7 @@ func downloadFile(url, dest string) error {
 }
 
 // extractNodeArchive extracts bin/ contents from a Node.js tar.gz archive into destDir.
-// The prefix is the top-level directory name inside the archive (e.g., "node-v22.14.0-darwin-arm64").
+// The prefix is the top-level directory name inside the archive (e.g., "node-v24.13.1-darwin-arm64").
 func extractNodeArchive(archive, destDir, prefix string) error {
 	f, err := os.Open(archive)
 	if err != nil {
