@@ -126,7 +126,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Review the conversation and determine if all tasks the user requested are complete. Check: 1) Were all requested changes made? 2) Were tests run if code was modified? 3) Are there any unresolved errors? Context: $ARGUMENTS",
+            "prompt": "Review the conversation and determine if all tasks the user requested are complete. Check: 1) Were all requested changes made? 2) Were tests run if code was modified? 3) Are there any unresolved errors? Respond with JSON only — no prose, no markdown. Use {\"decision\": \"proceed\"} if complete, or {\"decision\": \"block\", \"reason\": \"<what is still incomplete>\"} if not. Context: $ARGUMENTS",
             "model": "haiku",
             "timeout": 30
           }

@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# Expand PATH for version managers (asdf, nvm, homebrew) since hooks run in a non-login shell
+export PATH="$HOME/.asdf/shims:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 # Auto-formats files after write/edit operations
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
