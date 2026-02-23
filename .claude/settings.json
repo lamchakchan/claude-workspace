@@ -120,18 +120,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Review if all user-requested tasks are complete. Output ONLY valid JSON — no code fences, no extra text. If complete: {\"decision\": \"proceed\"} If incomplete: {\"decision\": \"block\", \"reason\": \"what remains\"}",
-            "model": "haiku",
-            "timeout": 30
-          }
-        ]
-      }
     ]
   },
   "alwaysThinkingEnabled": true,
