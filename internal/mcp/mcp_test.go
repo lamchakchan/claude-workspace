@@ -6,10 +6,10 @@ import (
 
 func TestParseAddArgs(t *testing.T) {
 	tests := []struct {
-		name        string
-		args        []string
-		wantErr     bool
-		check       func(t *testing.T, cfg *addConfig)
+		name    string
+		args    []string
+		wantErr bool
+		check   func(t *testing.T, cfg *addConfig)
 	}{
 		{
 			name:    "empty args returns error",
@@ -426,7 +426,7 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 			},
 		},
 		{
-			name: "headers included",
+			name: "headers included after positional args",
 			cfg: &addConfig{
 				Name:      "srv",
 				Scope:     "local",
@@ -436,25 +436,35 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 				McpURL:    "https://example.com",
 			},
 			check: func(t *testing.T, args []string) {
-				assertContains(t, args, "--header")
+				// --header must come after <name> and <url> to avoid the variadic
+				// flag consuming positional args in the Claude CLI parser.
+				nameIdx := indexOf(args, "srv")
+				headerIdx := indexOf(args, "--header")
+				if nameIdx < 0 || headerIdx < 0 {
+					t.Fatalf("expected 'srv' and '--header' in args: %v", args)
+				}
+				if headerIdx < nameIdx {
+					t.Errorf("--header (idx %d) must come after <name> (idx %d) in args: %v", headerIdx, nameIdx, args)
+				}
 				assertContains(t, args, "X-Custom: value")
 			},
 		},
 		{
 			name: "client-id and client-secret included",
 			cfg: &addConfig{
-				Name:               "srv",
-				Scope:              "local",
-				Transport:          "http",
-				EnvVars:            map[string]string{},
-				ClientId:           "my-id",
-				PromptClientSecret: true,
-				McpURL:             "https://example.com",
+				Name:         "srv",
+				Scope:        "local",
+				Transport:    "http",
+				EnvVars:      map[string]string{},
+				ClientId:     "my-id",
+				ClientSecret: "tok",
+				McpURL:       "https://example.com",
 			},
 			check: func(t *testing.T, args []string) {
 				assertContains(t, args, "--client-id")
 				assertContains(t, args, "my-id")
 				assertContains(t, args, "--client-secret")
+				assertContains(t, args, "tok")
 			},
 		},
 	}
@@ -498,7 +508,7 @@ func TestBuildRemoteClaudeArgs(t *testing.T) {
 			},
 		},
 		{
-			name: "with headers",
+			name: "with headers after positional args",
 			cfg: &remoteConfig{
 				Name:      "srv",
 				McpURL:    "https://example.com/mcp",
@@ -507,24 +517,34 @@ func TestBuildRemoteClaudeArgs(t *testing.T) {
 				Headers:   []string{"Authorization: Bearer token123"},
 			},
 			check: func(t *testing.T, args []string) {
-				assertContains(t, args, "--header")
+				// --header must come after <name> and <url> to avoid the variadic
+				// flag consuming positional args in the Claude CLI parser.
+				urlIdx := indexOf(args, "https://example.com/mcp")
+				headerIdx := indexOf(args, "--header")
+				if urlIdx < 0 || headerIdx < 0 {
+					t.Fatalf("expected URL and '--header' in args: %v", args)
+				}
+				if headerIdx < urlIdx {
+					t.Errorf("--header (idx %d) must come after URL (idx %d) in args: %v", headerIdx, urlIdx, args)
+				}
 				assertContains(t, args, "Authorization: Bearer token123")
 			},
 		},
 		{
 			name: "with client-id and client-secret",
 			cfg: &remoteConfig{
-				Name:               "srv",
-				McpURL:             "https://example.com/mcp",
-				Scope:              "user",
-				Transport:          "http",
-				ClientId:           "my-id",
-				PromptClientSecret: true,
+				Name:         "srv",
+				McpURL:       "https://example.com/mcp",
+				Scope:        "user",
+				Transport:    "http",
+				ClientId:     "my-id",
+				ClientSecret: "tok",
 			},
 			check: func(t *testing.T, args []string) {
 				assertContains(t, args, "--client-id")
 				assertContains(t, args, "my-id")
 				assertContains(t, args, "--client-secret")
+				assertContains(t, args, "tok")
 			},
 		},
 	}
@@ -571,6 +591,11 @@ func TestMaskSensitiveArgs(t *testing.T) {
 			want: []string{"mcp", "add", "--header", "X-Custom: value", "srv"},
 		},
 		{
+			name: "client-secret value masked",
+			args: []string{"mcp", "add", "--client-id", "my-id", "--client-secret", "supersensitivevalue", "srv"},
+			want: []string{"mcp", "add", "--client-id", "my-id", "--client-secret", "****", "srv"},
+		},
+		{
 			name: "empty args",
 			args: []string{},
 			want: []string{},
@@ -583,6 +608,15 @@ func TestMaskSensitiveArgs(t *testing.T) {
 			assertSliceEqual(t, got, tt.want)
 		})
 	}
+}
+
+func indexOf(slice []string, item string) int {
+	for i, s := range slice {
+		if s == item {
+			return i
+		}
+	}
+	return -1
 }
 
 func assertSliceEqual(t *testing.T, got, want []string) {
