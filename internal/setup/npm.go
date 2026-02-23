@@ -2,7 +2,6 @@ package setup
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -93,13 +92,9 @@ func UninstallNpmClaude(info NpmInstallInfo) error {
 // findAsdfNodejsVersionsWithClaude scans all asdf-installed Node.js versions
 // for a claude binary that was installed via npm.
 func findAsdfNodejsVersionsWithClaude() []string {
-	asdfDataDir := os.Getenv("ASDF_DATA_DIR")
+	asdfDataDir := platform.AsdfDataDir()
 	if asdfDataDir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil
-		}
-		asdfDataDir = filepath.Join(home, ".asdf")
+		return nil
 	}
 
 	pattern := filepath.Join(asdfDataDir, "installs", "nodejs", "*", "bin", "claude")

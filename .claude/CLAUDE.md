@@ -10,11 +10,12 @@ Lint: `go vet ./...` or `make vet`
 
 ## Key Directories
 - `_template/.claude/` - Embeddable assets overlaid into target projects (agents, skills, hooks, settings)
-- `_template/.claude/agents/` - Five subagent definitions: planner, explorer, code-reviewer, test-runner, security-scanner
+- `_template/.claude/agents/` - Nine subagent definitions: planner, explorer, code-reviewer, test-runner, security-scanner, dependency-updater, incident-responder, documentation-writer, infra-reviewer
 - `_template/.claude/skills/` - Four skill definitions: context-manager, onboarding, plan-and-execute, pr-workflow
 - `_template/.claude/hooks/` - Four safety hooks: auto-format, block-dangerous-commands, enforce-branch-policy, validate-secrets
 - `internal/attach/` - `attach` command: overlays template assets into a target project
-- `internal/setup/` - `setup` command: installs Claude Code CLI and provisions API key
+- `internal/setup/` - `setup` command: orchestrates setup wizard (API key, settings, MCP servers)
+- `internal/tools/` - Tool definitions and installation: Claude CLI, shellcheck, jq, prettier, tmux; registry pattern for adding new tools
 - `internal/sandbox/` - `sandbox` command: creates git worktrees for parallel Claude instances
 - `internal/mcp/` - `mcp` command: manages MCP server configurations
 - `internal/upgrade/` - `upgrade` command: upgrades claude-workspace and Claude Code CLI

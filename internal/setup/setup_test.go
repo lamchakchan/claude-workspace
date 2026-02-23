@@ -1,11 +1,8 @@
 package setup
 
 import (
-	"os"
-	"path/filepath"
 	"reflect"
 	"sort"
-	"strings"
 	"testing"
 )
 
@@ -225,144 +222,84 @@ func TestGetDefaultGlobalSettings(t *testing.T) {
 	}
 }
 
-func TestDetectShellRC_ZshFromEnv(t *testing.T) {
-	t.Setenv("SHELL", "/bin/zsh")
-	home := t.TempDir()
-
-	rcPath, shellName := detectShellRC(home)
-
-	if shellName != "zsh" {
-		t.Errorf("expected shellName=zsh, got %s", shellName)
+func TestMergeUserMCPServers_AddsWhenAbsent(t *testing.T) {
+	config := map[string]interface{}{}
+	servers := map[string]interface{}{
+		"memory": map[string]interface{}{"command": "npx", "args": []string{"-y", "memory-server"}},
+		"git":    map[string]interface{}{"command": "npx", "args": []string{"-y", "git-server"}},
 	}
-	if filepath.Base(rcPath) != ".zshrc" {
-		t.Errorf("expected .zshrc, got %s", rcPath)
+
+	merged := MergeUserMCPServers(config, servers)
+
+	mcp, ok := merged["mcpServers"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected mcpServers to be a map")
 	}
-}
-
-func TestDetectShellRC_BashFromEnv(t *testing.T) {
-	t.Setenv("SHELL", "/usr/bin/bash")
-	home := t.TempDir()
-
-	rcPath, shellName := detectShellRC(home)
-
-	if shellName != "bash" {
-		t.Errorf("expected shellName=bash, got %s", shellName)
+	if _, ok := mcp["memory"]; !ok {
+		t.Error("expected memory server to be added")
 	}
-	if filepath.Base(rcPath) != ".bashrc" {
-		t.Errorf("expected .bashrc, got %s", rcPath)
+	if _, ok := mcp["git"]; !ok {
+		t.Error("expected git server to be added")
 	}
 }
 
-func TestDetectShellRC_FishFromEnv(t *testing.T) {
-	t.Setenv("SHELL", "/usr/bin/fish")
-	home := t.TempDir()
-
-	rcPath, shellName := detectShellRC(home)
-
-	if shellName != "fish" {
-		t.Errorf("expected shellName=fish, got %s", shellName)
+func TestMergeUserMCPServers_DoesNotOverwriteExisting(t *testing.T) {
+	customCfg := map[string]interface{}{"command": "custom", "args": []string{"--custom"}}
+	config := map[string]interface{}{
+		"mcpServers": map[string]interface{}{
+			"memory": customCfg,
+		},
 	}
-	if !strings.HasSuffix(rcPath, filepath.Join(".config", "fish", "config.fish")) {
-		t.Errorf("expected config.fish path, got %s", rcPath)
+	servers := map[string]interface{}{
+		"memory": map[string]interface{}{"command": "npx", "args": []string{"-y", "memory-server"}},
+		"git":    map[string]interface{}{"command": "npx", "args": []string{"-y", "git-server"}},
 	}
-}
 
-func TestDetectShellRC_FallbackFileExists(t *testing.T) {
-	t.Setenv("SHELL", "")
-	home := t.TempDir()
+	merged := MergeUserMCPServers(config, servers)
 
-	// Create .zshrc so file-existence fallback triggers
-	os.WriteFile(filepath.Join(home, ".zshrc"), []byte(""), 0644)
-
-	rcPath, shellName := detectShellRC(home)
-
-	if shellName != "zsh" {
-		t.Errorf("expected shellName=zsh from fallback, got %s", shellName)
+	mcp := merged["mcpServers"].(map[string]interface{})
+	memory := mcp["memory"].(map[string]interface{})
+	if memory["command"] != "custom" {
+		t.Errorf("existing memory server should not be overwritten, got command=%v", memory["command"])
 	}
-	if filepath.Base(rcPath) != ".zshrc" {
-		t.Errorf("expected .zshrc, got %s", rcPath)
+	if _, ok := mcp["git"]; !ok {
+		t.Error("expected git server to be added alongside existing memory")
 	}
 }
 
-func TestDetectShellRC_FallbackDefault(t *testing.T) {
-	t.Setenv("SHELL", "")
-	home := t.TempDir()
-
-	rcPath, shellName := detectShellRC(home)
-
-	if shellName != "bash" {
-		t.Errorf("expected shellName=bash as default, got %s", shellName)
+func TestMergeUserMCPServers_PreservesOtherConfigKeys(t *testing.T) {
+	config := map[string]interface{}{
+		"primaryApiKey": "sk-test",
+		"mcpServers":    map[string]interface{}{},
 	}
-	if filepath.Base(rcPath) != ".bashrc" {
-		t.Errorf("expected .bashrc, got %s", rcPath)
+	servers := map[string]interface{}{
+		"git": map[string]interface{}{"command": "npx"},
+	}
+
+	merged := MergeUserMCPServers(config, servers)
+
+	if merged["primaryApiKey"] != "sk-test" {
+		t.Error("expected primaryApiKey to be preserved")
 	}
 }
 
-func TestAppendPathToRC_AddsWhenAbsent(t *testing.T) {
-	home := t.TempDir()
-	rcPath := filepath.Join(home, ".bashrc")
-	os.WriteFile(rcPath, []byte("# existing content\n"), 0644)
-
-	modified, err := appendPathToRC(home, "bash", rcPath)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestMergeUserMCPServers_NilMcpServers(t *testing.T) {
+	config := map[string]interface{}{
+		"primaryApiKey": "sk-test",
+		// no mcpServers key
 	}
-	if !modified {
-		t.Error("expected modified=true")
+	servers := map[string]interface{}{
+		"git": map[string]interface{}{"command": "npx"},
 	}
 
-	content, _ := os.ReadFile(rcPath)
-	if !strings.Contains(string(content), ".local/bin") {
-		t.Error("expected .local/bin in RC file content")
-	}
-	if !strings.Contains(string(content), "# Added by claude-workspace setup") {
-		t.Error("expected comment marker in RC file content")
-	}
-	// Verify original content preserved
-	if !strings.Contains(string(content), "# existing content") {
-		t.Error("expected original content to be preserved")
-	}
-}
+	merged := MergeUserMCPServers(config, servers)
 
-func TestAppendPathToRC_Idempotent(t *testing.T) {
-	home := t.TempDir()
-	rcPath := filepath.Join(home, ".bashrc")
-	os.WriteFile(rcPath, []byte("export PATH=\"$HOME/.local/bin:$PATH\"\n"), 0644)
-
-	modified, err := appendPathToRC(home, "bash", rcPath)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	mcp, ok := merged["mcpServers"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected mcpServers map to be created")
 	}
-	if modified {
-		t.Error("expected modified=false when .local/bin already present")
-	}
-
-	content, _ := os.ReadFile(rcPath)
-	count := strings.Count(string(content), ".local/bin")
-	if count != 1 {
-		t.Errorf("expected 1 occurrence of .local/bin, got %d", count)
-	}
-}
-
-func TestAppendPathToRC_CreatesFile(t *testing.T) {
-	home := t.TempDir()
-	rcPath := filepath.Join(home, ".bashrc")
-	// Don't create the file — appendPathToRC should create it
-
-	modified, err := appendPathToRC(home, "bash", rcPath)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !modified {
-		t.Error("expected modified=true for new file")
-	}
-
-	content, err := os.ReadFile(rcPath)
-	if err != nil {
-		t.Fatalf("expected file to exist: %v", err)
-	}
-	if !strings.Contains(string(content), ".local/bin") {
-		t.Error("expected .local/bin in newly created RC file")
+	if _, ok := mcp["git"]; !ok {
+		t.Error("expected git server to be present")
 	}
 }
 

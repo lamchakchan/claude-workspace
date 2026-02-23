@@ -1,10 +1,5 @@
 {
   "mcpServers": {
-    "memory": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/claude-code-memory-server"],
-      "env": {}
-    },
     "filesystem": {
       "command": "npx",
       "args": [
@@ -12,11 +7,6 @@
         "@modelcontextprotocol/server-filesystem",
         "${CLAUDE_PROJECT_DIR:-.}"
       ],
-      "env": {}
-    },
-    "git": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-git"],
       "env": {}
     }
   }

@@ -23,8 +23,8 @@ A preconfigured, batteries-included platform for deploying Claude Code AI agents
 
 ### Prerequisites
 
-- **Node.js 18+** and **npm** (for MCP servers; optional)
 - **Git** (for version control and worktree sandboxing)
+- **Node.js 18+** and **npm** are required for MCP servers but installed automatically by `setup` if missing
 
 ### Install
 
@@ -68,4 +68,5 @@ claude-workspace doctor
 | [Getting Started](docs/GETTING-STARTED.md) | Installation, setup, first session, subagents, skills, MCP servers, parallel dev, configuration reference, environment variables |
 | [CLI Reference](docs/CLI.md) | Every command, flag, and option with examples |
 | [Architecture](docs/ARCHITECTURE.md) | Design philosophy, prompt layering, hook system, model strategy, sandboxing |
+| [MCP Configs](docs/MCP-CONFIGS.md) | Ready-to-use MCP server configurations by category (collaboration, databases, APIs, and more) |
 | [Runbook](docs/RUNBOOK.md) | Maintenance, troubleshooting, onboarding, security, rollback procedures |

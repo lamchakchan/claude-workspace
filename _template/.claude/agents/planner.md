@@ -1,6 +1,6 @@
 ---
 name: planner
-description: Deep planning agent for complex tasks. Use proactively before any multi-step implementation. Creates detailed, reviewable plans with clear success criteria and dependency ordering.
+description: Deep planning agent for complex tasks. Use proactively before any multi-step implementation, refactoring, or task touching more than 2 files. Creates detailed, reviewable plans with clear success criteria and dependency ordering.
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 model: sonnet
 permissionMode: plan
@@ -24,8 +24,8 @@ You are a senior software architect and planning specialist. Your role is to cre
    - Map the affected components
 
 3. **Create the Plan**
-   - Write the plan to the `./plans/` directory
-   - Use the naming convention: `plan-YYYY-MM-DD-<short-description>.md`
+   - Check CLAUDE.md or settings for a configured plans directory; default to `./plans/`
+   - Write the plan using naming convention: `plan-YYYY-MM-DD-<short-description>.md`
    - Structure the plan with the template below
 
 4. **Risk Assessment**

@@ -26,10 +26,9 @@ This guide walks you through setting up the platform, attaching it to your first
 ## 1. Prerequisites
 
 You need:
-- **Node.js 18+** and **npm** — for MCP servers (optional)
 - **Git** — for version control and worktree sandboxing
 
-The setup wizard checks for these and will guide you if anything is missing. It also checks for optional tools like shellcheck, jq, prettier, and tmux.
+Node.js 18+ and npm are required for MCP servers but installed automatically by `claude-workspace setup` if missing. The setup wizard also checks for optional tools like shellcheck, jq, prettier, and tmux.
 
 ---
 
@@ -70,7 +69,10 @@ claude-workspace setup
 # 2. Launch the interactive API key provisioning flow
 # 3. Create global settings at ~/.claude/settings.json
 # 4. Create global instructions at ~/.claude/CLAUDE.md
-# 5. Check for optional system tools (shellcheck, jq, prettier, tmux)
+# 5. Install claude-workspace binary to PATH
+# 6. Install Node.js if missing (for MCP servers)
+# 7. Register user-scoped MCP servers (memory, git)
+# 8. Check for optional system tools (shellcheck, jq, prettier, tmux)
 ```
 
 **Alternative: Environment variable**
@@ -333,10 +335,14 @@ MCP (Model Context Protocol) servers give Claude access to external tools and da
 
 ### Pre-Configured Servers
 
-The platform ships with three MCP servers in `.mcp.json`:
-- **memory** - Persistent knowledge graph (remembers across sessions)
-- **filesystem** - Secure file operations
-- **git** - Git repository operations
+The platform ships with one project-scoped MCP server in `.mcp.json`:
+- **filesystem** - Secure file operations scoped to the project directory
+
+General-purpose servers like `memory` and `git` are better added at user scope so they're available across all projects:
+```bash
+claude mcp add --scope user memory -- npx -y @anthropic/claude-code-memory-server
+claude mcp add --scope user git -- npx -y @modelcontextprotocol/server-git
+```
 
 ### Adding More Servers
 
