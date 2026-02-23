@@ -76,10 +76,19 @@ Error tracking and monitoring servers.
 |--------|------|-------------|---------------|
 | **Sentry** | Remote (HTTP) | OAuth | `claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry` |
 | **Grafana** | Remote (HTTP) | Bearer token | `claude-workspace mcp remote $GRAFANA_MCP_URL --name grafana --bearer` |
+| **Honeycomb** | Remote (HTTP) | OAuth | `claude-workspace mcp remote https://mcp.honeycomb.io/mcp --name honeycomb` |
+| **Honeycomb (API key)** | Remote (HTTP) | Bearer token | `claude-workspace mcp remote https://mcp.honeycomb.io/mcp --name honeycomb --bearer` |
+| **Dynatrace** | Local (npx) | OAuth / Platform token | `claude-workspace mcp add dynatrace --api-key DT_ENVIRONMENT -- npx -y @dynatrace-oss/dynatrace-mcp-server@latest` |
 
 **Sentry**: uses OAuth — authenticate via `/mcp` in Claude Code after adding.
 
 **Grafana**: you'll be prompted for a Bearer token. Generate one in your Grafana instance settings.
+
+**Honeycomb (OAuth)**: after adding, run `/mcp` in Claude Code to authenticate via browser. Provides `run_query`, `run_bubbleup`, `find_columns`, and `get_trace` tools for production debugging. Requires Honeycomb Intelligence (enabled on all plans). EU teams: replace the URL with `https://mcp.eu1.honeycomb.io/mcp`.
+
+**Honeycomb (API key)**: you'll be prompted for a Bearer token in format `KEY_ID:SECRET_KEY` from your Honeycomb API settings. Use this for unattended agents or CI pipelines. EU teams: replace the URL with `https://mcp.eu1.honeycomb.io/mcp`.
+
+**Dynatrace**: you'll be prompted for `DT_ENVIRONMENT` — your tenant URL (e.g., `https://abc12345.apps.dynatrace.com`). Uses browser OAuth by default. For headless/CI use, also set `DT_PLATFORM_TOKEN` (a Platform Token from your Dynatrace settings). Required scopes: `app-engine:apps:run`, `storage:buckets:read`, `davis-copilot:conversations:execute`.
 
 ---
 

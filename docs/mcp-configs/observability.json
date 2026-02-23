@@ -8,14 +8,36 @@
     "grafana": {
       "type": "http",
       "url": "${GRAFANA_MCP_URL}"
+    },
+    "honeycomb": {
+      "type": "http",
+      "url": "https://mcp.honeycomb.io/mcp"
+    },
+    "honeycomb-api-key": {
+      "type": "http",
+      "url": "https://mcp.honeycomb.io/mcp"
+    },
+    "dynatrace": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@dynatrace-oss/dynatrace-mcp-server@latest"],
+      "env": {
+        "DT_ENVIRONMENT": "${DT_ENVIRONMENT}"
+      }
     }
   },
   "setup_commands": {
     "sentry": "claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry",
-    "grafana": "claude-workspace mcp remote $GRAFANA_MCP_URL --name grafana --bearer"
+    "grafana": "claude-workspace mcp remote $GRAFANA_MCP_URL --name grafana --bearer",
+    "honeycomb": "claude-workspace mcp remote https://mcp.honeycomb.io/mcp --name honeycomb",
+    "honeycomb-api-key": "claude-workspace mcp remote https://mcp.honeycomb.io/mcp --name honeycomb --bearer",
+    "dynatrace": "claude-workspace mcp add dynatrace --api-key DT_ENVIRONMENT -- npx -y @dynatrace-oss/dynatrace-mcp-server@latest"
   },
   "notes": {
     "sentry": "Uses OAuth - authenticate via /mcp in Claude Code after adding",
-    "grafana": "You will be prompted for a Bearer token. Generate one in Grafana settings."
+    "grafana": "You will be prompted for a Bearer token. Generate one in Grafana settings.",
+    "honeycomb": "Uses OAuth — authenticate via /mcp in Claude Code after adding. Requires Honeycomb Intelligence (enabled on all plans). EU region: use https://mcp.eu1.honeycomb.io/mcp",
+    "honeycomb-api-key": "You will be prompted for a Bearer token. Use KEY_ID:SECRET_KEY from your Honeycomb API settings. EU region: use https://mcp.eu1.honeycomb.io/mcp",
+    "dynatrace": "You will be prompted for DT_ENVIRONMENT (your tenant URL, e.g. https://abc12345.apps.dynatrace.com). Uses browser OAuth by default. For headless/CI use, also set DT_PLATFORM_TOKEN. Required scopes: app-engine:apps:run, storage:buckets:read, davis-copilot:conversations:execute."
   }
 }
