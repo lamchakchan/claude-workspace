@@ -12,6 +12,7 @@ import (
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 	"github.com/lamchakchan/claude-workspace/internal/setup"
+	"github.com/lamchakchan/claude-workspace/internal/tools"
 )
 
 // ErrMutuallyExclusive is returned when --self-only and --cli-only are both set.
@@ -307,7 +308,7 @@ func upgradeCLI(nextStep func() int, totalSteps int, autoYes, checkOnly bool) er
 
 	// Run official installer
 	fmt.Println("  Running official installer...")
-	if err := platform.Run("bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"); err != nil {
+	if err := platform.Run("bash", "-c", tools.ClaudeInstallCmd); err != nil {
 		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Claude Code CLI upgrade failed: %v", err))
 		fmt.Println("  You can upgrade manually: curl -fsSL https://claude.ai/install.sh | bash")
 		return nil // non-fatal

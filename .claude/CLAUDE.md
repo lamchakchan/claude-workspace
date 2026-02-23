@@ -14,7 +14,8 @@ Lint: `go vet ./...` or `make vet`
 - `_template/.claude/skills/` - Four skill definitions: context-manager, onboarding, plan-and-execute, pr-workflow
 - `_template/.claude/hooks/` - Four safety hooks: auto-format, block-dangerous-commands, enforce-branch-policy, validate-secrets
 - `internal/attach/` - `attach` command: overlays template assets into a target project
-- `internal/setup/` - `setup` command: installs Claude Code CLI and provisions API key
+- `internal/setup/` - `setup` command: orchestrates setup wizard (API key, settings, MCP servers)
+- `internal/tools/` - Tool definitions and installation: Claude CLI, shellcheck, jq, prettier, tmux; registry pattern for adding new tools
 - `internal/sandbox/` - `sandbox` command: creates git worktrees for parallel Claude instances
 - `internal/mcp/` - `mcp` command: manages MCP server configurations
 - `internal/upgrade/` - `upgrade` command: upgrades claude-workspace and Claude Code CLI

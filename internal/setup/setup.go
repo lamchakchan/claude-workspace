@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
+	"github.com/lamchakchan/claude-workspace/internal/tools"
 )
 
 var (
@@ -42,12 +41,13 @@ func Run() error {
 		fmt.Println("  npm Claude Code removed successfully.")
 	}
 
-	if platform.Exists("claude") {
+	claudeTool := tools.Claude()
+	if claudeTool.IsInstalled() {
 		ver, _ := platform.Output("claude", "--version")
 		fmt.Printf("  Claude Code CLI found: %s\n", ver)
 	} else {
 		fmt.Println("  Claude Code CLI not found. Installing...")
-		if err := installClaude(); err != nil {
+		if err := claudeTool.Install(); err != nil {
 			return err
 		}
 	}
@@ -82,7 +82,7 @@ func Run() error {
 
 	// Step 7: Check optional system tools
 	platform.PrintStep(os.Stdout, 7, 7, "Checking optional system tools...")
-	checkOptionalTools()
+	tools.CheckAndInstall(tools.Optional())
 
 	platform.PrintBanner(os.Stdout, "Setup Complete")
 	fmt.Println("\nNext steps:")
@@ -93,129 +93,6 @@ func Run() error {
 	fmt.Println()
 
 	return nil
-}
-
-func installClaude() error {
-	fmt.Println("  Installing Claude Code via official installer...")
-	if err := platform.Run("bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"); err != nil {
-		fmt.Fprintln(os.Stderr, "  Failed to install Claude Code automatically.")
-		fmt.Println("  Please install manually: curl -fsSL https://claude.ai/install.sh | bash")
-		fmt.Println("  Or visit: https://docs.anthropic.com/en/docs/claude-code")
-		os.Exit(1)
-	}
-
-	// The installer places claude in ~/.local/bin which may not be in PATH.
-	// Add it to PATH for the current process so subsequent steps can find it.
-	home, _ := os.UserHomeDir()
-	localBin := filepath.Join(home, ".local", "bin")
-	if platform.FileExists(filepath.Join(localBin, "claude")) {
-		os.Setenv("PATH", localBin+":"+os.Getenv("PATH"))
-
-		fmt.Println("  Configuring claude in PATH...")
-
-		// Strategy 1: Symlink to /usr/local/bin (works immediately, no shell restart)
-		if err := symlinkClaudeBinary(localBin); err == nil {
-			fmt.Println("  Symlinked claude → /usr/local/bin/claude (available immediately).")
-		} else {
-			// Strategy 2: Append to shell RC file
-			rcPath, shellName := detectShellRC(home)
-			if modified, err := appendPathToRC(home, shellName, rcPath); err != nil {
-				fmt.Printf("  Warning: could not auto-configure PATH: %v\n", err)
-				fmt.Println("  To fix manually, run:")
-				fmt.Println("    echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/." + shellName + "rc")
-			} else if modified {
-				fmt.Printf("  Added ~/.local/bin to PATH in %s\n", filepath.Base(rcPath))
-				fmt.Printf("  Restart your shell or run: source %s\n", rcPath)
-			}
-		}
-
-		fmt.Println("  Note: Ignore any PATH warning above — already handled.")
-	}
-
-	fmt.Println("  Claude Code installed successfully.")
-	return nil
-}
-
-// detectShellRC determines the user's shell RC file path and shell name.
-// It checks $SHELL first, then falls back to file-existence checks.
-func detectShellRC(home string) (rcPath, shellName string) {
-	shell := os.Getenv("SHELL")
-
-	switch {
-	case strings.HasSuffix(shell, "zsh"):
-		return filepath.Join(home, ".zshrc"), "zsh"
-	case strings.HasSuffix(shell, "fish"):
-		return filepath.Join(home, ".config", "fish", "config.fish"), "fish"
-	case strings.HasSuffix(shell, "bash"):
-		return filepath.Join(home, ".bashrc"), "bash"
-	}
-
-	// Fallback: check if .zshrc exists (common on macOS)
-	if platform.FileExists(filepath.Join(home, ".zshrc")) {
-		return filepath.Join(home, ".zshrc"), "zsh"
-	}
-
-	// Default to bash
-	return filepath.Join(home, ".bashrc"), "bash"
-}
-
-// symlinkClaudeBinary creates a symlink from ~/.local/bin/claude to /usr/local/bin/claude.
-// Returns nil on success; returns an error if both direct and sudo symlink fail.
-func symlinkClaudeBinary(localBin string) error {
-	src := filepath.Join(localBin, "claude")
-	dst := "/usr/local/bin/claude"
-
-	// Skip if /usr/local/bin/claude already exists and resolves to the right target
-	if target, err := os.Readlink(dst); err == nil && target == src {
-		return nil
-	}
-
-	// Try direct symlink
-	if err := platform.SymlinkFile(src, dst); err == nil {
-		return nil
-	}
-
-	// Fall back to sudo ln -sf
-	if err := platform.RunQuiet("sudo", "ln", "-sf", src, dst); err != nil {
-		return fmt.Errorf("symlink failed (direct and sudo): %w", err)
-	}
-	return nil
-}
-
-// appendPathToRC adds ~/.local/bin to PATH in the given shell RC file.
-// For fish, it uses fish_add_path. For bash/zsh, it appends an export line.
-// Returns (true, nil) if the file was modified, (false, nil) if already configured.
-func appendPathToRC(home, shellName, rcPath string) (modified bool, err error) {
-	// Fish uses a different mechanism
-	if shellName == "fish" {
-		fishPath := filepath.Join(home, ".local", "bin")
-		if err := platform.RunQuiet("fish", "-c", "fish_add_path "+fishPath); err != nil {
-			return false, fmt.Errorf("fish_add_path failed: %w", err)
-		}
-		return true, nil
-	}
-
-	// bash/zsh: check idempotency
-	pathLine := "\n# Added by claude-workspace setup\nexport PATH=\"$HOME/.local/bin:$PATH\"\n"
-
-	content, err := os.ReadFile(rcPath)
-	if err != nil && !os.IsNotExist(err) {
-		return false, fmt.Errorf("reading %s: %w", rcPath, err)
-	}
-
-	if strings.Contains(string(content), ".local/bin") {
-		return false, nil // already configured
-	}
-
-	// Ensure parent directory exists (relevant for new files)
-	if err := os.MkdirAll(filepath.Dir(rcPath), 0755); err != nil {
-		return false, fmt.Errorf("creating directory for %s: %w", rcPath, err)
-	}
-
-	if err := os.WriteFile(rcPath, append(content, []byte(pathLine)...), 0644); err != nil {
-		return false, fmt.Errorf("writing %s: %w", rcPath, err)
-	}
-	return true, nil
 }
 
 func provisionApiKey() error {
@@ -543,119 +420,6 @@ func installBinaryToPath() {
 		os.Chmod(destPath, 0755)
 	}
 	fmt.Println("  Installed: claude-workspace is now available globally.")
-}
-
-func checkOptionalTools() {
-	type tool struct {
-		name    string
-		purpose string
-		install string
-	}
-
-	tools := []tool{
-		{"shellcheck", "Hook script validation", ""},
-		{"jq", "JSON processing in hooks", ""},
-		{"prettier", "Auto-format hook (JS/TS/JSON/CSS)", "npm install -g prettier"},
-		{"tmux", "Agent teams split-pane mode", ""},
-	}
-
-	// Detect package manager for system tools
-	hasSudo := platform.Exists("sudo")
-	var pkgInstall func(name string) string
-	if runtime.GOOS == "darwin" && platform.Exists("brew") {
-		pkgInstall = func(name string) string { return "brew install " + name }
-	} else if platform.Exists("apt-get") {
-		if hasSudo {
-			pkgInstall = func(name string) string { return "sudo apt-get install -y " + name }
-		} else {
-			pkgInstall = func(name string) string { return "apt-get install -y " + name }
-		}
-	}
-
-	// Set install commands
-	for i := range tools {
-		if tools[i].install == "" {
-			if pkgInstall != nil {
-				tools[i].install = pkgInstall(tools[i].name)
-			} else if runtime.GOOS == "darwin" {
-				tools[i].install = "brew install " + tools[i].name + " (macOS) / apt install " + tools[i].name + " (Linux)"
-			} else {
-				tools[i].install = "apt install " + tools[i].name
-			}
-		}
-	}
-
-	var missing []tool
-	var found []string
-
-	for _, t := range tools {
-		if platform.Exists(t.name) {
-			found = append(found, t.name)
-		} else {
-			missing = append(missing, t)
-		}
-	}
-
-	if len(found) > 0 {
-		platform.PrintSuccess(os.Stdout, fmt.Sprintf("Found: %s", joinStrings(found, ", ")))
-	}
-
-	if len(missing) > 0 {
-		// Attempt to install missing tools via package manager
-		var stillMissing []tool
-		if pkgInstall != nil {
-			var installable []string
-			for _, t := range missing {
-				if t.name != "prettier" { // prettier uses npm, handled below
-					installable = append(installable, t.name)
-				}
-			}
-			if len(installable) > 0 {
-				fmt.Printf("\n  Attempting to install: %s\n", joinStrings(installable, ", "))
-				if runtime.GOOS == "darwin" && platform.Exists("brew") {
-					args := append([]string{"install"}, installable...)
-					if err := platform.RunQuiet("brew", args...); err == nil {
-						fmt.Println("  Installed successfully via brew.")
-					}
-				} else if platform.Exists("apt-get") {
-					args := append([]string{"apt-get", "install", "-y"}, installable...)
-					if hasSudo {
-						args = append([]string{"sudo"}, args...)
-					}
-					platform.RunQuiet(args[0], args[1:]...)
-				}
-			}
-		}
-
-		// Auto-install prettier via npm if npm is available
-		if !platform.Exists("prettier") && platform.Exists("npm") {
-			fmt.Println("\n  Installing prettier via npm (used by auto-format hook)...")
-			if err := platform.RunQuiet("npm", "install", "-g", "prettier"); err == nil {
-				platform.PrintOK(os.Stdout, "Installed prettier globally")
-			} else {
-				platform.PrintWarn(os.Stdout, "Failed to install prettier via npm")
-			}
-		}
-
-		// Re-check what's still missing
-		for _, t := range missing {
-			if !platform.Exists(t.name) {
-				stillMissing = append(stillMissing, t)
-			}
-		}
-
-		if len(stillMissing) > 0 {
-			fmt.Println("\n  Optional tools not found (not required, but useful):")
-			for _, t := range stillMissing {
-				fmt.Printf("    - %s: %s\n", platform.Bold(t.name), t.purpose)
-				platform.PrintCommand(os.Stdout, t.install)
-			}
-		} else {
-			fmt.Println("  All optional tools are available.")
-		}
-	} else {
-		fmt.Println("  All optional tools are available.")
-	}
 }
 
 func joinStrings(ss []string, sep string) string {
