@@ -10,6 +10,7 @@ import (
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 	"github.com/lamchakchan/claude-workspace/internal/setup"
+	"github.com/lamchakchan/claude-workspace/internal/tools"
 	"github.com/lamchakchan/claude-workspace/internal/upgrade"
 )
 
@@ -72,7 +73,34 @@ func Run() error {
 		issues++
 	}
 
-	// 4. Check Global Settings
+	// 4. Check Node.js
+	platform.PrintSectionLabel(os.Stdout, "Node.js")
+	nodeTool := tools.Node()
+	if nodeTool.IsInstalled() {
+		if ver, err := platform.Output("node", "--version"); err == nil {
+			pass("Node.js: " + ver)
+		} else {
+			pass("Node.js: installed")
+		}
+		if platform.Exists("npx") {
+			pass("npx: available")
+		} else {
+			warn("npx not found (required for MCP servers)")
+			warnings++
+		}
+	} else if platform.Exists("node") {
+		// node exists but doesn't meet minimum version
+		ver, _ := platform.Output("node", "--version")
+		warn(fmt.Sprintf("Node.js %s is below minimum version (v%d+)", ver, tools.NodeMinMajor))
+		fmt.Println("    Upgrade Node.js: https://nodejs.org")
+		warnings++
+	} else {
+		fail("Node.js not found (required for MCP servers)")
+		fmt.Println("    Install: https://nodejs.org or run: claude-workspace setup")
+		issues++
+	}
+
+	// 5. Check Global Settings
 	platform.PrintSectionLabel(os.Stdout, "Global Configuration")
 
 	globalSettingsPath := filepath.Join(home, ".claude", "settings.json")

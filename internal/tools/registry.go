@@ -1,7 +1,7 @@
 package tools
 
 // Required returns all tools that must be present for the platform to function.
-func Required() []Tool { return []Tool{Claude()} }
+func Required() []Tool { return []Tool{Claude(), Node()} }
 
 // Optional returns tools that are useful but not required.
 func Optional() []Tool { return []Tool{Shellcheck(), JQ(), Prettier(), Tmux()} }

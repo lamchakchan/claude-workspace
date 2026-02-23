@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
@@ -49,8 +48,8 @@ func installClaude() error {
 			fmt.Println("  Symlinked claude → /usr/local/bin/claude (available immediately).")
 		} else {
 			// Strategy 2: Append to shell RC file
-			rcPath, shellName := detectShellRC(home)
-			if modified, err := appendPathToRC(home, shellName, rcPath); err != nil {
+			rcPath, shellName := platform.DetectShellRC(home)
+			if modified, err := platform.AppendPathToRC(home, shellName, rcPath); err != nil {
 				fmt.Printf("  Warning: could not auto-configure PATH: %v\n", err)
 				fmt.Println("  To fix manually, run:")
 				fmt.Println("    echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/." + shellName + "rc")
@@ -65,29 +64,6 @@ func installClaude() error {
 
 	fmt.Println("  Claude Code installed successfully.")
 	return nil
-}
-
-// detectShellRC determines the user's shell RC file path and shell name.
-// It checks $SHELL first, then falls back to file-existence checks.
-func detectShellRC(home string) (rcPath, shellName string) {
-	shell := os.Getenv("SHELL")
-
-	switch {
-	case strings.HasSuffix(shell, "zsh"):
-		return filepath.Join(home, ".zshrc"), "zsh"
-	case strings.HasSuffix(shell, "fish"):
-		return filepath.Join(home, ".config", "fish", "config.fish"), "fish"
-	case strings.HasSuffix(shell, "bash"):
-		return filepath.Join(home, ".bashrc"), "bash"
-	}
-
-	// Fallback: check if .zshrc exists (common on macOS)
-	if platform.FileExists(filepath.Join(home, ".zshrc")) {
-		return filepath.Join(home, ".zshrc"), "zsh"
-	}
-
-	// Default to bash
-	return filepath.Join(home, ".bashrc"), "bash"
 }
 
 // symlinkClaudeBinary creates a symlink from ~/.local/bin/claude to /usr/local/bin/claude.
@@ -111,40 +87,4 @@ func symlinkClaudeBinary(localBin string) error {
 		return fmt.Errorf("symlink failed (direct and sudo): %w", err)
 	}
 	return nil
-}
-
-// appendPathToRC adds ~/.local/bin to PATH in the given shell RC file.
-// For fish, it uses fish_add_path. For bash/zsh, it appends an export line.
-// Returns (true, nil) if the file was modified, (false, nil) if already configured.
-func appendPathToRC(home, shellName, rcPath string) (modified bool, err error) {
-	// Fish uses a different mechanism
-	if shellName == "fish" {
-		fishPath := filepath.Join(home, ".local", "bin")
-		if err := platform.RunQuiet("fish", "-c", "fish_add_path "+fishPath); err != nil {
-			return false, fmt.Errorf("fish_add_path failed: %w", err)
-		}
-		return true, nil
-	}
-
-	// bash/zsh: check idempotency
-	pathLine := "\n# Added by claude-workspace setup\nexport PATH=\"$HOME/.local/bin:$PATH\"\n"
-
-	content, err := os.ReadFile(rcPath)
-	if err != nil && !os.IsNotExist(err) {
-		return false, fmt.Errorf("reading %s: %w", rcPath, err)
-	}
-
-	if strings.Contains(string(content), ".local/bin") {
-		return false, nil // already configured
-	}
-
-	// Ensure parent directory exists (relevant for new files)
-	if err := os.MkdirAll(filepath.Dir(rcPath), 0755); err != nil {
-		return false, fmt.Errorf("creating directory for %s: %w", rcPath, err)
-	}
-
-	if err := os.WriteFile(rcPath, append(content, []byte(pathLine)...), 0644); err != nil {
-		return false, fmt.Errorf("writing %s: %w", rcPath, err)
-	}
-	return true, nil
 }

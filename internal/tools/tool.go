@@ -3,7 +3,6 @@ package tools
 import (
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
@@ -33,7 +32,7 @@ func (t Tool) Install() error {
 	if t.InstallFn != nil {
 		return t.InstallFn()
 	}
-	return InstallSystemPackages([]string{t.Name})
+	return platform.InstallSystemPackages(platform.DetectPackageManager(), []string{t.Name})
 }
 
 // Version returns the tool's version string.
@@ -49,63 +48,7 @@ func (t Tool) InstallHint() string {
 	if t.InstallCmd != "" {
 		return t.InstallCmd
 	}
-	pm := DetectPackageManager()
-	switch pm {
-	case PMBrew:
-		return "brew install " + t.Name
-	case PMApt:
-		if platform.Exists("sudo") {
-			return "sudo apt-get install -y " + t.Name
-		}
-		return "apt-get install -y " + t.Name
-	default:
-		if runtime.GOOS == "darwin" {
-			return "brew install " + t.Name + " (macOS) / apt install " + t.Name + " (Linux)"
-		}
-		return "apt install " + t.Name
-	}
-}
-
-// PackageManager represents a system package manager.
-type PackageManager int
-
-const (
-	PMNone PackageManager = iota
-	PMBrew
-	PMApt
-)
-
-// DetectPackageManager returns the detected system package manager.
-func DetectPackageManager() PackageManager {
-	if runtime.GOOS == "darwin" && platform.Exists("brew") {
-		return PMBrew
-	}
-	if platform.Exists("apt-get") {
-		return PMApt
-	}
-	return PMNone
-}
-
-// InstallSystemPackages batch-installs packages via the detected package manager.
-func InstallSystemPackages(names []string) error {
-	if len(names) == 0 {
-		return nil
-	}
-	pm := DetectPackageManager()
-	switch pm {
-	case PMBrew:
-		args := append([]string{"install"}, names...)
-		return platform.RunQuiet("brew", args...)
-	case PMApt:
-		if platform.Exists("sudo") {
-			args := append([]string{"apt-get", "install", "-y"}, names...)
-			return platform.RunQuiet("sudo", args...)
-		}
-		args := append([]string{"install", "-y"}, names...)
-		return platform.RunQuiet("apt-get", args...)
-	default:
-		return fmt.Errorf("no package manager detected")
-	}
+	return platform.InstallHintForPM(platform.DetectPackageManager(), t.Name)
 }
 
 // CheckAndInstall checks which tools are installed, attempts to install missing ones,
@@ -132,10 +75,10 @@ func CheckAndInstall(tools []Tool) (installed, failed []string) {
 	}
 
 	// Attempt to install missing tools
-	pm := DetectPackageManager()
+	pm := platform.DetectPackageManager()
 
 	// Batch install system-package tools (those without custom InstallFn)
-	if pm != PMNone {
+	if pm != platform.PMNone {
 		var sysNames []string
 		for _, t := range missing {
 			if t.InstallFn == nil {
@@ -144,13 +87,8 @@ func CheckAndInstall(tools []Tool) (installed, failed []string) {
 		}
 		if len(sysNames) > 0 {
 			fmt.Printf("\n  Attempting to install: %s\n", strings.Join(sysNames, ", "))
-			if err := InstallSystemPackages(sysNames); err == nil {
-				switch pm {
-				case PMBrew:
-					fmt.Println("  Installed successfully via brew.")
-				case PMApt:
-					fmt.Println("  Installed successfully via apt.")
-				}
+			if err := platform.InstallSystemPackages(pm, sysNames); err == nil {
+				fmt.Printf("  Installed successfully via %s.\n", platform.PMLabel(pm))
 			}
 		}
 	}

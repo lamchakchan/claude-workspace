@@ -25,7 +25,7 @@ func Run() error {
 	platform.PrintBanner(os.Stdout, "Claude Code Platform Setup")
 
 	// Step 1: Check if Claude Code CLI is installed
-	platform.PrintStep(os.Stdout, 1, 7, "Checking Claude Code installation...")
+	platform.PrintStep(os.Stdout, 1, 8, "Checking Claude Code installation...")
 
 	// Check for npm-installed Claude that needs cleanup
 	npmInfo := DetectNpmClaude()
@@ -53,35 +53,49 @@ func Run() error {
 	}
 
 	// Step 2: API Key provisioning
-	platform.PrintStep(os.Stdout, 2, 7, "API Key provisioning...")
+	platform.PrintStep(os.Stdout, 2, 8, "API Key provisioning...")
 	if err := provisionApiKey(); err != nil {
 		return err
 	}
 
 	// Step 3: Create global user settings
-	platform.PrintStep(os.Stdout, 3, 7, "Setting up global user configuration...")
+	platform.PrintStep(os.Stdout, 3, 8, "Setting up global user configuration...")
 	if err := setupGlobalSettings(); err != nil {
 		return err
 	}
 
 	// Step 4: Create global CLAUDE.md
-	platform.PrintStep(os.Stdout, 4, 7, "Setting up global CLAUDE.md...")
+	platform.PrintStep(os.Stdout, 4, 8, "Setting up global CLAUDE.md...")
 	if err := setupGlobalClaudeMd(); err != nil {
 		return err
 	}
 
 	// Step 5: Install binary to PATH
-	platform.PrintStep(os.Stdout, 5, 7, "Installing claude-workspace to PATH...")
+	platform.PrintStep(os.Stdout, 5, 8, "Installing claude-workspace to PATH...")
 	installBinaryToPath()
 
-	// Step 6: Register user-scoped MCP servers
-	platform.PrintStep(os.Stdout, 6, 7, "Registering user-scoped MCP servers...")
+	// Step 6: Ensure Node.js is available
+	platform.PrintStep(os.Stdout, 6, 8, "Checking Node.js for MCP servers...")
+	nodeTool := tools.Node()
+	if nodeTool.IsInstalled() {
+		ver, _ := platform.Output("node", "--version")
+		fmt.Printf("  Node.js found: %s\n", ver)
+	} else {
+		fmt.Println("  Node.js not found or below minimum version. Installing...")
+		if err := nodeTool.Install(); err != nil {
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Node.js install failed: %v", err))
+			fmt.Println("  MCP servers require Node.js. Install manually: https://nodejs.org")
+		}
+	}
+
+	// Step 7: Register user-scoped MCP servers
+	platform.PrintStep(os.Stdout, 7, 8, "Registering user-scoped MCP servers...")
 	if err := setupUserMCPServers(); err != nil {
 		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("MCP server registration skipped: %v", err))
 	}
 
-	// Step 7: Check optional system tools
-	platform.PrintStep(os.Stdout, 7, 7, "Checking optional system tools...")
+	// Step 8: Check optional system tools
+	platform.PrintStep(os.Stdout, 8, 8, "Checking optional system tools...")
 	tools.CheckAndInstall(tools.Optional())
 
 	platform.PrintBanner(os.Stdout, "Setup Complete")
@@ -343,7 +357,8 @@ func MergeUserMCPServers(config map[string]interface{}, servers map[string]inter
 func setupUserMCPServers() error {
 	if !platform.Exists("npx") {
 		fmt.Println("  npx not found — skipping automatic MCP server registration.")
-		fmt.Println("  Install Node.js, then run manually:")
+		fmt.Println("  Node.js installation may have failed or npx is not in PATH.")
+		fmt.Println("  Install Node.js (https://nodejs.org), then run manually:")
 		fmt.Println("    claude mcp add --scope user memory -- npx -y @anthropic/claude-code-memory-server")
 		fmt.Println("    claude mcp add --scope user git -- npx -y @modelcontextprotocol/server-git")
 		return nil
