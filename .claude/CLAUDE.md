@@ -10,7 +10,7 @@ Lint: `go vet ./...` or `make vet`
 
 ## Key Directories
 - `_template/.claude/` - Embeddable assets overlaid into target projects (agents, skills, hooks, settings)
-- `_template/.claude/agents/` - Five subagent definitions: planner, explorer, code-reviewer, test-runner, security-scanner
+- `_template/.claude/agents/` - Nine subagent definitions: planner, explorer, code-reviewer, test-runner, security-scanner, dependency-updater, incident-responder, documentation-writer, infra-reviewer
 - `_template/.claude/skills/` - Four skill definitions: context-manager, onboarding, plan-and-execute, pr-workflow
 - `_template/.claude/hooks/` - Four safety hooks: auto-format, block-dangerous-commands, enforce-branch-policy, validate-secrets
 - `internal/attach/` - `attach` command: overlays template assets into a target project

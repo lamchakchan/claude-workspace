@@ -128,9 +128,9 @@ During a planner subagent invocation:
 
 ## 4. Subagent Architecture
 
-### Why Five Agents?
+### Why Nine Agents?
 
-Each agent maps to a distinct phase of the development workflow:
+Each agent maps to a distinct phase or concern in the development workflow. The core pipeline (explore → plan → implement → review → test → secure) is augmented by specialized agents for dependency management, incident response, documentation, and infrastructure review.
 
 ```
     ┌─────────┐     ┌──────────┐     ┌───────────┐     ┌──────────┐
@@ -141,15 +141,20 @@ Each agent maps to a distinct phase of the development workflow:
     Understand              Implement               Validate
     the code                the plan                 the work
                                                          │
-                                                  ┌──────────┐
-                                                  │  Tester  │
-                                                  │ (Sonnet) │
-                                                  └──────────┘
+                                              ┌──────────────────┐
+                                              │  Tester (Sonnet)  │
+                                              └──────────────────┘
                                                          │
-                                                  ┌──────────┐
-                                                  │ Security │
-                                                  │ (Sonnet) │
-                                                  └──────────┘
+                                              ┌──────────────────┐
+                                              │ Security (Sonnet) │
+                                              └──────────────────┘
+
+    Specialized agents (triggered by context):
+    ┌─────────────────┐  ┌───────────────────┐  ┌────────────────────┐  ┌────────────────┐
+    │   Dependency     │  │    Incident        │  │   Documentation    │  │    Infra        │
+    │   Updater        │  │    Responder       │  │   Writer           │  │    Reviewer     │
+    │   (Sonnet)       │  │    (Sonnet)        │  │   (Haiku)          │  │    (Sonnet)     │
+    └─────────────────┘  └───────────────────┘  └────────────────────┘  └────────────────┘
 ```
 
 ### Design Decision: Model Selection Per Agent
@@ -158,9 +163,13 @@ Each agent maps to a distinct phase of the development workflow:
 |-------|-------|-----------|
 | Explorer | **Haiku** | Fast, cheap. Exploration is breadth-first - read many files quickly, return a summary. Doesn't need deep reasoning. |
 | Planner | **Sonnet** | Plans need good reasoning but not the best. Sonnet balances quality and cost. |
-| Code Reviewer | **Sonnet** | Reviews need pattern recognition and security awareness. Sonnet handles this well. |
+| Code Reviewer | **Sonnet** | Reviews need pattern recognition. Focuses on quality/correctness; defers security to security-scanner. |
 | Test Runner | **Sonnet** | Needs to analyze test output and diagnose failures. |
-| Security Scanner | **Sonnet** | Needs to recognize vulnerability patterns. |
+| Security Scanner | **Sonnet** | Needs to recognize vulnerability patterns. Writes full reports to `.claude/audits/`. |
+| Dependency Updater | **Sonnet** | Breaking-change analysis requires reasoning about version compatibility and migration paths. |
+| Incident Responder | **Sonnet** | Root cause diagnosis requires correlating evidence across logs, metrics, and code. |
+| Documentation Writer | **Haiku** | Doc writing is high-volume text generation, not deep reasoning. Cost-effective for repetitive updates. |
+| Infra Reviewer | **Sonnet** | Infrastructure review requires knowledge of security contexts, resource limits, and platform best practices. |
 
 **When to use Opus**: For architectural decisions spanning the entire codebase, switch the main session to Opus (`/model opus`) or use the `opusplan` alias. Don't run all agents on Opus - it's 10x the cost.
 
@@ -184,7 +193,7 @@ The main session only receives the subagent's summary, not all the files it read
 
 ### Memory Persistence
 
-The planner, code-reviewer, and security-scanner agents have `memory: project` enabled. They remember patterns and findings across sessions, building up project knowledge over time.
+The planner, code-reviewer, security-scanner, and incident-responder agents have `memory: project` enabled. They remember patterns and findings across sessions, building up project knowledge over time.
 
 ---
 

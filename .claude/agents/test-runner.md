@@ -1,6 +1,6 @@
 ---
 name: test-runner
-description: Test execution and validation agent. Use after code changes to run tests, analyze failures, and verify implementations are correct. Reports pass/fail clearly.
+description: Test execution and failure diagnosis. Use after any code changes to validate correctness. ALWAYS run this before creating a PR or merging changes. Reports pass/fail with root cause analysis for failures.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 maxTurns: 15
