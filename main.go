@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/lamchakchan/claude-workspace/internal/attach"
+	"github.com/lamchakchan/claude-workspace/internal/cost"
 	"github.com/lamchakchan/claude-workspace/internal/doctor"
 	"github.com/lamchakchan/claude-workspace/internal/mcp"
 	"github.com/lamchakchan/claude-workspace/internal/platform"
@@ -39,6 +40,13 @@ Commands:
   doctor                         Check platform configuration health
   statusline                     Configure Claude Code statusline (cost & context display)
     [--force]                    Overwrite existing statusLine configuration
+  cost [subcommand] [options]    View Claude Code usage and costs (via ccusage)
+    daily|weekly|monthly         Usage by time period (default: daily)
+    session                      Usage by conversation session
+    blocks                       Usage by 5-hour billing window
+    [--breakdown]                Per-model cost breakdown
+    [--since YYYYMMDD]           Filter from date
+    [--json]                     JSON output
 
 Options:
   --help, -h       Show this help message
@@ -61,6 +69,9 @@ Examples:
   claude-workspace mcp remote https://mcp-gateway.company.com --bearer
   claude-workspace statusline
   claude-workspace statusline --force
+  claude-workspace cost
+  claude-workspace cost monthly --breakdown
+  claude-workspace cost blocks --active
 `
 
 func main() {
@@ -161,6 +172,11 @@ func main() {
 		}
 	case "statusline":
 		if err := statusline.Run(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "cost":
+		if err := cost.Run(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

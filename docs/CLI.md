@@ -327,6 +327,69 @@ claude-workspace statusline --force
 
 ---
 
+## claude-workspace cost
+
+View Claude Code usage and costs by querying local session data via [ccusage](https://github.com/ryoppippi/ccusage). All arguments are forwarded verbatim to ccusage.
+
+**Synopsis:**
+
+```
+claude-workspace cost [subcommand] [options]
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `daily` | Usage grouped by day (default) |
+| `weekly` | Usage grouped by week |
+| `monthly` | Usage grouped by month |
+| `session` | Usage grouped by conversation session |
+| `blocks` | Usage grouped by 5-hour billing window |
+
+**Key flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--breakdown` | Show per-model cost breakdown |
+| `--since YYYYMMDD` | Filter results from this date onwards |
+| `--until YYYYMMDD` | Filter results up to this date |
+| `--json` | Output raw JSON instead of a table |
+| `--project <name>` | Filter by project name |
+| `--instances` | Show per-instance breakdown |
+
+All ccusage flags pass through verbatim. See `npx ccusage --help` for the full flag reference.
+
+**Runtime detection** (in preference order):
+
+1. `bun x ccusage` — if `bun` is available (fastest)
+2. `npx -y ccusage` — if `npx` is available
+
+If neither runtime is found, an error is printed with install instructions.
+
+**Examples:**
+
+```bash
+# Show today's cost summary (daily is the default)
+claude-workspace cost
+
+# Monthly breakdown by model
+claude-workspace cost monthly --breakdown
+
+# Show active 5-hour billing block
+claude-workspace cost blocks --active
+
+# Filter daily costs since January 1, 2026
+claude-workspace cost daily --since 20260101
+
+# JSON output for scripting
+claude-workspace cost --json
+```
+
+**See also:** [ccusage](https://github.com/ryoppippi/ccusage)
+
+---
+
 ## Global Options
 
 These options are available on all commands:
