@@ -1,0 +1,18 @@
+{
+  "_description": "Web search MCP server configurations",
+  "examples": {
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      }
+    }
+  },
+  "setup_commands": {
+    "brave-search": "claude-workspace mcp add brave-search --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search"
+  },
+  "notes": {
+    "brave-search": "You will be prompted to enter your BRAVE_API_KEY securely. Get a free API key at https://brave.com/search/api/"
+  }
+}
