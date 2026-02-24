@@ -357,8 +357,11 @@ SESSIONS_LIST=$(vm_exec "cd ${PROJECT} && claude-workspace sessions" 2>&1) || tr
 echo "$SESSIONS_LIST" | sed 's/^/  | /'
 
 # Should show the real session
-assert "sessions list shows session with real prompt" \
-    bash -c "echo '$SESSIONS_LIST' | grep -q 'Add authentication middleware'"
+if echo "$SESSIONS_LIST" | grep -q 'Add authentication middleware'; then
+    assert_pass "sessions list shows session with real prompt"
+else
+    assert_fail "sessions list shows session with real prompt"
+fi
 
 # Should NOT show the /exit-only session
 if echo "$SESSIONS_LIST" | grep -q 'bbbbbbbb'; then
@@ -372,14 +375,23 @@ echo ""
 SESSIONS_SHOW=$(vm_exec "cd ${PROJECT} && claude-workspace sessions show aaaaaaaa" 2>&1) || true
 echo "$SESSIONS_SHOW" | sed 's/^/  | /'
 
-assert "sessions show displays first prompt" \
-    bash -c "echo '$SESSIONS_SHOW' | grep -q 'Add authentication middleware'"
+if echo "$SESSIONS_SHOW" | grep -q 'Add authentication middleware'; then
+    assert_pass "sessions show displays first prompt"
+else
+    assert_fail "sessions show displays first prompt"
+fi
 
-assert "sessions show displays second prompt" \
-    bash -c "echo '$SESSIONS_SHOW' | grep -q 'Also add rate limiting'"
+if echo "$SESSIONS_SHOW" | grep -q 'Also add rate limiting'; then
+    assert_pass "sessions show displays second prompt"
+else
+    assert_fail "sessions show displays second prompt"
+fi
 
-assert "sessions show reports correct prompt count" \
-    bash -c "echo '$SESSIONS_SHOW' | grep -q 'Prompts: 2'"
+if echo "$SESSIONS_SHOW" | grep -q 'Prompts: 2'; then
+    assert_pass "sessions show reports correct prompt count"
+else
+    assert_fail "sessions show reports correct prompt count"
+fi
 
 # ========== Phase 9: Run upgrade --check ==========
 echo -e "\n${BOLD}=== Phase 9: claude-workspace upgrade --check ===${NC}"
