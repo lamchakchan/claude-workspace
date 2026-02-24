@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -155,7 +156,8 @@ func Run(version string, args []string) error {
 
 		// Confirm
 		if !autoYes {
-			fmt.Print("\n"); platform.PrintPrompt(os.Stdout, "  Proceed? [Y/n] ")
+			fmt.Print("\n")
+			platform.PrintPrompt(os.Stdout, "  Proceed? [Y/n] ")
 			reader := bufio.NewReader(os.Stdin)
 			answer, _ := reader.ReadString('\n')
 			answer = strings.TrimSpace(strings.ToLower(answer))
@@ -249,9 +251,13 @@ func upgradeCLI(nextStep func() int, totalSteps int, autoYes, checkOnly bool) er
 
 	home, _ := os.UserHomeDir()
 
-	// Detect claude binary (reuse pattern from doctor.go)
+	// Detect claude binary and check if managed by Homebrew
 	claudeBin := "claude"
-	if !platform.Exists(claudeBin) {
+	isHomebrew := false
+	if resolvedPath, err := exec.LookPath("claude"); err == nil {
+		claudeBin = resolvedPath
+		isHomebrew = isHomebrewBinary(resolvedPath)
+	} else {
 		localBin := filepath.Join(home, ".local", "bin", "claude")
 		if platform.FileExists(localBin) {
 			claudeBin = localBin
@@ -283,7 +289,8 @@ func upgradeCLI(nextStep func() int, totalSteps int, autoYes, checkOnly bool) er
 		if installed {
 			action = "Upgrade"
 		}
-		fmt.Print("\n"); platform.PrintPrompt(os.Stdout, fmt.Sprintf("  %s Claude Code CLI? [Y/n] ", action))
+		fmt.Print("\n")
+		platform.PrintPrompt(os.Stdout, fmt.Sprintf("  %s Claude Code CLI? [Y/n] ", action))
 		reader := bufio.NewReader(os.Stdin)
 		answer, _ := reader.ReadString('\n')
 		answer = strings.TrimSpace(strings.ToLower(answer))
@@ -293,31 +300,40 @@ func upgradeCLI(nextStep func() int, totalSteps int, autoYes, checkOnly bool) er
 		}
 	}
 
-	// Check for npm-installed Claude before running installer
-	npmInfo := setup.DetectNpmClaude()
-	if npmInfo.Detected {
-		fmt.Printf("  Detected Claude Code installed via npm (source: %s).\n", npmInfo.Source)
-		fmt.Println("  Removing npm version before upgrading...")
-		if err := setup.UninstallNpmClaude(npmInfo); err != nil {
-			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not remove npm Claude: %v", err))
-			fmt.Println("  You may need to run: npm uninstall -g @anthropic-ai/claude-code")
-		} else {
-			fmt.Println("  npm Claude Code removed successfully.")
+	if isHomebrew {
+		fmt.Println("  Detected Homebrew installation. Running: brew upgrade claude-code...")
+		if err := platform.Run("brew", "upgrade", "claude-code"); err != nil {
+			// `brew upgrade` exits non-zero when already at latest; treat as success
+			fmt.Println("  Claude Code is already up to date (or brew upgrade failed).")
+			fmt.Println("  To upgrade manually: brew upgrade claude-code")
 		}
-	}
+	} else {
+		// Check for npm-installed Claude before running installer
+		npmInfo := setup.DetectNpmClaude()
+		if npmInfo.Detected {
+			fmt.Printf("  Detected Claude Code installed via npm (source: %s).\n", npmInfo.Source)
+			fmt.Println("  Removing npm version before upgrading...")
+			if err := setup.UninstallNpmClaude(npmInfo); err != nil {
+				platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not remove npm Claude: %v", err))
+				fmt.Println("  You may need to run: npm uninstall -g @anthropic-ai/claude-code")
+			} else {
+				fmt.Println("  npm Claude Code removed successfully.")
+			}
+		}
 
-	// Run official installer
-	fmt.Println("  Running official installer...")
-	if err := platform.Run("bash", "-c", tools.ClaudeInstallCmd); err != nil {
-		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Claude Code CLI upgrade failed: %v", err))
-		fmt.Println("  You can upgrade manually: curl -fsSL https://claude.ai/install.sh | bash")
-		return nil // non-fatal
-	}
+		// Run official installer
+		fmt.Println("  Running official installer...")
+		if err := platform.Run("bash", "-c", tools.ClaudeInstallCmd); err != nil {
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Claude Code CLI upgrade failed: %v", err))
+			fmt.Println("  You can upgrade manually: curl -fsSL https://claude.ai/install.sh | bash")
+			return nil // non-fatal
+		}
 
-	// Augment PATH for current process so we can detect the new version
-	localBin := filepath.Join(home, ".local", "bin")
-	if platform.FileExists(filepath.Join(localBin, "claude")) {
-		os.Setenv("PATH", localBin+":"+os.Getenv("PATH"))
+		// Augment PATH for current process so we can detect the new version
+		localBin := filepath.Join(home, ".local", "bin")
+		if platform.FileExists(filepath.Join(localBin, "claude")) {
+			os.Setenv("PATH", localBin+":"+os.Getenv("PATH"))
+		}
 	}
 
 	// Show version comparison
@@ -362,6 +378,13 @@ func mergeGlobalSettings() error {
 
 	fmt.Println("  ~/.claude/settings.json: defaults merged")
 	return nil
+}
+
+// isHomebrewBinary reports whether the given path belongs to a Homebrew-managed installation.
+func isHomebrewBinary(path string) bool {
+	return strings.Contains(path, "/opt/homebrew/") ||
+		strings.Contains(path, "/usr/local/Cellar/") ||
+		strings.Contains(path, "/usr/local/opt/")
 }
 
 // extractBinary extracts the claude-workspace binary from a .tar.gz archive.

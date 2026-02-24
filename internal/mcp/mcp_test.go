@@ -412,16 +412,29 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "env vars included",
+			name: "env vars after name but before command",
 			cfg: &addConfig{
 				Name:        "srv",
 				Scope:       "local",
 				Transport:   "stdio",
 				EnvVars:     map[string]string{"KEY": "val"},
-				CommandArgs: []string{"cmd"},
+				CommandArgs: []string{"npx", "-y", "pkg"},
 			},
 			check: func(t *testing.T, args []string) {
-				assertContains(t, args, "--env")
+				// -e must come after <name> (variadic flag can't consume the server name)
+				// and before -- <cmd> (so claude treats it as a subprocess env var, not a cmd arg).
+				nameIdx := indexOf(args, "srv")
+				eIdx := indexOf(args, "-e")
+				dashIdx := indexOf(args, "--")
+				if nameIdx < 0 || eIdx < 0 || dashIdx < 0 {
+					t.Fatalf("expected 'srv', '-e', and '--' in args: %v", args)
+				}
+				if eIdx < nameIdx {
+					t.Errorf("-e (idx %d) must come after <name> (idx %d): %v", eIdx, nameIdx, args)
+				}
+				if eIdx > dashIdx {
+					t.Errorf("-e (idx %d) must come before -- (idx %d): %v", eIdx, dashIdx, args)
+				}
 				assertContains(t, args, "KEY=val")
 			},
 		},
@@ -567,8 +580,8 @@ func TestMaskSensitiveArgs(t *testing.T) {
 	}{
 		{
 			name: "env values masked",
-			args: []string{"mcp", "add", "--env", "API_KEY=secret123", "my-server"},
-			want: []string{"mcp", "add", "--env", "API_KEY=****", "my-server"},
+			args: []string{"mcp", "add", "-e", "API_KEY=secret123", "my-server"},
+			want: []string{"mcp", "add", "-e", "API_KEY=****", "my-server"},
 		},
 		{
 			name: "bearer headers masked",
@@ -582,8 +595,8 @@ func TestMaskSensitiveArgs(t *testing.T) {
 		},
 		{
 			name: "multiple env vars all masked",
-			args: []string{"mcp", "add", "--env", "KEY1=val1", "--env", "KEY2=val2", "srv"},
-			want: []string{"mcp", "add", "--env", "KEY1=****", "--env", "KEY2=****", "srv"},
+			args: []string{"mcp", "add", "-e", "KEY1=val1", "-e", "KEY2=val2", "srv"},
+			want: []string{"mcp", "add", "-e", "KEY1=****", "-e", "KEY2=****", "srv"},
 		},
 		{
 			name: "non-bearer header not masked",

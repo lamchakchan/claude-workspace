@@ -7,11 +7,14 @@ import (
 	"os"
 
 	"github.com/lamchakchan/claude-workspace/internal/attach"
+	"github.com/lamchakchan/claude-workspace/internal/cost"
 	"github.com/lamchakchan/claude-workspace/internal/doctor"
 	"github.com/lamchakchan/claude-workspace/internal/mcp"
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 	"github.com/lamchakchan/claude-workspace/internal/sandbox"
+	"github.com/lamchakchan/claude-workspace/internal/sessions"
 	"github.com/lamchakchan/claude-workspace/internal/setup"
+	"github.com/lamchakchan/claude-workspace/internal/statusline"
 	"github.com/lamchakchan/claude-workspace/internal/upgrade"
 )
 
@@ -36,6 +39,20 @@ Commands:
   mcp list                       List all configured MCP servers
   upgrade [--self-only|--cli-only]  Upgrade claude-workspace and Claude Code CLI
   doctor                         Check platform configuration health
+  statusline                     Configure Claude Code statusline (cost & context display)
+    [--force]                    Overwrite existing statusLine configuration
+  sessions [list|show] [options]   Browse and review session prompts
+    list                           List sessions for current project (default)
+    list --all                     List sessions across all projects
+    list --limit N                 Limit results (default: 20)
+    show <session-id>              Show all user prompts from a session
+  cost [subcommand] [options]    View Claude Code usage and costs (via ccusage)
+    daily|weekly|monthly         Usage by time period (default: daily)
+    session                      Usage by conversation session
+    blocks                       Usage by 5-hour billing window
+    [--breakdown]                Per-model cost breakdown
+    [--since YYYYMMDD]           Filter from date
+    [--json]                     JSON output
 
 Options:
   --help, -h       Show this help message
@@ -56,6 +73,14 @@ Examples:
   claude-workspace mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
   claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry
   claude-workspace mcp remote https://mcp-gateway.company.com --bearer
+  claude-workspace statusline
+  claude-workspace statusline --force
+  claude-workspace sessions
+  claude-workspace sessions list --all --limit 50
+  claude-workspace sessions show 8a3f1b2c
+  claude-workspace cost
+  claude-workspace cost monthly --breakdown
+  claude-workspace cost blocks --active
 `
 
 func main() {
@@ -151,6 +176,21 @@ func main() {
 		}
 	case "doctor":
 		if err := doctor.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "statusline":
+		if err := statusline.Run(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "sessions":
+		if err := sessions.Run(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "cost":
+		if err := cost.Run(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

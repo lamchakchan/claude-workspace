@@ -4,7 +4,7 @@ Complete reference for all `claude-workspace` commands, flags, and options.
 
 ## claude-workspace setup
 
-First-time setup: installs Claude Code CLI, provisions API keys, configures global settings, installs the binary to PATH, installs Node.js if missing, and registers MCP servers.
+First-time setup: installs Claude Code CLI, provisions API keys, configures global settings, installs the binary to PATH, installs Node.js if missing, registers MCP servers, and optionally configures the statusline for cost and context display.
 
 **Synopsis:**
 
@@ -276,6 +276,198 @@ claude-workspace doctor
 ```
 
 **See also:** [Runbook - Troubleshooting](RUNBOOK.md)
+
+---
+
+## claude-workspace statusline
+
+Configure the Claude Code statusline to display live session cost, context usage, and model name.
+
+**Synopsis:**
+
+```
+claude-workspace statusline [--force]
+```
+
+**Flags:**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--force` | bool | `false` | Overwrite existing `statusLine` configuration. |
+
+**Runtime detection** (in preference order):
+
+1. `bun x ccusage statusline` — if `bun` is available (fastest)
+2. `npx -y ccusage statusline` — if `npx` is available
+3. Inline `jq` fallback — if neither runtime is found (requires `jq`)
+
+**Behavior:**
+
+- Idempotent by default: skips if `statusLine` is already configured in `~/.claude/settings.json`
+- Creates `~/.claude/settings.json` if it does not yet exist
+- Restart Claude Code after running to activate the statusline
+
+**Example output** (using ccusage):
+
+```
+Opus | $0.23 session / $1.23 today / $0.45 block (2h 45m left) | $0.12/hr | 25,000 (12%)
+```
+
+**Examples:**
+
+```bash
+# Detect runtime and configure statusline
+claude-workspace statusline
+
+# Overwrite existing configuration
+claude-workspace statusline --force
+```
+
+**See also:** [ccusage](https://github.com/ryoppippi/ccusage), [Claude Code statusline docs](https://docs.anthropic.com/en/docs/claude-code/settings#status-line)
+
+---
+
+## claude-workspace sessions
+
+Browse and review prompts from past Claude Code sessions. Reads session data directly from `~/.claude/projects/` — no extra capture step required.
+
+**Synopsis:**
+
+```
+claude-workspace sessions [list|show] [options]
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List sessions for the current project (default when no subcommand given) |
+| `show <id>` | Display all user prompts from a specific session |
+
+**Flags (list):**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--all` | bool | `false` | List sessions across all projects (adds project name prefix to titles). |
+| `--limit` | int | `20` | Maximum number of sessions to display. |
+
+**How it works:**
+
+- Session data lives in `~/.claude/projects/<encoded-path>/<uuid>.jsonl`
+- Each JSONL file is one conversation session (append-only, one JSON object per line)
+- The **title** is derived from the first real user message (slash commands and system messages are filtered out)
+- The **session ID** prefix (8 characters) is enough to uniquely identify a session for `show`
+- Sessions are sorted newest-first
+
+**Examples:**
+
+```bash
+# List recent sessions for the current project
+claude-workspace sessions
+
+# List all sessions across every project
+claude-workspace sessions list --all
+
+# Show more results
+claude-workspace sessions list --limit 50
+
+# View all prompts from a specific session (prefix match)
+claude-workspace sessions show 8a3f1b2c
+```
+
+**Example output (list):**
+
+```
+=== Sessions for /Users/you/my-project ===
+
+  ID          DATE          TITLE
+  ----------  ------------  --------------------------------------------------
+  8a3f1b2c    2026-02-24    Add authentication middleware to the API gateway
+  e13fdc87    2026-02-23    Fix the MCP add command to properly handle env vars
+  c7d2a901    2026-02-22    Refactor the upgrade command to support --check flag
+
+  3 session(s) shown. Use 'sessions show <id>' to view prompts.
+```
+
+**Example output (show):**
+
+```
+=== zesty-sauteeing-avalanche (8a3f1b2c) ===
+  Project: /Users/you/my-project
+  Prompts: 3
+
+  [1] 15:26:47
+  Add authentication middleware to the API gateway
+
+  [2] 15:28:30
+  Can you also add rate limiting?
+
+  [3] 15:49:47
+  Stage and commit the changes, and push it up.
+```
+
+---
+
+## claude-workspace cost
+
+View Claude Code usage and costs by querying local session data via [ccusage](https://github.com/ryoppippi/ccusage). All arguments are forwarded verbatim to ccusage.
+
+**Synopsis:**
+
+```
+claude-workspace cost [subcommand] [options]
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `daily` | Usage grouped by day (default) |
+| `weekly` | Usage grouped by week |
+| `monthly` | Usage grouped by month |
+| `session` | Usage grouped by conversation session |
+| `blocks` | Usage grouped by 5-hour billing window |
+
+**Key flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--breakdown` | Show per-model cost breakdown |
+| `--since YYYYMMDD` | Filter results from this date onwards |
+| `--until YYYYMMDD` | Filter results up to this date |
+| `--json` | Output raw JSON instead of a table |
+| `--project <name>` | Filter by project name |
+| `--instances` | Show per-instance breakdown |
+
+All ccusage flags pass through verbatim. See `npx ccusage --help` for the full flag reference.
+
+**Runtime detection** (in preference order):
+
+1. `bun x ccusage` — if `bun` is available (fastest)
+2. `npx -y ccusage` — if `npx` is available
+
+If neither runtime is found, an error is printed with install instructions.
+
+**Examples:**
+
+```bash
+# Show today's cost summary (daily is the default)
+claude-workspace cost
+
+# Monthly breakdown by model
+claude-workspace cost monthly --breakdown
+
+# Show active 5-hour billing block
+claude-workspace cost blocks --active
+
+# Filter daily costs since January 1, 2026
+claude-workspace cost daily --since 20260101
+
+# JSON output for scripting
+claude-workspace cost --json
+```
+
+**See also:** [ccusage](https://github.com/ryoppippi/ccusage)
 
 ---
 

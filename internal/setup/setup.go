@@ -1,12 +1,16 @@
 package setup
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
+	"github.com/lamchakchan/claude-workspace/internal/statusline"
 	"github.com/lamchakchan/claude-workspace/internal/tools"
 )
 
@@ -25,7 +29,7 @@ func Run() error {
 	platform.PrintBanner(os.Stdout, "Claude Code Platform Setup")
 
 	// Step 1: Check if Claude Code CLI is installed
-	platform.PrintStep(os.Stdout, 1, 8, "Checking Claude Code installation...")
+	platform.PrintStep(os.Stdout, 1, 9, "Checking Claude Code installation...")
 
 	// Check for npm-installed Claude that needs cleanup
 	npmInfo := DetectNpmClaude()
@@ -45,6 +49,16 @@ func Run() error {
 	if claudeTool.IsInstalled() {
 		ver, _ := platform.Output("claude", "--version")
 		fmt.Printf("  Claude Code CLI found: %s\n", ver)
+
+		// Ensure ~/.local/bin/claude symlink exists. Claude Code expects its binary there
+		// regardless of how it was installed (e.g. Homebrew). Missing symlink causes startup
+		// warnings that claude update does not fix (known upstream issue).
+		if claudePath, err := exec.LookPath("claude"); err == nil {
+			home, _ := os.UserHomeDir()
+			if err := ensureLocalBinClaude(home, claudePath); err != nil {
+				platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not create ~/.local/bin/claude: %v", err))
+			}
+		}
 	} else {
 		fmt.Println("  Claude Code CLI not found. Installing...")
 		if err := claudeTool.Install(); err != nil {
@@ -53,29 +67,29 @@ func Run() error {
 	}
 
 	// Step 2: API Key provisioning
-	platform.PrintStep(os.Stdout, 2, 8, "API Key provisioning...")
+	platform.PrintStep(os.Stdout, 2, 9, "API Key provisioning...")
 	if err := provisionApiKey(); err != nil {
 		return err
 	}
 
 	// Step 3: Create global user settings
-	platform.PrintStep(os.Stdout, 3, 8, "Setting up global user configuration...")
+	platform.PrintStep(os.Stdout, 3, 9, "Setting up global user configuration...")
 	if err := setupGlobalSettings(); err != nil {
 		return err
 	}
 
 	// Step 4: Create global CLAUDE.md
-	platform.PrintStep(os.Stdout, 4, 8, "Setting up global CLAUDE.md...")
+	platform.PrintStep(os.Stdout, 4, 9, "Setting up global CLAUDE.md...")
 	if err := setupGlobalClaudeMd(); err != nil {
 		return err
 	}
 
 	// Step 5: Install binary to PATH
-	platform.PrintStep(os.Stdout, 5, 8, "Installing claude-workspace to PATH...")
+	platform.PrintStep(os.Stdout, 5, 9, "Installing claude-workspace to PATH...")
 	installBinaryToPath()
 
 	// Step 6: Ensure Node.js is available
-	platform.PrintStep(os.Stdout, 6, 8, "Checking Node.js for MCP servers...")
+	platform.PrintStep(os.Stdout, 6, 9, "Checking Node.js for MCP servers...")
 	nodeTool := tools.Node()
 	if nodeTool.IsInstalled() {
 		ver, _ := platform.Output("node", "--version")
@@ -91,14 +105,28 @@ func Run() error {
 	}
 
 	// Step 7: Register user-scoped MCP servers
-	platform.PrintStep(os.Stdout, 7, 8, "Registering user-scoped MCP servers...")
+	platform.PrintStep(os.Stdout, 7, 9, "Registering user-scoped MCP servers...")
 	if err := setupUserMCPServers(); err != nil {
 		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("MCP server registration skipped: %v", err))
 	}
 
 	// Step 8: Check optional system tools
-	platform.PrintStep(os.Stdout, 8, 8, "Checking optional system tools...")
+	platform.PrintStep(os.Stdout, 8, 9, "Checking optional system tools...")
 	tools.CheckAndInstall(tools.Optional())
+
+	// Step 9: Optional statusline setup
+	platform.PrintStep(os.Stdout, 9, 9, "Statusline setup (cost & context display)...")
+	platform.PrintPrompt(os.Stdout, "  Configure statusline for cost & context display? [Y/n] ")
+	reader := bufio.NewReader(os.Stdin)
+	answer, _ := reader.ReadString('\n')
+	answer = strings.TrimSpace(strings.ToLower(answer))
+	if answer == "" || answer == "y" || answer == "yes" {
+		if err := statusline.Run([]string{}); err != nil {
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("statusline setup skipped: %v", err))
+		}
+	} else {
+		fmt.Println("  Skipped. Run 'claude-workspace statusline' anytime to configure.")
+	}
 
 	platform.PrintBanner(os.Stdout, "Setup Complete")
 	fmt.Println("\nNext steps:")
@@ -431,6 +459,35 @@ func installBinaryToPath() {
 		os.Chmod(destPath, 0755)
 	}
 	fmt.Println("  Installed: claude-workspace is now available globally.")
+}
+
+// ensureLocalBinClaude creates ~/.local/bin/claude as a symlink to claudePath when it doesn't
+// already exist, then ensures ~/.local/bin is present in the shell RC file.
+// We do not resolve symlinks in claudePath so that package-manager managed paths (e.g.
+// /opt/homebrew/bin/claude) remain valid across version upgrades.
+func ensureLocalBinClaude(home, claudePath string) error {
+	localBinClaude := filepath.Join(home, ".local", "bin", "claude")
+
+	if platform.FileExists(localBinClaude) {
+		return nil
+	}
+
+	if err := platform.SymlinkFile(claudePath, localBinClaude); err != nil {
+		return fmt.Errorf("creating ~/.local/bin/claude symlink: %w", err)
+	}
+	fmt.Printf("  Created ~/.local/bin/claude → %s\n", claudePath)
+
+	// AppendPathToRC is idempotent — it checks for ".local/bin" before writing.
+	rcPath, shellName := platform.DetectShellRC(home)
+	if modified, err := platform.AppendPathToRC(home, shellName, rcPath); err != nil {
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not update PATH in %s: %v", rcPath, err))
+		fmt.Println(`  Add manually: export PATH="$HOME/.local/bin:$PATH"`)
+	} else if modified {
+		fmt.Printf("  Added ~/.local/bin to PATH in %s\n", filepath.Base(rcPath))
+		fmt.Printf("  Restart your shell or run: source %s\n", rcPath)
+	}
+
+	return nil
 }
 
 func joinStrings(ss []string, sep string) string {

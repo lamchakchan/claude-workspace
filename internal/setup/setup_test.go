@@ -1,8 +1,11 @@
 package setup
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -300,6 +303,97 @@ func TestMergeUserMCPServers_NilMcpServers(t *testing.T) {
 	}
 	if _, ok := mcp["git"]; !ok {
 		t.Error("expected git server to be present")
+	}
+}
+
+func TestEnsureLocalBinClaude_CreatesSymlink(t *testing.T) {
+	home := t.TempDir()
+
+	// Create a mock "claude" binary to symlink to
+	mockBin := filepath.Join(home, "usr", "bin", "claude")
+	if err := os.MkdirAll(filepath.Dir(mockBin), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mockBin, []byte("#!/bin/bash\necho stub"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ensureLocalBinClaude(home, mockBin); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	symlinkPath := filepath.Join(home, ".local", "bin", "claude")
+	info, err := os.Lstat(symlinkPath)
+	if err != nil {
+		t.Fatalf("symlink not created: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("expected a symlink at %s, got regular file", symlinkPath)
+	}
+	target, err := os.Readlink(symlinkPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target != mockBin {
+		t.Errorf("symlink target = %q, want %q", target, mockBin)
+	}
+}
+
+func TestEnsureLocalBinClaude_NoopWhenExists(t *testing.T) {
+	home := t.TempDir()
+
+	// Pre-create ~/.local/bin/claude as a regular file
+	localBinClaude := filepath.Join(home, ".local", "bin", "claude")
+	if err := os.MkdirAll(filepath.Dir(localBinClaude), 0755); err != nil {
+		t.Fatal(err)
+	}
+	originalContent := []byte("original")
+	if err := os.WriteFile(localBinClaude, originalContent, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ensureLocalBinClaude(home, "/some/other/claude"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got, err := os.ReadFile(localBinClaude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(originalContent) {
+		t.Errorf("existing file was modified; want %q, got %q", originalContent, got)
+	}
+}
+
+func TestEnsureLocalBinClaude_AppendPathToRC(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("SHELL", "/bin/zsh")
+
+	// Create a mock binary target
+	mockBin := filepath.Join(home, "usr", "bin", "claude")
+	if err := os.MkdirAll(filepath.Dir(mockBin), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mockBin, []byte("#!/bin/bash"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a .zshrc without any .local/bin entry
+	zshrc := filepath.Join(home, ".zshrc")
+	if err := os.WriteFile(zshrc, []byte("# existing zshrc\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ensureLocalBinClaude(home, mockBin); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	content, err := os.ReadFile(zshrc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), ".local/bin") {
+		t.Errorf(".zshrc was not updated with .local/bin PATH entry; got:\n%s", content)
 	}
 }
 

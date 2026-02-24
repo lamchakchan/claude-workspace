@@ -410,6 +410,24 @@ func TestRunMutuallyExclusive(t *testing.T) {
 	}
 }
 
+func TestIsHomebrewBinary(t *testing.T) {
+	cases := []struct {
+		path string
+		want bool
+	}{
+		{"/opt/homebrew/bin/claude", true},
+		{"/usr/local/Cellar/claude-code/2.1.50/bin/claude", true},
+		{"/usr/local/opt/claude-code/bin/claude", true},
+		{"/home/user/.local/bin/claude", false},
+		{"/usr/bin/claude", false},
+	}
+	for _, c := range cases {
+		if got := isHomebrewBinary(c.path); got != c.want {
+			t.Errorf("isHomebrewBinary(%q) = %v, want %v", c.path, got, c.want)
+		}
+	}
+}
+
 func TestRunSelfOnlyUpToDate(t *testing.T) {
 	release := Release{
 		TagName: "v1.0.0",

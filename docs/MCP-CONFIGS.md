@@ -92,6 +92,20 @@ Error tracking and monitoring servers.
 
 ---
 
+## Search
+
+**File:** [`docs/mcp-configs/search.json`](mcp-configs/search.json)
+
+Web search servers for grounding Claude responses in real-time information.
+
+| Server | Type | Auth Method | Setup Command |
+|--------|------|-------------|---------------|
+| **Brave Search** | Local (npx) | API key (`BRAVE_API_KEY`) | `claude-workspace mcp add brave-search --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search` |
+
+**Brave Search**: you'll be prompted to enter your `BRAVE_API_KEY` securely. Get a free API key (up to 2,000 queries/month) at [brave.com/search/api](https://brave.com/search/api/).
+
+---
+
 ## Adding a New Configuration
 
 To contribute a new MCP config category:
