@@ -29,6 +29,9 @@ build-all: clean
 	chmod +x bin/$(BINARY)-*
 	@echo "Built binaries:"
 	@ls -lh bin/
+	@rm -f $(BINARY)
+	@ln -s bin/$(BINARY)-$$(go env GOOS)-$$(go env GOARCH) $(BINARY)
+	@echo "Symlinked $(BINARY) -> bin/$(BINARY)-$$(go env GOOS)-$$(go env GOARCH)"
 	@echo "$$PATH" | tr ':' '\n' | grep -qx '$(CURDIR)/bin' || echo "\nTo add to your PATH:\n  export PATH=\"$(CURDIR)/bin:$$PATH\""
 
 smoke-test:
