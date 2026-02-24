@@ -412,7 +412,7 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "env vars included",
+			name: "env vars included after positional args",
 			cfg: &addConfig{
 				Name:        "srv",
 				Scope:       "local",
@@ -421,7 +421,16 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 				CommandArgs: []string{"cmd"},
 			},
 			check: func(t *testing.T, args []string) {
-				assertContains(t, args, "--env")
+				// -e is variadic in the Claude CLI and must come after <name> and <cmd>
+				// to prevent it from consuming positional args as env var values.
+				nameIdx := indexOf(args, "srv")
+				eIdx := indexOf(args, "-e")
+				if nameIdx < 0 || eIdx < 0 {
+					t.Fatalf("expected 'srv' and '-e' in args: %v", args)
+				}
+				if eIdx < nameIdx {
+					t.Errorf("-e (idx %d) must come after <name> (idx %d) in args: %v", eIdx, nameIdx, args)
+				}
 				assertContains(t, args, "KEY=val")
 			},
 		},
@@ -567,8 +576,8 @@ func TestMaskSensitiveArgs(t *testing.T) {
 	}{
 		{
 			name: "env values masked",
-			args: []string{"mcp", "add", "--env", "API_KEY=secret123", "my-server"},
-			want: []string{"mcp", "add", "--env", "API_KEY=****", "my-server"},
+			args: []string{"mcp", "add", "-e", "API_KEY=secret123", "my-server"},
+			want: []string{"mcp", "add", "-e", "API_KEY=****", "my-server"},
 		},
 		{
 			name: "bearer headers masked",
@@ -582,8 +591,8 @@ func TestMaskSensitiveArgs(t *testing.T) {
 		},
 		{
 			name: "multiple env vars all masked",
-			args: []string{"mcp", "add", "--env", "KEY1=val1", "--env", "KEY2=val2", "srv"},
-			want: []string{"mcp", "add", "--env", "KEY1=****", "--env", "KEY2=****", "srv"},
+			args: []string{"mcp", "add", "-e", "KEY1=val1", "-e", "KEY2=val2", "srv"},
+			want: []string{"mcp", "add", "-e", "KEY1=****", "-e", "KEY2=****", "srv"},
 		},
 		{
 			name: "non-bearer header not masked",

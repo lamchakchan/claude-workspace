@@ -254,10 +254,6 @@ func deriveServerName(mcpURL string) string {
 func buildAddClaudeArgs(cfg *addConfig) ([]string, error) {
 	claudeArgs := []string{"mcp", "add", "--transport", cfg.Transport, "--scope", cfg.Scope}
 
-	for key, value := range cfg.EnvVars {
-		claudeArgs = append(claudeArgs, "--env", key+"="+value)
-	}
-
 	if cfg.ClientId != "" {
 		claudeArgs = append(claudeArgs, "--client-id", cfg.ClientId)
 	}
@@ -277,8 +273,11 @@ func buildAddClaudeArgs(cfg *addConfig) ([]string, error) {
 		claudeArgs = append(claudeArgs, cfg.CommandArgs...)
 	}
 
-	// --header is variadic in the Claude CLI and must come after positional args
-	// to prevent it from consuming <name> and <url> as header values.
+	// -e and --header are variadic in the Claude CLI and must come after positional
+	// args to prevent them from consuming <name> and <url> as values.
+	for key, value := range cfg.EnvVars {
+		claudeArgs = append(claudeArgs, "-e", key+"="+value)
+	}
 	for _, header := range cfg.Headers {
 		claudeArgs = append(claudeArgs, "--header", header)
 	}
@@ -312,7 +311,7 @@ func maskSensitiveArgs(args []string) []string {
 	for idx, arg := range args {
 		if idx > 0 {
 			prev := args[idx-1]
-			if prev == "--env" && strings.Contains(arg, "=") {
+			if prev == "-e" && strings.Contains(arg, "=") {
 				eqIdx := strings.Index(arg, "=")
 				safeArgs[idx] = arg[:eqIdx] + "=****"
 				continue
