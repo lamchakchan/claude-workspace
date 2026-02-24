@@ -412,24 +412,28 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "env vars included after positional args",
+			name: "env vars after name but before command",
 			cfg: &addConfig{
 				Name:        "srv",
 				Scope:       "local",
 				Transport:   "stdio",
 				EnvVars:     map[string]string{"KEY": "val"},
-				CommandArgs: []string{"cmd"},
+				CommandArgs: []string{"npx", "-y", "pkg"},
 			},
 			check: func(t *testing.T, args []string) {
-				// -e is variadic in the Claude CLI and must come after <name> and <cmd>
-				// to prevent it from consuming positional args as env var values.
+				// -e must come after <name> (variadic flag can't consume the server name)
+				// and before -- <cmd> (so claude treats it as a subprocess env var, not a cmd arg).
 				nameIdx := indexOf(args, "srv")
 				eIdx := indexOf(args, "-e")
-				if nameIdx < 0 || eIdx < 0 {
-					t.Fatalf("expected 'srv' and '-e' in args: %v", args)
+				dashIdx := indexOf(args, "--")
+				if nameIdx < 0 || eIdx < 0 || dashIdx < 0 {
+					t.Fatalf("expected 'srv', '-e', and '--' in args: %v", args)
 				}
 				if eIdx < nameIdx {
-					t.Errorf("-e (idx %d) must come after <name> (idx %d) in args: %v", eIdx, nameIdx, args)
+					t.Errorf("-e (idx %d) must come after <name> (idx %d): %v", eIdx, nameIdx, args)
+				}
+				if eIdx > dashIdx {
+					t.Errorf("-e (idx %d) must come before -- (idx %d): %v", eIdx, dashIdx, args)
 				}
 				assertContains(t, args, "KEY=val")
 			},

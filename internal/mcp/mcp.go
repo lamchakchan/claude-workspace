@@ -263,6 +263,12 @@ func buildAddClaudeArgs(cfg *addConfig) ([]string, error) {
 
 	claudeArgs = append(claudeArgs, cfg.Name)
 
+	// -e must come after <name> (so the variadic flag can't consume the server name)
+	// but before -- <cmd> (so claude treats it as a subprocess env var, not a cmd arg).
+	for key, value := range cfg.EnvVars {
+		claudeArgs = append(claudeArgs, "-e", key+"="+value)
+	}
+
 	if cfg.Transport == "http" || cfg.Transport == "sse" {
 		if cfg.McpURL == "" {
 			return nil, fmt.Errorf("URL required for http/sse transport")
@@ -273,11 +279,8 @@ func buildAddClaudeArgs(cfg *addConfig) ([]string, error) {
 		claudeArgs = append(claudeArgs, cfg.CommandArgs...)
 	}
 
-	// -e and --header are variadic in the Claude CLI and must come after positional
-	// args to prevent them from consuming <name> and <url> as values.
-	for key, value := range cfg.EnvVars {
-		claudeArgs = append(claudeArgs, "-e", key+"="+value)
-	}
+	// --header is variadic in the Claude CLI and must come after positional args
+	// to prevent it from consuming <name> and <url> as header values.
 	for _, header := range cfg.Headers {
 		claudeArgs = append(claudeArgs, "--header", header)
 	}
