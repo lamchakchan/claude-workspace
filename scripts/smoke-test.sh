@@ -262,6 +262,15 @@ assert "~/.claude/CLAUDE.md exists" \
 assert "claude-workspace is executable in PATH" \
     vm_exec_quiet "test -x /usr/local/bin/claude-workspace"
 
+# Assert ~/.local/bin/claude symlink was created (fixes Claude Code startup warnings
+# when claude is installed outside the native ~/.local/bin path)
+assert "~/.local/bin/claude symlink exists" \
+    vm_exec_quiet "test -L /home/ubuntu/.local/bin/claude"
+
+# Assert ~/.bashrc was updated with ~/.local/bin PATH entry
+assert "~/.bashrc contains .local/bin PATH entry" \
+    vm_exec_quiet "grep -q '.local/bin' /home/ubuntu/.bashrc"
+
 # ========== Phase 6: Run attach ==========
 echo -e "\n${BOLD}=== Phase 6: claude-workspace attach ===${NC}"
 

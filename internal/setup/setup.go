@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -48,6 +49,16 @@ func Run() error {
 	if claudeTool.IsInstalled() {
 		ver, _ := platform.Output("claude", "--version")
 		fmt.Printf("  Claude Code CLI found: %s\n", ver)
+
+		// Ensure ~/.local/bin/claude symlink exists. Claude Code expects its binary there
+		// regardless of how it was installed (e.g. Homebrew). Missing symlink causes startup
+		// warnings that claude update does not fix (known upstream issue).
+		if claudePath, err := exec.LookPath("claude"); err == nil {
+			home, _ := os.UserHomeDir()
+			if err := ensureLocalBinClaude(home, claudePath); err != nil {
+				platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not create ~/.local/bin/claude: %v", err))
+			}
+		}
 	} else {
 		fmt.Println("  Claude Code CLI not found. Installing...")
 		if err := claudeTool.Install(); err != nil {
@@ -448,6 +459,35 @@ func installBinaryToPath() {
 		os.Chmod(destPath, 0755)
 	}
 	fmt.Println("  Installed: claude-workspace is now available globally.")
+}
+
+// ensureLocalBinClaude creates ~/.local/bin/claude as a symlink to claudePath when it doesn't
+// already exist, then ensures ~/.local/bin is present in the shell RC file.
+// We do not resolve symlinks in claudePath so that package-manager managed paths (e.g.
+// /opt/homebrew/bin/claude) remain valid across version upgrades.
+func ensureLocalBinClaude(home, claudePath string) error {
+	localBinClaude := filepath.Join(home, ".local", "bin", "claude")
+
+	if platform.FileExists(localBinClaude) {
+		return nil
+	}
+
+	if err := platform.SymlinkFile(claudePath, localBinClaude); err != nil {
+		return fmt.Errorf("creating ~/.local/bin/claude symlink: %w", err)
+	}
+	fmt.Printf("  Created ~/.local/bin/claude → %s\n", claudePath)
+
+	// AppendPathToRC is idempotent — it checks for ".local/bin" before writing.
+	rcPath, shellName := platform.DetectShellRC(home)
+	if modified, err := platform.AppendPathToRC(home, shellName, rcPath); err != nil {
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not update PATH in %s: %v", rcPath, err))
+		fmt.Println(`  Add manually: export PATH="$HOME/.local/bin:$PATH"`)
+	} else if modified {
+		fmt.Printf("  Added ~/.local/bin to PATH in %s\n", filepath.Base(rcPath))
+		fmt.Printf("  Restart your shell or run: source %s\n", rcPath)
+	}
+
+	return nil
 }
 
 func joinStrings(ss []string, sep string) string {
