@@ -1,12 +1,15 @@
 package setup
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
+	"github.com/lamchakchan/claude-workspace/internal/statusline"
 	"github.com/lamchakchan/claude-workspace/internal/tools"
 )
 
@@ -25,7 +28,7 @@ func Run() error {
 	platform.PrintBanner(os.Stdout, "Claude Code Platform Setup")
 
 	// Step 1: Check if Claude Code CLI is installed
-	platform.PrintStep(os.Stdout, 1, 8, "Checking Claude Code installation...")
+	platform.PrintStep(os.Stdout, 1, 9, "Checking Claude Code installation...")
 
 	// Check for npm-installed Claude that needs cleanup
 	npmInfo := DetectNpmClaude()
@@ -53,29 +56,29 @@ func Run() error {
 	}
 
 	// Step 2: API Key provisioning
-	platform.PrintStep(os.Stdout, 2, 8, "API Key provisioning...")
+	platform.PrintStep(os.Stdout, 2, 9, "API Key provisioning...")
 	if err := provisionApiKey(); err != nil {
 		return err
 	}
 
 	// Step 3: Create global user settings
-	platform.PrintStep(os.Stdout, 3, 8, "Setting up global user configuration...")
+	platform.PrintStep(os.Stdout, 3, 9, "Setting up global user configuration...")
 	if err := setupGlobalSettings(); err != nil {
 		return err
 	}
 
 	// Step 4: Create global CLAUDE.md
-	platform.PrintStep(os.Stdout, 4, 8, "Setting up global CLAUDE.md...")
+	platform.PrintStep(os.Stdout, 4, 9, "Setting up global CLAUDE.md...")
 	if err := setupGlobalClaudeMd(); err != nil {
 		return err
 	}
 
 	// Step 5: Install binary to PATH
-	platform.PrintStep(os.Stdout, 5, 8, "Installing claude-workspace to PATH...")
+	platform.PrintStep(os.Stdout, 5, 9, "Installing claude-workspace to PATH...")
 	installBinaryToPath()
 
 	// Step 6: Ensure Node.js is available
-	platform.PrintStep(os.Stdout, 6, 8, "Checking Node.js for MCP servers...")
+	platform.PrintStep(os.Stdout, 6, 9, "Checking Node.js for MCP servers...")
 	nodeTool := tools.Node()
 	if nodeTool.IsInstalled() {
 		ver, _ := platform.Output("node", "--version")
@@ -91,14 +94,28 @@ func Run() error {
 	}
 
 	// Step 7: Register user-scoped MCP servers
-	platform.PrintStep(os.Stdout, 7, 8, "Registering user-scoped MCP servers...")
+	platform.PrintStep(os.Stdout, 7, 9, "Registering user-scoped MCP servers...")
 	if err := setupUserMCPServers(); err != nil {
 		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("MCP server registration skipped: %v", err))
 	}
 
 	// Step 8: Check optional system tools
-	platform.PrintStep(os.Stdout, 8, 8, "Checking optional system tools...")
+	platform.PrintStep(os.Stdout, 8, 9, "Checking optional system tools...")
 	tools.CheckAndInstall(tools.Optional())
+
+	// Step 9: Optional statusline setup
+	platform.PrintStep(os.Stdout, 9, 9, "Statusline setup (cost & context display)...")
+	platform.PrintPrompt(os.Stdout, "  Configure statusline for cost & context display? [Y/n] ")
+	reader := bufio.NewReader(os.Stdin)
+	answer, _ := reader.ReadString('\n')
+	answer = strings.TrimSpace(strings.ToLower(answer))
+	if answer == "" || answer == "y" || answer == "yes" {
+		if err := statusline.Run([]string{}); err != nil {
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("statusline setup skipped: %v", err))
+		}
+	} else {
+		fmt.Println("  Skipped. Run 'claude-workspace statusline' anytime to configure.")
+	}
 
 	platform.PrintBanner(os.Stdout, "Setup Complete")
 	fmt.Println("\nNext steps:")

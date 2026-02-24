@@ -12,6 +12,7 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 	"github.com/lamchakchan/claude-workspace/internal/sandbox"
 	"github.com/lamchakchan/claude-workspace/internal/setup"
+	"github.com/lamchakchan/claude-workspace/internal/statusline"
 	"github.com/lamchakchan/claude-workspace/internal/upgrade"
 )
 
@@ -36,6 +37,8 @@ Commands:
   mcp list                       List all configured MCP servers
   upgrade [--self-only|--cli-only]  Upgrade claude-workspace and Claude Code CLI
   doctor                         Check platform configuration health
+  statusline                     Configure Claude Code statusline (cost & context display)
+    [--force]                    Overwrite existing statusLine configuration
 
 Options:
   --help, -h       Show this help message
@@ -56,6 +59,8 @@ Examples:
   claude-workspace mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
   claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry
   claude-workspace mcp remote https://mcp-gateway.company.com --bearer
+  claude-workspace statusline
+  claude-workspace statusline --force
 `
 
 func main() {
@@ -151,6 +156,11 @@ func main() {
 		}
 	case "doctor":
 		if err := doctor.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "statusline":
+		if err := statusline.Run(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

@@ -4,7 +4,7 @@ Complete reference for all `claude-workspace` commands, flags, and options.
 
 ## claude-workspace setup
 
-First-time setup: installs Claude Code CLI, provisions API keys, configures global settings, installs the binary to PATH, installs Node.js if missing, and registers MCP servers.
+First-time setup: installs Claude Code CLI, provisions API keys, configures global settings, installs the binary to PATH, installs Node.js if missing, registers MCP servers, and optionally configures the statusline for cost and context display.
 
 **Synopsis:**
 
@@ -276,6 +276,54 @@ claude-workspace doctor
 ```
 
 **See also:** [Runbook - Troubleshooting](RUNBOOK.md)
+
+---
+
+## claude-workspace statusline
+
+Configure the Claude Code statusline to display live session cost, context usage, and model name.
+
+**Synopsis:**
+
+```
+claude-workspace statusline [--force]
+```
+
+**Flags:**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--force` | bool | `false` | Overwrite existing `statusLine` configuration. |
+
+**Runtime detection** (in preference order):
+
+1. `bun x ccusage statusline` — if `bun` is available (fastest)
+2. `npx -y ccusage statusline` — if `npx` is available
+3. Inline `jq` fallback — if neither runtime is found (requires `jq`)
+
+**Behavior:**
+
+- Idempotent by default: skips if `statusLine` is already configured in `~/.claude/settings.json`
+- Creates `~/.claude/settings.json` if it does not yet exist
+- Restart Claude Code after running to activate the statusline
+
+**Example output** (using ccusage):
+
+```
+Opus | $0.23 session / $1.23 today / $0.45 block (2h 45m left) | $0.12/hr | 25,000 (12%)
+```
+
+**Examples:**
+
+```bash
+# Detect runtime and configure statusline
+claude-workspace statusline
+
+# Overwrite existing configuration
+claude-workspace statusline --force
+```
+
+**See also:** [ccusage](https://github.com/ryoppippi/ccusage), [Claude Code statusline docs](https://docs.anthropic.com/en/docs/claude-code/settings#status-line)
 
 ---
 
