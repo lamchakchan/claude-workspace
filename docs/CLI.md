@@ -327,6 +327,87 @@ claude-workspace statusline --force
 
 ---
 
+## claude-workspace sessions
+
+Browse and review prompts from past Claude Code sessions. Reads session data directly from `~/.claude/projects/` — no extra capture step required.
+
+**Synopsis:**
+
+```
+claude-workspace sessions [list|show] [options]
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List sessions for the current project (default when no subcommand given) |
+| `show <id>` | Display all user prompts from a specific session |
+
+**Flags (list):**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--all` | bool | `false` | List sessions across all projects (adds project name prefix to titles). |
+| `--limit` | int | `20` | Maximum number of sessions to display. |
+
+**How it works:**
+
+- Session data lives in `~/.claude/projects/<encoded-path>/<uuid>.jsonl`
+- Each JSONL file is one conversation session (append-only, one JSON object per line)
+- The **title** is derived from the first real user message (slash commands and system messages are filtered out)
+- The **session ID** prefix (8 characters) is enough to uniquely identify a session for `show`
+- Sessions are sorted newest-first
+
+**Examples:**
+
+```bash
+# List recent sessions for the current project
+claude-workspace sessions
+
+# List all sessions across every project
+claude-workspace sessions list --all
+
+# Show more results
+claude-workspace sessions list --limit 50
+
+# View all prompts from a specific session (prefix match)
+claude-workspace sessions show 8a3f1b2c
+```
+
+**Example output (list):**
+
+```
+=== Sessions for /Users/you/my-project ===
+
+  ID          DATE          TITLE
+  ----------  ------------  --------------------------------------------------
+  8a3f1b2c    2026-02-24    Add authentication middleware to the API gateway
+  e13fdc87    2026-02-23    Fix the MCP add command to properly handle env vars
+  c7d2a901    2026-02-22    Refactor the upgrade command to support --check flag
+
+  3 session(s) shown. Use 'sessions show <id>' to view prompts.
+```
+
+**Example output (show):**
+
+```
+=== zesty-sauteeing-avalanche (8a3f1b2c) ===
+  Project: /Users/you/my-project
+  Prompts: 3
+
+  [1] 15:26:47
+  Add authentication middleware to the API gateway
+
+  [2] 15:28:30
+  Can you also add rate limiting?
+
+  [3] 15:49:47
+  Stage and commit the changes, and push it up.
+```
+
+---
+
 ## claude-workspace cost
 
 View Claude Code usage and costs by querying local session data via [ccusage](https://github.com/ryoppippi/ccusage). All arguments are forwarded verbatim to ccusage.

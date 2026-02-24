@@ -332,8 +332,57 @@ else
     assert_fail "doctor output contains ${FAIL_LINES} [FAIL] line(s)"
 fi
 
-# ========== Phase 8: Run upgrade --check ==========
-echo -e "\n${BOLD}=== Phase 8: claude-workspace upgrade --check ===${NC}"
+# ========== Phase 8: Run sessions ==========
+echo -e "\n${BOLD}=== Phase 8: claude-workspace sessions ===${NC}"
+
+# Create fake session data that mirrors Claude Code's JSONL format
+echo "  Creating test session data..."
+vm_exec 'mkdir -p /home/ubuntu/.claude/projects/-home-ubuntu-test-project'
+vm_exec 'cat > /home/ubuntu/.claude/projects/-home-ubuntu-test-project/aaaaaaaa-1111-2222-3333-444444444444.jsonl << '\''SESS'\''
+{"type":"file-history-snapshot","messageId":"snap-1"}
+{"type":"user","message":{"role":"user","content":"Add authentication middleware"},"timestamp":"2026-02-24T10:00:00.000Z","cwd":"/home/ubuntu/test-project","uuid":"u1","parentUuid":null,"isMeta":false}
+{"type":"user","message":{"role":"user","content":"Also add rate limiting"},"timestamp":"2026-02-24T10:05:00.000Z","cwd":"/home/ubuntu/test-project","uuid":"u2","parentUuid":"u1","isMeta":false}
+SESS'
+vm_exec 'cat > /home/ubuntu/.claude/projects/-home-ubuntu-test-project/bbbbbbbb-5555-6666-7777-888888888888.jsonl << '\''SESS'\''
+{"type":"file-history-snapshot","messageId":"snap-2"}
+{"type":"user","message":{"role":"user","content":"<command-name>/exit</command-name>"},"timestamp":"2026-02-24T09:00:00.000Z","cwd":"/home/ubuntu/test-project","uuid":"u3","parentUuid":null,"isMeta":false}
+SESS'
+
+echo ""
+echo "  Assertions:"
+summary_phase 8 "claude-workspace sessions"
+
+# sessions list should work from the project directory
+SESSIONS_LIST=$(vm_exec "cd ${PROJECT} && claude-workspace sessions" 2>&1) || true
+echo "$SESSIONS_LIST" | sed 's/^/  | /'
+
+# Should show the real session
+assert "sessions list shows session with real prompt" \
+    bash -c "echo '$SESSIONS_LIST' | grep -q 'Add authentication middleware'"
+
+# Should NOT show the /exit-only session
+if echo "$SESSIONS_LIST" | grep -q 'bbbbbbbb'; then
+    assert_fail "sessions list filters out empty sessions (exit-only)"
+else
+    assert_pass "sessions list filters out empty sessions (exit-only)"
+fi
+
+# sessions show should display prompts
+echo ""
+SESSIONS_SHOW=$(vm_exec "cd ${PROJECT} && claude-workspace sessions show aaaaaaaa" 2>&1) || true
+echo "$SESSIONS_SHOW" | sed 's/^/  | /'
+
+assert "sessions show displays first prompt" \
+    bash -c "echo '$SESSIONS_SHOW' | grep -q 'Add authentication middleware'"
+
+assert "sessions show displays second prompt" \
+    bash -c "echo '$SESSIONS_SHOW' | grep -q 'Also add rate limiting'"
+
+assert "sessions show reports correct prompt count" \
+    bash -c "echo '$SESSIONS_SHOW' | grep -q 'Prompts: 2'"
+
+# ========== Phase 9: Run upgrade --check ==========
+echo -e "\n${BOLD}=== Phase 9: claude-workspace upgrade --check ===${NC}"
 
 # upgrade --check should exit 1 (update available) since the binary is a dev build
 UPGRADE_EXIT=0
@@ -342,7 +391,7 @@ echo "$UPGRADE_OUTPUT" | sed 's/^/  | /'
 
 echo ""
 echo "  Assertions:"
-summary_phase 8 "claude-workspace upgrade --check"
+summary_phase 9 "claude-workspace upgrade --check"
 
 # Assert exit code is 1 (update available) — 0 would mean "already up to date"
 if [[ "$UPGRADE_EXIT" -eq 1 ]]; then
@@ -390,7 +439,7 @@ else
     fi
 fi
 
-# ========== Phase 9: Summary ==========
+# ========== Phase 10: Summary ==========
 echo -e "\n${BOLD}=== Summary ===${NC}"
 
 TOTAL=$((PASS_COUNT + FAIL_COUNT))
