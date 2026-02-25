@@ -90,13 +90,20 @@ Examples:
 `
 
 func main() {
-	// Wire embedded assets to the platform package, stripping the _template prefix
-	sub, err := fs.Sub(PlatformFS, "_template")
+	// Wire embedded assets to the platform package
+	projectSub, err := fs.Sub(PlatformFS, "_template/project")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing embedded assets: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error initializing embedded project assets: %v\n", err)
 		os.Exit(1)
 	}
-	platform.FS = sub
+	platform.FS = projectSub
+
+	globalSub, err := fs.Sub(PlatformFS, "_template/global")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing embedded global assets: %v\n", err)
+		os.Exit(1)
+	}
+	platform.GlobalFS = globalSub
 	platform.InitColor()
 
 	args := os.Args[1:]

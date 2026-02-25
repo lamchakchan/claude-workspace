@@ -7,8 +7,11 @@ import (
 	"path/filepath"
 )
 
-// FS is set by main to the embedded filesystem.
+// FS is set by main to the embedded project-level filesystem (_template/project).
 var FS fs.FS
+
+// GlobalFS is set by main to the embedded global-level filesystem (_template/global).
+var GlobalFS fs.FS
 
 // ExtractTo extracts files from the embedded FS srcDir to destDir on disk.
 // If force is false, existing files are skipped.
@@ -88,6 +91,11 @@ func ExtractForSymlink() (string, error) {
 // ReadAsset reads a file from the embedded FS and returns its contents.
 func ReadAsset(path string) ([]byte, error) {
 	return fs.ReadFile(FS, path)
+}
+
+// ReadGlobalAsset reads a file from the embedded GlobalFS and returns its contents.
+func ReadGlobalAsset(path string) ([]byte, error) {
+	return fs.ReadFile(GlobalFS, path)
 }
 
 // WalkAssets walks the embedded FS directory and calls fn for each file.
