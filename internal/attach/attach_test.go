@@ -63,7 +63,7 @@ func TestDetectTechStack(t *testing.T) {
 			want: "Svelte",
 		},
 		{
-			name: "react with typescript",
+			name:    "react with typescript",
 			deps:    map[string]string{"react": "^18.0.0"},
 			devDeps: map[string]string{"typescript": "^5.0.0"},
 			want:    "React, TypeScript",
@@ -95,7 +95,7 @@ func TestDetectTechStack(t *testing.T) {
 			want:    "Next.js, Express, TypeScript, Prisma",
 		},
 		{
-			name: "prisma via prisma package",
+			name:    "prisma via prisma package",
 			devDeps: map[string]string{"prisma": "^5.0.0"},
 			want:    "Prisma",
 		},
@@ -105,7 +105,7 @@ func TestDetectTechStack(t *testing.T) {
 			want: "Drizzle",
 		},
 		{
-			name: "typescript only in devDeps",
+			name:    "typescript only in devDeps",
 			devDeps: map[string]string{"typescript": "^5.0.0"},
 			want:    "TypeScript",
 		},
@@ -207,8 +207,8 @@ func TestEnrichClaudeMd_ScriptReturnsInvalidOutput(t *testing.T) {
 	if err == nil {
 		t.Fatal("enrichClaudeMd() expected error for invalid output")
 	}
-	if !strings.Contains(err.Error(), "enrichment produced no output") {
-		t.Errorf("error = %q, want to contain 'enrichment produced no output'", err.Error())
+	if !strings.Contains(err.Error(), "enrichment produced no markdown output") {
+		t.Errorf("error = %q, want to contain 'enrichment produced no markdown output'", err.Error())
 	}
 
 	// Verify scaffold is preserved
@@ -238,8 +238,8 @@ func TestEnrichClaudeMd_ScriptReturnsEmptyOutput(t *testing.T) {
 	if err == nil {
 		t.Fatal("enrichClaudeMd() expected error for empty output")
 	}
-	if !strings.Contains(err.Error(), "enrichment produced no output") {
-		t.Errorf("error = %q, want to contain 'enrichment produced no output'", err.Error())
+	if !strings.Contains(err.Error(), "enrichment produced no markdown output") {
+		t.Errorf("error = %q, want to contain 'enrichment produced no markdown output'", err.Error())
 	}
 }
 
@@ -292,8 +292,8 @@ func TestEnrichClaudeMd_ScriptFailsNonZero(t *testing.T) {
 	if err == nil {
 		t.Fatal("enrichClaudeMd() expected error for non-zero exit")
 	}
-	if !strings.Contains(err.Error(), "claude enrichment failed") {
-		t.Errorf("error = %q, want to contain 'claude enrichment failed'", err.Error())
+	if !strings.Contains(err.Error(), "claude exited with error") {
+		t.Errorf("error = %q, want to contain 'claude exited with error'", err.Error())
 	}
 
 	// Verify scaffold is preserved
