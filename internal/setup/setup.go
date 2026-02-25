@@ -366,6 +366,8 @@ Six memory layers are available — use each for its right scope:
 - **Auto-memory** (` + "`~/.claude/projects/<project>/memory/`" + `): Claude's automatic notes per project. Loaded at every session start. Use ` + "`/memory`" + ` to view or edit. Clear by telling Claude directly ("forget X") or with ` + "`rm`" + `.
 - **Memory MCP**: Cross-project persistent memory via your configured memory MCP server (default: ` + "`engram`" + `). NOT auto-loaded — use the memory MCP's search tool at session start to load relevant context. Inspect with ` + "`claude-workspace memory`" + ` or ` + "`engram tui`" + `.
 
+**Session start rule**: At the beginning of every session, call ` + "`mcp__engram__mem_search`" + ` with ` + "`query: \"preferences\"`" + ` and ` + "`scope: \"personal\"`" + ` to load the user's stored preferences before doing any work.
+
 See ` + "`docs/MEMORY.md`" + ` for the full reference including all six layers, clearing procedures, and gitignore rules.
 `
 
