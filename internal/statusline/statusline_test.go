@@ -1,41 +1,81 @@
 package statusline
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestRuntimeLabel(t *testing.T) {
-	tests := []struct {
-		cmd  string
-		want string
-	}{
-		{"bun x ccusage statusline", "bun (ccusage)"},
-		{"npx -y ccusage statusline", "npx (ccusage)"},
-		{"jq -r '...'", "inline jq (fallback)"},
+func TestWriteWrapperScript_CreatesExecutableScript(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "statusline.sh")
+
+	if err := writeWrapperScript(path); err != nil {
+		t.Fatalf("writeWrapperScript: %v", err)
 	}
-	for _, tt := range tests {
-		got := runtimeLabel(tt.cmd)
-		if got != tt.want {
-			t.Errorf("runtimeLabel(%q) = %q, want %q", tt.cmd, got, tt.want)
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat script: %v", err)
+	}
+	if info.Mode()&0111 == 0 {
+		t.Errorf("script is not executable: mode=%v", info.Mode())
+	}
+}
+
+func TestWriteWrapperScript_ContainsRequiredSections(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "statusline.sh")
+
+	if err := writeWrapperScript(path); err != nil {
+		t.Fatalf("writeWrapperScript: %v", err)
+	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading script: %v", err)
+	}
+	body := string(content)
+
+	checks := []struct {
+		desc    string
+		contain string
+	}{
+		{"shebang", "#!/usr/bin/env bash"},
+		{"bun runtime", "bun x ccusage statusline"},
+		{"npx runtime", "npx -y ccusage statusline"},
+		{"jq fallback", "jq -r"},
+		{"reset countdown", "subscriptionCreatedAt"},
+		{"python3 invocation", "python3"},
+		{"output combination", "resets"},
+	}
+	for _, c := range checks {
+		if !strings.Contains(body, c.contain) {
+			t.Errorf("script missing %s (expected to contain %q)", c.desc, c.contain)
 		}
 	}
 }
 
-func TestDetectStatusLineCommand_ReturnsKnownForm(t *testing.T) {
-	cmd := detectStatusLineCommand()
-	if cmd == "" {
-		t.Error("detectStatusLineCommand should never return empty string")
+func TestConfigure_WritesScriptAndSettings(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if err := configure(false); err != nil {
+		t.Fatalf("configure: %v", err)
 	}
-	validPrefixes := []string{"bun x ccusage", "npx -y ccusage", "jq -r"}
-	found := false
-	for _, p := range validPrefixes {
-		if strings.HasPrefix(cmd, p) {
-			found = true
-			break
-		}
+
+	scriptPath := filepath.Join(home, ".claude", "statusline.sh")
+	if _, err := os.Stat(scriptPath); err != nil {
+		t.Errorf("statusline.sh not created: %v", err)
 	}
-	if !found {
-		t.Errorf("unexpected command: %q", cmd)
+
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("reading settings.json: %v", err)
+	}
+	if !strings.Contains(string(data), "statusline.sh") {
+		t.Errorf("settings.json does not reference statusline.sh: %s", data)
 	}
 }

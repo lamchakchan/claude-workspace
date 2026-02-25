@@ -44,6 +44,14 @@ root_exec() {
 
 # ---------- cross-compilation ----------
 cross_compile() {
+    if [[ -n "${PREBUILT_BINARY:-}" ]]; then
+        echo "  Using pre-built binary: ${PREBUILT_BINARY}"
+        BINARY_OUT="$PREBUILT_BINARY"
+        BINARY_SIZE="$(ls -lh "$BINARY_OUT" | awk '{print $5}')"
+        echo "  Size: ${BINARY_SIZE}"
+        return
+    fi
+
     HOST_ARCH="$(uname -m)"
     case "$HOST_ARCH" in
         arm64|aarch64) TARGET_GOARCH="arm64" ;;

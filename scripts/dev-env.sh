@@ -120,9 +120,9 @@ cmd_create() {
     fi
 
     if env_exists; then
-        echo -e "${RED}Error: Environment '${VM_NAME}' already exists.${NC}"
-        echo "  Destroy it first: bash scripts/dev-env.sh destroy --${MODE}"
-        exit 1
+        echo "Dev environment '${VM_NAME}' already exists, skipping creation."
+        ensure_running
+        return
     fi
 
     # Cross-compile
