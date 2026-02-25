@@ -1,6 +1,6 @@
 ---
 name: statusline-setup
-description: Configures the Claude Code statusline to display live session cost, context usage, and model name. Use when the user wants to set up or customize their Claude Code statusline, or when the statusLine setting is missing from ~/.claude/settings.json.
+description: Configures the Claude Code statusline to display live session cost, context usage, model name, and weekly reset countdown. Use when the user wants to set up or customize their Claude Code statusline, or when the statusLine setting is missing from ~/.claude/settings.json.
 ---
 
 # Statusline Setup
@@ -10,18 +10,21 @@ description: Configures the Claude Code statusline to display live session cost,
 The Claude Code statusline displays live telemetry after every assistant message:
 
 ```
-Opus | $0.23 session / $1.23 today / $0.45 block (2h 45m left) | $0.12/hr | 25,000 (12%)
+Opus | $0.23 session / $1.23 today / $0.45 block (2h 45m left) | $0.12/hr | 25,000 (12%) | resets in 3d
 ```
 
-Fields: model name, session cost, daily spend, active billing block spend (with time remaining), hourly burn rate, tokens used, and context window percentage.
+Fields: model name, session cost, daily spend, active billing block spend (with time remaining), hourly burn rate, tokens used, context window percentage, and weekly Pro/Max reset countdown.
+
+The reset countdown (`resets in Xd` / `resets tomorrow` / `resets today`) is derived automatically from the subscription start date in `~/.claude.json` — no manual configuration required. Requires `python3` (standard on macOS and most Linux); silently omitted if unavailable.
 
 ## Recommended Tool: ccusage
 
 The recommended backend is **ccusage** (`github.com/ryoppippi/ccusage`), which reads `~/.claude/projects/` JSONL files to compute historical cost data and enriches the statusline with block-level tracking.
 
-Runtime options (detected in preference order):
+Runtime options (detected in preference order at execution time):
 - `bun x ccusage statusline` — fastest, preferred if bun is installed
 - `npx -y ccusage statusline` — standard fallback via Node.js
+- Inline `jq` — used when neither bun nor npx is available
 
 ## Configuring the Statusline
 
@@ -34,8 +37,8 @@ Prompt: Configure the statusline in ~/.claude/settings.json using the best avail
 
 The subagent will:
 1. Check whether `statusLine` is already present in `~/.claude/settings.json`
-2. Detect available runtimes (`bun`, `npx`)
-3. Write the appropriate `statusLine` block
+2. Write `~/.claude/statusline.sh` — a wrapper script that handles runtime detection and reset countdown
+3. Register the script in `~/.claude/settings.json`
 4. Confirm the configuration was applied
 
 ## Manual Configuration
@@ -46,31 +49,17 @@ To configure directly, add the following to `~/.claude/settings.json`:
 {
   "statusLine": {
     "type": "command",
-    "command": "bun x ccusage statusline",
+    "command": "bash ~/.claude/statusline.sh",
     "padding": 0
   }
 }
 ```
 
-Replace the command with `npx -y ccusage statusline` if bun is not available.
-
-## Fallback (no runtime)
-
-If neither bun nor npx is installed, use an inline jq command:
-
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "jq -r '\"\\(.model.display_name) | $\\(.cost.total_cost_usd | . * 1000 | round / 1000) | \\(.context_window.used_percentage)% ctx\"'",
-    "padding": 0
-  }
-}
-```
+Then write `~/.claude/statusline.sh` with the wrapper script from the automated setup (see below).
 
 ## Automated Setup
 
-Run from the terminal to auto-detect the best runtime and configure automatically:
+Run from the terminal to write the wrapper script and configure automatically:
 
 ```bash
 claude-workspace statusline
@@ -81,3 +70,5 @@ Use `--force` to overwrite an existing configuration:
 ```bash
 claude-workspace statusline --force
 ```
+
+This writes `~/.claude/statusline.sh`, which detects the available runtime (bun/npx/jq) each time it runs and appends the weekly reset countdown from `~/.claude.json`.
