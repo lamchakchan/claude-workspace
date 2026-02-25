@@ -266,7 +266,9 @@ func importMemory(filePath string, scope map[LayerName]bool, confirm bool) error
 					"Use mcp__mcp-memory-libsql__create_entities and mcp__mcp-memory-libsql__create_relations to import this memory data, preserving all entities and their observations exactly:\n\n%s",
 					dataJSON,
 				)
-				if err := platform.Run("claude", "-p", prompt,
+				if err := platform.RunWithSpinner(
+					"Importing memories via Claude...",
+					"claude", "-p", prompt,
 					"--allowedTools", "mcp__mcp-memory-libsql__create_entities,mcp__mcp-memory-libsql__create_relations",
 				); err != nil {
 					platform.PrintFail(w, fmt.Sprintf("Memory MCP import via Claude: %v", err))
@@ -300,10 +302,12 @@ func writeFileContent(path, content string) error {
 
 // exportLibsqlViaClaude invokes the claude CLI to call read_graph and returns the JSON data.
 func exportLibsqlViaClaude() (*json.RawMessage, error) {
+	spinner := platform.StartSpinner(os.Stderr, "Exporting memories via Claude...")
 	out, err := platform.Output("claude", "-p",
 		"Call mcp__mcp-memory-libsql__read_graph and output ONLY the raw JSON result — no commentary, no markdown fences, just valid JSON.",
 		"--allowedTools", "mcp__mcp-memory-libsql__read_graph",
 	)
+	spinner.Stop()
 	if err != nil {
 		return nil, err
 	}

@@ -155,7 +155,9 @@ func show(scope map[LayerName]bool) error {
 					fmt.Fprintf(w, "  Read all: %s\n", platform.Bold("mcp__mcp-memory-libsql__read_graph"))
 				} else {
 					fmt.Fprintln(w)
-					if err := platform.Run("claude", "-p",
+					if err := platform.RunWithSpinner(
+						"Querying memory graph via Claude...",
+						"claude", "-p",
 						"Use mcp__mcp-memory-libsql__read_graph to retrieve all stored memories and display them in a clear, human-readable format grouped by entity type.",
 						"--allowedTools", "mcp__mcp-memory-libsql__read_graph",
 					); err != nil {
