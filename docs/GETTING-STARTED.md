@@ -338,9 +338,9 @@ MCP (Model Context Protocol) servers give Claude access to external tools and da
 The platform ships with one project-scoped MCP server in `.mcp.json`:
 - **filesystem** - Secure file operations scoped to the project directory
 
-The `memory` server is better added at user scope so it's available across all projects:
+The `engram` memory server is better added at user scope so it's available across all projects:
 ```bash
-claude mcp add --scope user memory -- npx -y @anthropic/claude-code-memory-server
+claude mcp add --scope user engram -- engram mcp
 ```
 
 ### Adding More Servers

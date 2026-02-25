@@ -13,7 +13,7 @@ This document explains the six memory layers available in Claude Code, when to u
 | **User CLAUDE.md** | `~/.claude/CLAUDE.md` | All projects | Always | Just you |
 | **CLAUDE.local.md** | `./CLAUDE.local.md` | Per-project | Always | Just you (gitignored) |
 | **Auto-memory** | `~/.claude/projects/<project>/memory/MEMORY.md` | Per-project | First 200 lines | Just you |
-| **Memory MCP** | `memory.json` (MCP server data file) | Cross-project | Must query explicitly | Just you |
+| **Memory MCP** | `~/.engram/engram.db` (SQLite database) | Cross-project | Must query explicitly | Just you |
 
 **Rule of thumb:** More specific instructions take precedence over broader ones. Project CLAUDE.md overrides User CLAUDE.md; CLAUDE.local.md overrides both for personal overrides.
 
@@ -91,15 +91,14 @@ paths:
 
 ---
 
-## 4. Memory MCP (cross-project knowledge graph)
+## 4. Memory MCP (cross-project persistent memory)
 
-The `@modelcontextprotocol/server-memory` MCP server maintains a persistent knowledge graph backed by a `memory.json` file. Unlike auto-memory (which is project-scoped and auto-loaded), the memory MCP graph is **cross-project** and must be **queried explicitly**.
+The `engram` MCP server provides cross-project persistent memory backed by a SQLite database with FTS5 full-text search at `~/.engram/engram.db`. Unlike auto-memory (which is project-scoped and auto-loaded), engram memory is **cross-project** and must be **queried explicitly**.
 
 **When to use memory MCP (not auto-memory):**
 - User preferences that apply everywhere: *"always use bun, not npm"*
 - Cross-project patterns: architecture styles, recurring decisions
-- Structured relationships: *"Project X uses Framework Y"*
-- Facts that need keyword-queryable recall across sessions
+- Facts that need full-text-searchable recall across sessions
 
 **When to use auto-memory instead:**
 - Project-specific architecture notes
@@ -108,68 +107,36 @@ The `@modelcontextprotocol/server-memory` MCP server maintains a persistent know
 
 ### Core primitives
 
-- **Entities** — Named nodes with a type and observations. Types: `project`, `preference`, `pattern`, `person`, `decision`
-- **Observations** — Discrete, atomic facts on an entity: `"uses TypeScript strict mode"`
-- **Relations** — Directed typed connections: `Project X` → `uses` → `React`
+- **Observations** — Facts stored with a topic key for grouping: `"uses TypeScript strict mode"`
+- **Sessions** — Automatic session tracking for context continuity
 
 ### Session workflow
 
 **At session start** — load relevant context:
 ```
-mcp__memory__search_nodes(query: "project-name OR relevant-concept")
+mcp__engram__mem_search(query: "project-name OR relevant-concept")
 ```
 
 **During work** — record new facts:
 ```
-# New entity
-mcp__memory__create_entities([{
-  name: "claude-workspace",
-  entityType: "project",
-  observations: ["Go CLI", "builds with go build ./...", "tests with go test ./..."]
-}])
+# Save an observation
+mcp__engram__mem_save(topicKey: "claude-workspace", content: "Go CLI, builds with go build ./..., tests with go test ./...")
 
-# Update existing
-mcp__memory__add_observations([{
-  entityName: "claude-workspace",
-  contents: ["uses go:embed for template distribution"]
-}])
-
-# Link entities
-mcp__memory__create_relations([{
-  from: "claude-workspace",
-  to: "Go",
-  relationType: "uses"
-}])
+# Save another observation
+mcp__engram__mem_save(topicKey: "claude-workspace", content: "uses go:embed for template distribution")
 ```
 
 ### How to clear
 
 **Surgical (in-session):**
 ```
-mcp__memory__delete_entities(entityNames: ["entity-name"])
-mcp__memory__delete_observations(observations: [{entityName: "...", observations: ["stale fact"]}])
-mcp__memory__delete_relations(relations: [{from: "...", to: "...", relationType: "..."}])
+mcp__engram__mem_delete(topicKey: "topic-name")
 ```
 
-**Full wipe (in-session):**
-```
-# 1. List everything
-mcp__memory__read_graph()
-# 2. Delete all entities (relations/observations cascade-delete)
-mcp__memory__delete_entities(entityNames: ["entity1", "entity2", ...])
-```
-
-**Nuclear (delete data file):**
+**Nuclear (delete database):**
 ```bash
-# Find the file
-find ~ -name "memory.json" -path "*/server-memory/*" 2>/dev/null
-find ~/.npm -name "memory.json" 2>/dev/null
-
-# Delete it
-rm /path/to/memory.json
+rm ~/.engram/engram.db
 ```
-
-The `memory.json` file location depends on how the server is launched. If no `--memory-path` argument is set, it writes to the working directory where `npx` is invoked.
 
 ---
 
@@ -186,7 +153,7 @@ These agents write their memory into the **auto-memory layer** (`~/.claude/proje
 | Layer | In-session clear | Manual clear | Full wipe |
 |---|---|---|---|
 | **Auto-memory** | *"forget that..."* or `/memory` to edit | `rm ~/.claude/projects/<proj>/memory/MEMORY.md` | `rm -rf ~/.claude/projects/<proj>/memory/` |
-| **Memory MCP** | `delete_entities` / `delete_observations` / `delete_relations` | `rm /path/to/memory.json` | `rm memory.json` + `delete_entities` for all |
+| **Memory MCP** | `mem_delete` | `rm ~/.engram/engram.db` | `rm ~/.engram/engram.db` |
 | **User CLAUDE.md** | `/memory` to open editor | Edit `~/.claude/CLAUDE.md` directly | Delete the file (re-run `claude-workspace setup` to regenerate) |
 | **Project CLAUDE.md** | `/memory` to open editor | Edit `.claude/CLAUDE.md` | `claude-workspace attach --force` to regenerate from template |
 | **CLAUDE.local.md** | `/memory` to open editor | Edit `./CLAUDE.local.md` | Delete the file |
@@ -201,7 +168,7 @@ These agents write their memory into the **auto-memory layer** (`~/.claude/proje
 
 | Pattern | Why |
 |---|---|
-| `memory.json` | MCP memory server data file. Writes to CWD if no `--memory-path` configured — could land in repo root. |
+| `memory.json` | Legacy MCP memory server data file. Kept for backwards compatibility in case the old server is still in use. |
 | `.claude/MEMORY.md` | Auto-memory normally lives in `~/.claude/...` (outside repo), but if manually placed in `.claude/` it would be tracked. |
 | `.claude/*.jsonl` | JSONL conversation/log files that tools could write into the project's `.claude/` directory. |
 | `.claude/CLAUDE.local.md` | Personal project overrides. Already covered by Claude Code convention. |
@@ -227,7 +194,7 @@ Is this fact relevant to ONE project only?
           NO  → Auto-memory (Claude writes it) or tell Claude "remember X"
   NO  → Does it apply to ALL my projects (personal preference)?
           YES + is it an instruction? → User CLAUDE.md (~/.claude/CLAUDE.md)
-          YES + is it a fact/pattern?  → Memory MCP (mcp__memory__*)
+          YES + is it a fact/pattern?  → Memory MCP (mcp__engram__mem_*)
           YES + is it org policy?      → Managed policy CLAUDE.md
 ```
 
