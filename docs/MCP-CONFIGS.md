@@ -106,6 +106,23 @@ Web search servers for grounding Claude responses in real-time information.
 
 ---
 
+## Memory
+
+**File:** [`docs/mcp-configs/memory.json`](mcp-configs/memory.json)
+
+Cross-project persistent memory servers.
+
+| Server | Type | Auth Method | Setup Command |
+|--------|------|-------------|---------------|
+| **Engram** (default) | Local (binary) | None | `claude-workspace mcp add --scope user engram -- engram mcp` |
+| **Memory** (legacy) | Local (npx) | None | `claude mcp add --scope user memory -- npx -y @modelcontextprotocol/server-memory` |
+
+**Engram** is auto-registered by `claude-workspace setup`. Single Go binary with FTS5 full-text search and SQLite persistence. Install via `brew install gentleman-programming/tap/engram`. Data stored at `~/.engram/engram.db`. See [Gentleman-Programming/engram](https://github.com/Gentleman-Programming/engram).
+
+**Memory** (legacy): the official MCP reference server. JSONL-based knowledge graph with substring-only search. No additional install needed if Node.js is available. Use this if you prefer the entity/relation data model or cannot install the engram binary.
+
+---
+
 ## Adding a New Configuration
 
 To contribute a new MCP config category:

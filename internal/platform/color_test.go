@@ -2,6 +2,7 @@ package platform
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -112,6 +113,27 @@ func TestPrintBanner(t *testing.T) {
 	got = buf.String()
 	if got != "\n=== Test ===\n" {
 		t.Errorf("PrintBanner plain = %q", got)
+	}
+}
+
+func TestPrintLayerBanner(t *testing.T) {
+	var buf bytes.Buffer
+
+	colorEnabled = false
+	PrintLayerBanner(&buf, "User CLAUDE.md")
+	got := buf.String()
+	wantRule := "\n" + strings.Repeat("─", 50) + "\n  ▶ User CLAUDE.md\n"
+	if got != wantRule {
+		t.Errorf("PrintLayerBanner plain = %q, want %q", got, wantRule)
+	}
+
+	buf.Reset()
+	colorEnabled = true
+	PrintLayerBanner(&buf, "User CLAUDE.md")
+	got = buf.String()
+	wantColored := "\n\033[1m\033[36m" + strings.Repeat("─", 50) + "\033[0m\n  \033[1m▶ User CLAUDE.md\033[0m\n"
+	if got != wantColored {
+		t.Errorf("PrintLayerBanner colored = %q, want %q", got, wantColored)
 	}
 }
 

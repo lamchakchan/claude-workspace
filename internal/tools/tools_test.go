@@ -7,8 +7,8 @@ import (
 
 func TestRegistryRequired(t *testing.T) {
 	required := Required()
-	if len(required) != 2 {
-		t.Fatalf("expected 2 required tools, got %d", len(required))
+	if len(required) != 3 {
+		t.Fatalf("expected 3 required tools, got %d", len(required))
 	}
 	names := make(map[string]bool)
 	for _, tool := range required {
@@ -17,7 +17,7 @@ func TestRegistryRequired(t *testing.T) {
 			t.Errorf("required tool %s should have Required=true", tool.Name)
 		}
 	}
-	for _, name := range []string{"claude", "node"} {
+	for _, name := range []string{"claude", "node", "engram"} {
 		if !names[name] {
 			t.Errorf("expected required tool %s to be in registry", name)
 		}
@@ -45,8 +45,8 @@ func TestRegistryOptional(t *testing.T) {
 
 func TestRegistryAll(t *testing.T) {
 	all := All()
-	if len(all) != 6 {
-		t.Fatalf("expected 6 total tools, got %d", len(all))
+	if len(all) != 7 {
+		t.Fatalf("expected 7 total tools, got %d", len(all))
 	}
 }
 
@@ -142,6 +142,25 @@ func TestNodeHasCustomFns(t *testing.T) {
 	}
 	if n.Purpose == "" {
 		t.Error("node should have a Purpose")
+	}
+}
+
+func TestEngramHasCustomFns(t *testing.T) {
+	e := Engram()
+	if e.InstallFn == nil {
+		t.Error("engram should have a custom InstallFn")
+	}
+	if e.CheckFn == nil {
+		t.Error("engram should have a custom CheckFn")
+	}
+	if e.VersionFn == nil {
+		t.Error("engram should have a VersionFn")
+	}
+	if !e.Required {
+		t.Error("engram should have Required=true")
+	}
+	if e.Purpose == "" {
+		t.Error("engram should have a Purpose")
 	}
 }
 

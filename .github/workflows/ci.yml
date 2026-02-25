@@ -43,15 +43,11 @@ jobs:
         run: go vet ./...
 
       - name: Test
-        run: go test ./... -v 2>&1 | tee /tmp/test-output.txt
+        run: bash scripts/ci-run-tests.sh /tmp/test-output.json
 
       - name: Job Summary
         if: always()
-        run: |
-          echo '## Build (`${{ matrix.os }}`)' >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          tail -20 /tmp/test-output.txt >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+        run: bash scripts/ci-test-summary.sh /tmp/test-output.json "${{ matrix.os }}"
 
       - name: Build
         run: go build -o claude-workspace .

@@ -442,24 +442,36 @@ func enrichClaudeMd(projectDir, claudeDir string) error {
 	claudeMdPath := filepath.Join(claudeDir, "CLAUDE.md")
 	prompt := buildEnrichmentPrompt(projectDir, claudeMdPath)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
-	sp := platform.StartSpinner(os.Stdout, "Analyzing project with Claude...")
-	output, err := platform.RunDirWithStdin(ctx, projectDir, prompt, "claude", "-p", "--model", "sonnet")
-	sp.Stop()
+	fmt.Println("  Running claude opus to analyze project (up to 180s)...")
+	stdout, stderr, err := platform.RunDirWithStdinCapture(ctx, projectDir, prompt, []string{"CLAUDECODE"}, "claude", "-p",
+		"--strict-mcp-config", "--mcp-config", `{"mcpServers":{}}`,
+		"--output-format", "text",
+		"--model", "opus")
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("enrichment timed out after 90s")
+			return fmt.Errorf("enrichment timed out after 180s")
 		}
-		return fmt.Errorf("claude enrichment failed (check API key with `claude-workspace setup`)")
+		detail := ""
+		if stderr != "" {
+			detail = fmt.Sprintf(": %s", stderr)
+		}
+		return fmt.Errorf("claude exited with error (check API key with `claude-workspace setup`)%s", detail)
 	}
 
-	if len(output) == 0 || !strings.HasPrefix(output, "#") {
-		return fmt.Errorf("enrichment produced no output")
+	// Find the start of markdown content (skip any preamble lines)
+	idx := strings.Index(stdout, "#")
+	if idx < 0 {
+		if stderr != "" {
+			return fmt.Errorf("enrichment produced no markdown output (stderr: %s)", stderr)
+		}
+		return fmt.Errorf("enrichment produced no markdown output")
 	}
+	content := stdout[idx:]
 
-	if err := os.WriteFile(claudeMdPath, []byte(output+"\n"), 0644); err != nil {
+	if err := os.WriteFile(claudeMdPath, []byte(content+"\n"), 0644); err != nil {
 		return fmt.Errorf("writing enriched CLAUDE.md: %w", err)
 	}
 

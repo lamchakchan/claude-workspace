@@ -89,7 +89,7 @@ func Run() error {
 	installBinaryToPath()
 
 	// Step 6: Ensure Node.js is available
-	platform.PrintStep(os.Stdout, 6, 9, "Checking Node.js for MCP servers...")
+	platform.PrintStep(os.Stdout, 6, 9, "Checking Node.js (required for filesystem MCP server)...")
 	nodeTool := tools.Node()
 	if nodeTool.IsInstalled() {
 		ver, _ := platform.Output("node", "--version")
@@ -104,8 +104,19 @@ func Run() error {
 		}
 	}
 
-	// Step 7: Register user-scoped MCP servers
+	// Step 7: Check engram and register user-scoped MCP servers
 	platform.PrintStep(os.Stdout, 7, 9, "Registering user-scoped MCP servers...")
+	engramTool := tools.Engram()
+	if engramTool.IsInstalled() {
+		ver, _ := platform.Output("engram", "--version")
+		fmt.Printf("  engram found: %s\n", ver)
+	} else {
+		fmt.Println("  engram not found. Installing...")
+		if err := engramTool.Install(); err != nil {
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("engram install failed: %v", err))
+			fmt.Println("  Install manually: brew install gentleman-programming/tap/engram")
+		}
+	}
 	if err := setupUserMCPServers(); err != nil {
 		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("MCP server registration skipped: %v", err))
 	}
@@ -332,6 +343,30 @@ Follow the platform conventions, use subagents for delegation, and plan before i
 - Work on feature branches, never main/master
 - Commit messages: imperative mood, explain "why"
 - Create PRs with clear descriptions
+
+## MCP Tool Preferences
+
+Prefer installed MCP tools over built-in Claude Code tools when both can satisfy the same request. MCP tools follow the ` + "`" + `mcp__<server>__<tool>` + "`" + ` naming pattern — identify them at runtime from the available tool list.
+
+| Capability | Prefer MCP tools from providers like... | Over built-in... |
+|---|---|---|
+| Web search | brave, perplexity, tavily, exa, duckduckgo | ` + "`WebSearch`" + ` |
+| Filesystem | filesystem | Bash file commands (cat, ls, find) |
+| GitHub / VCS | github, gitlab, bitbucket | ` + "`gh`" + ` CLI via Bash |
+| Observability | honeycomb, datadog, grafana, newrelic, sentry | (no built-in equivalent) |
+| Persistent knowledge / memory | engram | (no built-in equivalent) |
+
+If no MCP tool covers a capability, fall back to built-in tools normally. When multiple MCP tools could apply, choose the one whose description best matches the request (e.g., local vs. web search).
+
+## Memory Strategy
+
+Six memory layers are available — use each for its right scope:
+
+- **User CLAUDE.md** (` + "`~/.claude/CLAUDE.md`" + `): Permanent instructions you write. For stable rules and preferences that apply to all projects.
+- **Auto-memory** (` + "`~/.claude/projects/<project>/memory/`" + `): Claude's automatic notes per project. Loaded at every session start. Use ` + "`/memory`" + ` to view or edit. Clear by telling Claude directly ("forget X") or with ` + "`rm`" + `.
+- **Memory MCP**: Cross-project persistent memory via your configured memory MCP server (default: ` + "`engram`" + `). NOT auto-loaded — use the memory MCP's search tool at session start to load relevant context. Inspect with ` + "`claude-workspace memory`" + ` or ` + "`engram tui`" + `.
+
+See ` + "`docs/MEMORY.md`" + ` for the full reference including all six layers, clearing procedures, and gitignore rules.
 `
 
 	if err := os.WriteFile(claudeMdPath, []byte(content), 0644); err != nil {
@@ -344,10 +379,9 @@ Follow the platform conventions, use subagents for delegation, and plan before i
 // platformMCPServers returns the user-scoped MCP servers the platform registers by default.
 func platformMCPServers() map[string]interface{} {
 	return map[string]interface{}{
-		"memory": map[string]interface{}{
-			"command": "npx",
-			"args":    []string{"-y", "@modelcontextprotocol/server-memory"},
-			"env":     map[string]interface{}{},
+		"engram": map[string]interface{}{
+			"command": "engram",
+			"args":    []string{"mcp"},
 		},
 	}
 }
@@ -380,11 +414,10 @@ func MergeUserMCPServers(config map[string]interface{}, servers map[string]inter
 }
 
 func setupUserMCPServers() error {
-	if !platform.Exists("npx") {
-		fmt.Println("  npx not found — skipping automatic MCP server registration.")
-		fmt.Println("  Node.js installation may have failed or npx is not in PATH.")
-		fmt.Println("  Install Node.js (https://nodejs.org), then run manually:")
-		fmt.Println("    claude mcp add --scope user memory -- npx -y @modelcontextprotocol/server-memory")
+	if !platform.Exists("engram") {
+		fmt.Println("  engram not found — skipping automatic MCP server registration.")
+		fmt.Println("  Install engram, then run manually:")
+		fmt.Println("    claude mcp add --scope user engram -- engram mcp")
 		return nil
 	}
 
