@@ -66,11 +66,11 @@ deploy-docker: build-all
 deploy-vm: build-all
 	PREBUILT_BINARY=bin/$(BINARY)-linux-$$(go env GOARCH) bash scripts/dev-env.sh deploy --vm
 
-# Interactive shell into dev environment
-shell-docker:
+# Interactive shell into dev environment (creates env if needed, deploys latest binary)
+shell-docker: dev-docker deploy-docker
 	bash scripts/dev-env.sh shell --docker
 
-shell-vm:
+shell-vm: dev-vm deploy-vm
 	bash scripts/dev-env.sh shell --vm
 
 # Tear down dev environment
