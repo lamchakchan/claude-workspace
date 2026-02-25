@@ -26,7 +26,7 @@ Prefer installed MCP tools over built-in Claude Code tools when both can satisfy
 | Filesystem | filesystem | Bash file commands (cat, ls, find) |
 | GitHub / VCS | github, gitlab, bitbucket | `gh` CLI via Bash |
 | Observability | honeycomb, datadog, grafana, newrelic, sentry | (no built-in equivalent) |
-| Persistent knowledge / memory | engram | (no built-in equivalent) |
+| Persistent knowledge / memory | mcp-memory-libsql | (no built-in equivalent) |
 
 If no MCP tool covers a capability, fall back to built-in tools normally. When multiple MCP tools could apply, choose the one whose description best matches the request (e.g., local vs. web search).
 
@@ -36,8 +36,8 @@ Six memory layers are available — use each for its right scope:
 
 - **User CLAUDE.md** (`~/.claude/CLAUDE.md`): Permanent instructions you write. For stable rules and preferences that apply to all projects.
 - **Auto-memory** (`~/.claude/projects/<project>/memory/`): Claude's automatic notes per project. Loaded at every session start. Use `/memory` to view or edit. Clear by telling Claude directly ("forget X") or with `rm`.
-- **Memory MCP**: Cross-project persistent memory via your configured memory MCP server (default: `engram`). NOT auto-loaded — use the memory MCP's search tool at session start to load relevant context. Inspect with `claude-workspace memory` or `engram tui`.
+- **Memory MCP** (`mcp__mcp-memory-libsql__*` tools): Cross-project persistent knowledge graph with full-text search. NOT auto-loaded — call `search_nodes` at session start to load relevant context. Use for preferences and patterns that span multiple projects. Inspect with `claude-workspace memory`.
 
-**Session start rule**: At the beginning of every session, call `mcp__engram__mem_search` with `query: "preferences"` and `scope: "personal"` to load the user's stored preferences before doing any work.
+**Session start rule**: At the beginning of every session, call `mcp__mcp-memory-libsql__search_nodes` with `{"query": "preferences"}` to load the user's stored preferences before doing any work.
 
 See `docs/MEMORY.md` for the full reference including all six layers, clearing procedures, and gitignore rules.

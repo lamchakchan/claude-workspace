@@ -1,22 +1,25 @@
 {
   "_description": "Cross-project persistent memory MCP server configurations",
   "examples": {
+    "mcp-memory-libsql": {
+      "command": "npx",
+      "args": ["-y", "mcp-memory-libsql"],
+      "env": {
+        "LIBSQL_URL": "file:/Users/<user>/.config/claude-workspace/memory.db"
+      }
+    },
     "engram": {
+      "_note": "Optional legacy provider. Requires: brew install gentleman-programming/tap/engram",
       "command": "engram",
       "args": ["mcp"]
-    },
-    "memory": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-memory"],
-      "env": {}
     }
   },
   "setup_commands": {
-    "engram": "claude-workspace mcp add --scope user engram -- engram mcp",
-    "memory": "claude mcp add --scope user memory -- npx -y @modelcontextprotocol/server-memory"
+    "mcp-memory-libsql": "claude-workspace memory configure --provider mcp-memory-libsql",
+    "engram": "claude-workspace memory configure --provider engram"
   },
   "notes": {
-    "engram": "Auto-registered by claude-workspace setup. Go binary with FTS5 full-text search and SQLite persistence. Install: brew install gentleman-programming/tap/engram. Data: ~/.engram/engram.db",
-    "memory": "Legacy option. Node.js JSONL-based knowledge graph with substring search only. No install needed beyond Node.js (uses npx)."
+    "mcp-memory-libsql": "Default provider. Auto-registered by claude-workspace setup. Runs via npx — no extra install beyond Node.js. libsql-backed knowledge graph. Data: ~/.config/claude-workspace/memory.db. Tools: mcp__mcp-memory-libsql__search_nodes, create_entities, read_graph, create_relations, delete_entity.",
+    "engram": "Optional legacy provider. Go binary with FTS5 full-text search and SQLite persistence. Install: brew install gentleman-programming/tap/engram. Data: ~/.engram/engram.db. Switch: claude-workspace memory configure --provider engram."
   }
 }

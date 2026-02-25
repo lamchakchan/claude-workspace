@@ -13,7 +13,7 @@ This document explains the six memory layers available in Claude Code, when to u
 | **User CLAUDE.md** | `~/.claude/CLAUDE.md` | All projects | Always | Just you |
 | **CLAUDE.local.md** | `./CLAUDE.local.md` | Per-project | Always | Just you (gitignored) |
 | **Auto-memory** | `~/.claude/projects/<project>/memory/MEMORY.md` | Per-project | First 200 lines | Just you |
-| **Memory MCP** | `~/.engram/engram.db` (SQLite database) | Cross-project | Must query explicitly | Just you |
+| **Memory MCP** | `~/.config/claude-workspace/memory.db` (libsql database) | Cross-project | Must query explicitly | Just you |
 
 **Rule of thumb:** More specific instructions take precedence over broader ones. Project CLAUDE.md overrides User CLAUDE.md; CLAUDE.local.md overrides both for personal overrides.
 
@@ -118,17 +118,18 @@ paths:
 
 ## 4. Memory MCP (cross-project persistent memory)
 
-> **Note:** Examples below use the default `engram` server. If using a different memory MCP
-> provider, replace `mcp__engram__` with your server's tool prefix.
-> Run `claude-workspace memory` to see your configured provider.
+The default memory MCP provider is **`mcp-memory-libsql`** — a knowledge graph backed by a libsql database at `~/.config/claude-workspace/memory.db`. It runs via `npx` (no extra install beyond Node.js) and is registered automatically by `claude-workspace setup`.
 
-The `engram` MCP server provides cross-project persistent memory backed by a SQLite database with FTS5 full-text search at `~/.engram/engram.db`. Unlike auto-memory (which is project-scoped and auto-loaded), engram memory is **cross-project** and must be **queried explicitly**.
+Unlike auto-memory (which is project-scoped and auto-loaded), Memory MCP is **cross-project** and must be **queried explicitly**.
+
+Run `claude-workspace memory` to see your configured provider.
+Run `claude-workspace memory configure` to switch providers.
 
 **Example prompts that trigger Memory MCP saves:**
 
-- *"Always use `bun` instead of `npm` for any JavaScript project — save this to engram."*
+- *"Always use `bun` instead of `npm` for any JavaScript project — save this to memory."*
 - *"I prefer imperative commit messages that explain the 'why', not the 'what'. Remember this across all projects."*
-- *"Save to engram that I work with Go microservices and prefer one package per subcommand with a `Run()` entry point."*
+- *"Save that I work with Go microservices and prefer one package per subcommand with a `Run()` entry point."*
 
 Unlike auto-memory, Claude will not write to Memory MCP unprompted — you must ask explicitly, or configure your `~/.claude/CLAUDE.md` to instruct Claude to save cross-project facts at session end.
 
@@ -142,45 +143,57 @@ Unlike auto-memory, Claude will not write to Memory MCP unprompted — you must 
 - Session findings scoped to one codebase
 - Anything that should be human-readable and auditable in one place
 
-### Core primitives
+### Core tools (mcp-memory-libsql)
 
-- **Observations** — Facts stored with a topic key for grouping: `"uses TypeScript strict mode"`
-- **Sessions** — Automatic session tracking for context continuity
+- `mcp__mcp-memory-libsql__search_nodes` — Search the knowledge graph by keyword
+- `mcp__mcp-memory-libsql__create_entities` — Add new entities/facts to the graph
+- `mcp__mcp-memory-libsql__create_relations` — Link entities with named relationships
+- `mcp__mcp-memory-libsql__read_graph` — Read the full knowledge graph
+- `mcp__mcp-memory-libsql__delete_entity` — Remove an entity from the graph
 
 ### Session workflow
 
 **At session start** — load relevant context:
 ```
-mcp__engram__mem_search(query: "project-name OR relevant-concept")
+mcp__mcp-memory-libsql__search_nodes({"query": "preferences"})
 ```
 
 **During work** — record new facts:
 ```
-# Save an observation
-mcp__engram__mem_save(topicKey: "claude-workspace", content: "Go CLI, builds with go build ./..., tests with go test ./...")
-
-# Save another observation
-mcp__engram__mem_save(topicKey: "claude-workspace", content: "uses go:embed for template distribution")
+mcp__mcp-memory-libsql__create_entities({
+  "entities": [{"name": "claude-workspace", "entityType": "project",
+    "observations": ["Go CLI, builds with go build ./..., tests with go test ./..."]}]
+})
 ```
 
 ### How to clear
 
 **Surgical (in-session):**
 ```
-mcp__engram__mem_delete(topicKey: "topic-name")
+mcp__mcp-memory-libsql__delete_entity({"entityName": "entity-name"})
 ```
 
 **Nuclear (delete database):**
 ```bash
-rm ~/.engram/engram.db
+rm ~/.config/claude-workspace/memory.db
 ```
+
+### Alternative: engram (optional)
+
+`engram` is still supported as an optional legacy provider. To switch:
+```bash
+claude-workspace memory configure --provider engram
+```
+Requires: `brew install gentleman-programming/tap/engram`. Data stored at `~/.engram/engram.db`.
 
 > **Important:** `~/.claude/CLAUDE.md` must stay in sync with the active memory MCP provider.
 > The platform writes this file once during `claude-workspace setup` and will not overwrite it
-> on subsequent runs. If you switch memory providers, update the MCP Tool Preferences table
-> and Memory Strategy section manually, or tell Claude:
-> *"Update my ~/.claude/CLAUDE.md MCP Tool Preferences and Memory Strategy sections to use
-> [new-provider] tools (e.g. `mcp__[new-provider]__*`) instead of the current engram entries."*
+> on subsequent runs. If you switch memory providers, run:
+> ```bash
+> claude-workspace memory configure
+> ```
+> then update the MCP Tool Preferences and Memory Strategy sections in `~/.claude/CLAUDE.md`
+> to reference the new provider's tool names.
 
 ---
 
@@ -239,7 +252,7 @@ For scopes without a dedicated command, just tell Claude what to remember:
 
 **Memory MCP (cross-project facts):**
 ```
-"Save to engram that I prefer flat package structures with one responsibility per file."
+"Save to memory that I prefer flat package structures with one responsibility per file."
 "Remember across all projects that I use 1Password CLI for secrets — never ask me to paste credentials."
 ```
 
@@ -255,7 +268,7 @@ For scopes without a dedicated command, just tell Claude what to remember:
 | Layer | In-session clear | Manual clear | Full wipe |
 |---|---|---|---|
 | **Auto-memory** | *"forget that..."* or `/memory` to edit | `rm ~/.claude/projects/<proj>/memory/MEMORY.md` | `rm -rf ~/.claude/projects/<proj>/memory/` |
-| **Memory MCP** | `mem_delete` | `rm ~/.engram/engram.db` | `rm ~/.engram/engram.db` |
+| **Memory MCP** | `mcp__mcp-memory-libsql__delete_entity` | `rm ~/.config/claude-workspace/memory.db` | `rm ~/.config/claude-workspace/memory.db` |
 | **User CLAUDE.md** | `/memory` to open editor | Edit `~/.claude/CLAUDE.md` directly | Delete the file (re-run `claude-workspace setup` to regenerate) |
 | **Project CLAUDE.md** | `/memory` to open editor | Edit `.claude/CLAUDE.md` | `claude-workspace attach --force` to regenerate from template |
 | **CLAUDE.local.md** | `/memory` to open editor | Edit `./CLAUDE.local.md` | Delete the file |

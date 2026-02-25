@@ -293,6 +293,116 @@ func TestDetectProvider(t *testing.T) {
 	}
 }
 
+func TestDetectProviderMcpMemoryLibsql(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, ".config", "claude-workspace", "memory.db")
+
+	config := map[string]interface{}{
+		"mcpServers": map[string]interface{}{
+			"mcp-memory-libsql": map[string]interface{}{
+				"command": "npx",
+				"args":    []string{"-y", "mcp-memory-libsql"},
+				"env":     map[string]interface{}{"LIBSQL_URL": "file:" + dbPath},
+			},
+		},
+	}
+	configData, _ := json.Marshal(config)
+	os.WriteFile(filepath.Join(dir, ".claude.json"), configData, 0644)
+
+	provider, gotPath := detectProvider(dir)
+	if provider != "mcp-memory-libsql" {
+		t.Errorf("expected provider 'mcp-memory-libsql', got %q", provider)
+	}
+	if gotPath != dbPath {
+		t.Errorf("expected DB path %q, got %q", dbPath, gotPath)
+	}
+}
+
+func TestDetectProviderPriority(t *testing.T) {
+	// When both mcp-memory-libsql and engram are configured, mcp-memory-libsql takes priority
+	dir := t.TempDir()
+	config := map[string]interface{}{
+		"mcpServers": map[string]interface{}{
+			"mcp-memory-libsql": map[string]interface{}{
+				"command": "npx",
+				"args":    []string{"-y", "mcp-memory-libsql"},
+				"env":     map[string]interface{}{"LIBSQL_URL": "file:/tmp/memory.db"},
+			},
+			"engram": map[string]interface{}{
+				"command": "engram",
+				"args":    []string{"mcp"},
+			},
+		},
+	}
+	configData, _ := json.Marshal(config)
+	os.WriteFile(filepath.Join(dir, ".claude.json"), configData, 0644)
+
+	provider, _ := detectProvider(dir)
+	if provider != "mcp-memory-libsql" {
+		t.Errorf("expected mcp-memory-libsql to take priority, got %q", provider)
+	}
+}
+
+func TestDiscoverMemoryMCPStats(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, ".config", "claude-workspace", "memory.db")
+
+	config := map[string]interface{}{
+		"mcpServers": map[string]interface{}{
+			"mcp-memory-libsql": map[string]interface{}{
+				"command": "npx",
+				"args":    []string{"-y", "mcp-memory-libsql"},
+				"env":     map[string]interface{}{"LIBSQL_URL": "file:" + dbPath},
+			},
+		},
+	}
+	configData, _ := json.Marshal(config)
+	os.WriteFile(filepath.Join(dir, ".claude.json"), configData, 0644)
+
+	l := discoverMemoryMCP(dir)
+	if l.Provider != "mcp-memory-libsql" {
+		t.Errorf("expected provider 'mcp-memory-libsql', got %q", l.Provider)
+	}
+	if !strings.Contains(l.Stats, "mcp__mcp-memory-libsql__read_graph") {
+		t.Errorf("expected stats hint to contain tool name, got %q", l.Stats)
+	}
+}
+
+func TestExportWithLibsqlProvider(t *testing.T) {
+	// ExportMCP with mcp-memory-libsql provider should have nil Data
+	data := ExportData{
+		Version:    1,
+		ExportedAt: "2026-02-25T00:00:00Z",
+		Platform:   "claude-workspace",
+		Layers: ExportLayers{
+			MemoryMCP: &ExportMCP{
+				Provider: "mcp-memory-libsql",
+				Data:     nil,
+			},
+		},
+	}
+
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var parsed ExportData
+	if err := json.Unmarshal(jsonData, &parsed); err != nil {
+		t.Fatal(err)
+	}
+
+	if parsed.Layers.MemoryMCP == nil {
+		t.Fatal("expected MemoryMCP to be present")
+	}
+	if parsed.Layers.MemoryMCP.Provider != "mcp-memory-libsql" {
+		t.Errorf("provider = %q, want 'mcp-memory-libsql'", parsed.Layers.MemoryMCP.Provider)
+	}
+	if parsed.Layers.MemoryMCP.Data != nil {
+		t.Error("expected Data to be nil for mcp-memory-libsql export")
+	}
+}
+
 // --- layers.go ---
 
 func TestAutoMemoryDir(t *testing.T) {

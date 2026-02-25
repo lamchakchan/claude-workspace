@@ -397,6 +397,75 @@ func TestEnsureLocalBinClaude_AppendPathToRC(t *testing.T) {
 	}
 }
 
+func TestPlatformMCPServers_ContainsLibsql(t *testing.T) {
+	home := t.TempDir()
+	servers := platformMCPServers(home)
+
+	if _, ok := servers["mcp-memory-libsql"]; !ok {
+		t.Error("expected mcp-memory-libsql in platform MCP servers")
+	}
+	if _, ok := servers["engram"]; ok {
+		t.Error("engram should not be in default platform MCP servers")
+	}
+
+	cfg, ok := servers["mcp-memory-libsql"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected mcp-memory-libsql config to be a map")
+	}
+	if cfg["command"] != "npx" {
+		t.Errorf("expected command=npx, got %v", cfg["command"])
+	}
+	env, ok := cfg["env"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected env to be a map")
+	}
+	libsqlURL, ok := env["LIBSQL_URL"].(string)
+	if !ok || libsqlURL == "" {
+		t.Error("expected non-empty LIBSQL_URL in env")
+	}
+	if !strings.HasPrefix(libsqlURL, "file:") {
+		t.Errorf("expected LIBSQL_URL to start with 'file:', got %q", libsqlURL)
+	}
+}
+
+func TestRemoveUserMCPServers(t *testing.T) {
+	config := map[string]interface{}{
+		"primaryApiKey": "sk-test",
+		"mcpServers": map[string]interface{}{
+			"engram":            map[string]interface{}{"command": "engram"},
+			"mcp-memory-libsql": map[string]interface{}{"command": "npx"},
+			"other":             map[string]interface{}{"command": "other"},
+		},
+	}
+
+	result := RemoveUserMCPServers(config, []string{"engram", "mcp-memory-libsql", "memory"})
+
+	mcp, ok := result["mcpServers"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected mcpServers map")
+	}
+	if _, found := mcp["engram"]; found {
+		t.Error("engram should have been removed")
+	}
+	if _, found := mcp["mcp-memory-libsql"]; found {
+		t.Error("mcp-memory-libsql should have been removed")
+	}
+	if _, found := mcp["other"]; !found {
+		t.Error("other server should have been preserved")
+	}
+	if result["primaryApiKey"] != "sk-test" {
+		t.Error("other config keys should be preserved")
+	}
+}
+
+func TestRemoveUserMCPServers_NoMcpServers(t *testing.T) {
+	config := map[string]interface{}{"primaryApiKey": "sk-test"}
+	result := RemoveUserMCPServers(config, []string{"engram"})
+	if result["primaryApiKey"] != "sk-test" {
+		t.Error("config keys should be preserved when mcpServers is absent")
+	}
+}
+
 func TestJoinStrings(t *testing.T) {
 	tests := []struct {
 		name string

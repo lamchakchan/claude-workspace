@@ -122,6 +122,50 @@ func RunDirWithStdinCapture(ctx context.Context, dir string, stdin string, unset
 	return strings.TrimSpace(outBuf.String()), strings.TrimSpace(errBuf.String()), err
 }
 
+// RunWithSpinner runs a command with stdin/stderr inherited and shows a spinner on stderr
+// until the subprocess produces its first byte of stdout, then streams the rest through.
+func RunWithSpinner(msg string, name string, args ...string) error {
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return Run(name, args...)
+	}
+
+	cmd := exec.Command(name, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = pw
+
+	spinner := StartSpinner(os.Stderr, msg)
+	if err := cmd.Start(); err != nil {
+		spinner.Stop()
+		pr.Close()
+		pw.Close()
+		return err
+	}
+	pw.Close()
+
+	spinnerStopped := false
+	buf := make([]byte, 4096)
+	for {
+		n, readErr := pr.Read(buf)
+		if n > 0 {
+			if !spinnerStopped {
+				spinner.Stop()
+				spinnerStopped = true
+			}
+			os.Stdout.Write(buf[:n])
+		}
+		if readErr != nil {
+			break
+		}
+	}
+	if !spinnerStopped {
+		spinner.Stop()
+	}
+	pr.Close()
+	return cmd.Wait()
+}
+
 // RunSpawn runs a command with full I/O passthrough and returns the exit code.
 func RunSpawn(name string, args ...string) (int, error) {
 	cmd := exec.Command(name, args...)
