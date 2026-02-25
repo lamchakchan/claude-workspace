@@ -176,21 +176,56 @@ func discoverMemoryMCP(home string) Layer {
 		l.Exists = true
 	}
 
-	// Try to get stats from the provider CLI
-	if provider == "engram" && platform.Exists("engram") {
-		stats, err := platform.Output("engram", "stats")
-		if err == nil {
-			l.Stats = stats
+	switch provider {
+	case "engram":
+		if platform.Exists("engram") {
+			stats, err := platform.Output("engram", "stats")
+			if err == nil {
+				l.Stats = stats
+			}
 		}
+	case "mcp-memory-libsql":
+		// No CLI stats command — direct users to the Claude tool instead
+		l.Stats = "run: mcp__mcp-memory-libsql__read_graph"
 	}
 
 	return l
 }
 
+// mcpServerConfig is a minimal struct for parsing MCP server entries from ~/.claude.json.
+type mcpServerConfig struct {
+	Command string            `json:"command"`
+	Args    []string          `json:"args"`
+	Env     map[string]string `json:"env"`
+}
+
+// libsqlDBPath extracts the database file path from a mcp-memory-libsql server config.
+// The LIBSQL_URL env var is expected to be "file:<path>". Falls back to defaultPath.
+func libsqlDBPath(raw json.RawMessage, defaultPath string) string {
+	var cfg mcpServerConfig
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return defaultPath
+	}
+	url, ok := cfg.Env["LIBSQL_URL"]
+	if !ok || url == "" {
+		return defaultPath
+	}
+	path := strings.TrimPrefix(url, "file:")
+	if strings.HasPrefix(path, "~") {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			path = filepath.Join(home, path[1:])
+		}
+	}
+	return path
+}
+
 // detectProvider reads ~/.claude.json to find the configured memory MCP server.
-// Returns (provider name, data path).
+// Returns (provider name, data path). Priority: mcp-memory-libsql > engram > memory.
 func detectProvider(home string) (string, string) {
 	claudeJSON := filepath.Join(home, ".claude.json")
+	defaultLibsqlPath := filepath.Join(home, ".config", "claude-workspace", "memory.db")
+
 	if !platform.FileExists(claudeJSON) {
 		// Fall back to checking if engram data exists
 		engramDB := filepath.Join(home, ".engram", "engram.db")
@@ -204,7 +239,6 @@ func detectProvider(home string) (string, string) {
 		MCPServers map[string]json.RawMessage `json:"mcpServers"`
 	}
 	if err := platform.ReadJSONFile(claudeJSON, &config); err != nil {
-		// Check for engram data as fallback
 		engramDB := filepath.Join(home, ".engram", "engram.db")
 		if platform.FileExists(engramDB) {
 			return "engram", engramDB
@@ -212,15 +246,20 @@ func detectProvider(home string) (string, string) {
 		return "none", ""
 	}
 
-	// Check for engram first, then memory
+	// Priority 1: mcp-memory-libsql
+	if raw, ok := config.MCPServers["mcp-memory-libsql"]; ok {
+		return "mcp-memory-libsql", libsqlDBPath(raw, defaultLibsqlPath)
+	}
+	// Priority 2: engram
 	if _, ok := config.MCPServers["engram"]; ok {
 		return "engram", filepath.Join(home, ".engram", "engram.db")
 	}
+	// Priority 3: memory (legacy)
 	if _, ok := config.MCPServers["memory"]; ok {
 		return "memory", filepath.Join(home, ".memory", "memory.json")
 	}
 
-	// No MCP server configured, but check if engram data exists
+	// No MCP server configured, but check if engram data exists as fallback
 	engramDB := filepath.Join(home, ".engram", "engram.db")
 	if platform.FileExists(engramDB) {
 		return "engram", engramDB

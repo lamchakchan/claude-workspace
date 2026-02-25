@@ -123,7 +123,7 @@ func main() {
 		fmt.Printf("claude-workspace %s\n", version)
 		os.Exit(0)
 	case "setup":
-		if err := setup.Run(); err != nil {
+		if err := setup.Run(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

@@ -16,8 +16,8 @@ import (
 func Engram() Tool {
 	return Tool{
 		Name:       "engram",
-		Purpose:    "Persistent cross-project memory (FTS5 SQLite)",
-		Required:   true,
+		Purpose:    "Optional legacy memory provider (FTS5 SQLite); default provider is now mcp-memory-libsql",
+		Required:   false,
 		InstallCmd: "brew install gentleman-programming/tap/engram",
 		CheckFn: func() bool {
 			return platform.Exists("engram")

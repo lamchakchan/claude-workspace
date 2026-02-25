@@ -25,7 +25,17 @@ func init() {
 	claudeConfig = filepath.Join(home, ".claude.json")
 }
 
-func Run() error {
+// knownMemoryProviders is the set of memory MCP server keys this platform manages.
+var knownMemoryProviders = []string{"mcp-memory-libsql", "engram", "memory"}
+
+func Run(args []string) error {
+	force := false
+	for _, a := range args {
+		if a == "--force" {
+			force = true
+		}
+	}
+
 	platform.PrintBanner(os.Stdout, "Claude Code Platform Setup")
 
 	// Step 1: Check if Claude Code CLI is installed
@@ -104,20 +114,9 @@ func Run() error {
 		}
 	}
 
-	// Step 7: Check engram and register user-scoped MCP servers
+	// Step 7: Register user-scoped MCP servers (mcp-memory-libsql via npx — no extra install needed)
 	platform.PrintStep(os.Stdout, 7, 9, "Registering user-scoped MCP servers...")
-	engramTool := tools.Engram()
-	if engramTool.IsInstalled() {
-		ver, _ := platform.Output("engram", "--version")
-		fmt.Printf("  engram found: %s\n", ver)
-	} else {
-		fmt.Println("  engram not found. Installing...")
-		if err := engramTool.Install(); err != nil {
-			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("engram install failed: %v", err))
-			fmt.Println("  Install manually: brew install gentleman-programming/tap/engram")
-		}
-	}
-	if err := setupUserMCPServers(); err != nil {
+	if err := setupUserMCPServers(force); err != nil {
 		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("MCP server registration skipped: %v", err))
 	}
 
@@ -339,13 +338,37 @@ func setupGlobalClaudeMd() error {
 }
 
 // platformMCPServers returns the user-scoped MCP servers the platform registers by default.
-func platformMCPServers() map[string]interface{} {
+func platformMCPServers(home string) map[string]interface{} {
+	dbPath := filepath.Join(home, ".config", "claude-workspace", "memory.db")
 	return map[string]interface{}{
-		"engram": map[string]interface{}{
-			"command": "engram",
-			"args":    []string{"mcp"},
+		"mcp-memory-libsql": map[string]interface{}{
+			"command": "npx",
+			"args":    []string{"-y", "mcp-memory-libsql"},
+			"env":     map[string]interface{}{"LIBSQL_URL": "file:" + dbPath},
 		},
 	}
+}
+
+// RemoveUserMCPServers removes the given server keys from the mcpServers map in config.
+// Returns the modified config. Does not write to disk.
+func RemoveUserMCPServers(config map[string]interface{}, keys []string) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range config {
+		result[k] = v
+	}
+	existing, _ := result["mcpServers"].(map[string]interface{})
+	if existing == nil {
+		return result
+	}
+	updated := make(map[string]interface{})
+	for k, v := range existing {
+		updated[k] = v
+	}
+	for _, key := range keys {
+		delete(updated, key)
+	}
+	result["mcpServers"] = updated
+	return result
 }
 
 // MergeUserMCPServers merges platform MCP servers into an existing ~/.claude.json config map.
@@ -375,12 +398,10 @@ func MergeUserMCPServers(config map[string]interface{}, servers map[string]inter
 	return merged
 }
 
-func setupUserMCPServers() error {
-	if !platform.Exists("engram") {
-		fmt.Println("  engram not found — skipping automatic MCP server registration.")
-		fmt.Println("  Install engram, then run manually:")
-		fmt.Println("    claude mcp add --scope user engram -- engram mcp")
-		return nil
+func setupUserMCPServers(force bool) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("getting home directory: %w", err)
 	}
 
 	var config map[string]interface{}
@@ -393,7 +414,30 @@ func setupUserMCPServers() error {
 		config = make(map[string]interface{})
 	}
 
-	merged := MergeUserMCPServers(config, platformMCPServers())
+	// On force: remove all known memory provider keys first (clean slate for re-registration)
+	if force {
+		config = RemoveUserMCPServers(config, knownMemoryProviders)
+	} else {
+		// Check if any known memory provider is already configured — skip if so
+		existing, _ := config["mcpServers"].(map[string]interface{})
+		for _, key := range knownMemoryProviders {
+			if existing != nil {
+				if _, found := existing[key]; found {
+					fmt.Printf("  Memory MCP already configured (provider: %s). Run 'claude-workspace memory configure' to change providers.\n", key)
+					return nil
+				}
+			}
+		}
+	}
+
+	// Ensure the DB parent directory exists
+	dbDir := filepath.Join(home, ".config", "claude-workspace")
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not create %s: %v", dbDir, err))
+	}
+
+	servers := platformMCPServers(home)
+	merged := MergeUserMCPServers(config, servers)
 
 	if err := platform.WriteJSONFile(claudeConfig, merged); err != nil {
 		return fmt.Errorf("writing %s: %w", claudeConfig, err)
@@ -402,7 +446,7 @@ func setupUserMCPServers() error {
 	// Report what was registered vs already present
 	existing, _ := config["mcpServers"].(map[string]interface{})
 	var added, skipped []string
-	for name := range platformMCPServers() {
+	for name := range servers {
 		if existing != nil {
 			if _, found := existing[name]; found {
 				skipped = append(skipped, name)
@@ -414,6 +458,7 @@ func setupUserMCPServers() error {
 
 	if len(added) > 0 {
 		platform.PrintOK(os.Stdout, fmt.Sprintf("Registered: %s", joinStrings(added, ", ")))
+		fmt.Println("  Memory tools: mcp__mcp-memory-libsql__search_nodes, create_entities, read_graph")
 	}
 	if len(skipped) > 0 {
 		fmt.Printf("  Already registered: %s\n", joinStrings(skipped, ", "))

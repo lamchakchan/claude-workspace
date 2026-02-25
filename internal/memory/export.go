@@ -100,11 +100,17 @@ func export(outputPath string) error {
 
 		case LayerMemoryMCP:
 			em := &ExportMCP{Provider: l.Provider}
-			if l.Provider == "engram" && platform.Exists("engram") {
-				raw := exportEngram()
-				if raw != nil {
-					em.Data = raw
+			switch l.Provider {
+			case "engram":
+				if platform.Exists("engram") {
+					raw := exportEngram()
+					if raw != nil {
+						em.Data = raw
+					}
 				}
+			case "mcp-memory-libsql":
+				fmt.Fprintln(os.Stderr, "  Warning: mcp-memory-libsql does not support CLI export.")
+				fmt.Fprintln(os.Stderr, "  To back up memories, use Claude with: mcp__mcp-memory-libsql__read_graph")
 			}
 			data.Layers.MemoryMCP = em
 		}
@@ -220,22 +226,30 @@ func importMemory(filePath string, scope map[LayerName]bool, confirm bool) error
 	}
 
 	if scope[LayerMemoryMCP] && data.Layers.MemoryMCP != nil && data.Layers.MemoryMCP.Data != nil {
-		if data.Layers.MemoryMCP.Provider == "engram" && platform.Exists("engram") {
-			tmpFile, err := os.CreateTemp("", "memory-import-*.json")
-			if err != nil {
-				platform.PrintFail(w, fmt.Sprintf("Memory MCP temp file: %v", err))
-			} else {
-				tmpFile.Write([]byte(*data.Layers.MemoryMCP.Data))
-				tmpFile.Close()
-				defer os.Remove(tmpFile.Name())
-
-				if err := platform.Run("engram", "import", tmpFile.Name()); err != nil {
-					platform.PrintFail(w, fmt.Sprintf("Memory MCP import: %v", err))
+		switch data.Layers.MemoryMCP.Provider {
+		case "engram":
+			if platform.Exists("engram") {
+				tmpFile, err := os.CreateTemp("", "memory-import-*.json")
+				if err != nil {
+					platform.PrintFail(w, fmt.Sprintf("Memory MCP temp file: %v", err))
 				} else {
-					platform.PrintOK(w, "Memory MCP data imported via engram")
+					tmpFile.Write([]byte(*data.Layers.MemoryMCP.Data))
+					tmpFile.Close()
+					defer os.Remove(tmpFile.Name())
+
+					if err := platform.Run("engram", "import", tmpFile.Name()); err != nil {
+						platform.PrintFail(w, fmt.Sprintf("Memory MCP import: %v", err))
+					} else {
+						platform.PrintOK(w, "Memory MCP data imported via engram")
+					}
 				}
+			} else {
+				platform.PrintWarn(w, "Cannot import Memory MCP: engram not available")
 			}
-		} else {
+		case "mcp-memory-libsql":
+			platform.PrintWarn(w, "Cannot import Memory MCP: mcp-memory-libsql does not support CLI import.")
+			fmt.Fprintln(w, "  Use Claude with mcp__mcp-memory-libsql__create_entities to restore memories manually.")
+		default:
 			platform.PrintWarn(w, fmt.Sprintf("Cannot import Memory MCP: provider %q not available", data.Layers.MemoryMCP.Provider))
 		}
 	}

@@ -7,8 +7,8 @@ import (
 
 func TestRegistryRequired(t *testing.T) {
 	required := Required()
-	if len(required) != 3 {
-		t.Fatalf("expected 3 required tools, got %d", len(required))
+	if len(required) != 2 {
+		t.Fatalf("expected 2 required tools, got %d", len(required))
 	}
 	names := make(map[string]bool)
 	for _, tool := range required {
@@ -17,17 +17,20 @@ func TestRegistryRequired(t *testing.T) {
 			t.Errorf("required tool %s should have Required=true", tool.Name)
 		}
 	}
-	for _, name := range []string{"claude", "node", "engram"} {
+	for _, name := range []string{"claude", "node"} {
 		if !names[name] {
 			t.Errorf("expected required tool %s to be in registry", name)
 		}
+	}
+	if names["engram"] {
+		t.Error("engram should not be in required tools")
 	}
 }
 
 func TestRegistryOptional(t *testing.T) {
 	optional := Optional()
-	if len(optional) != 4 {
-		t.Fatalf("expected 4 optional tools, got %d", len(optional))
+	if len(optional) != 5 {
+		t.Fatalf("expected 5 optional tools, got %d", len(optional))
 	}
 	names := make(map[string]bool)
 	for _, tool := range optional {
@@ -36,7 +39,7 @@ func TestRegistryOptional(t *testing.T) {
 			t.Errorf("optional tool %s should not have Required=true", tool.Name)
 		}
 	}
-	for _, name := range []string{"shellcheck", "jq", "prettier", "tmux"} {
+	for _, name := range []string{"engram", "shellcheck", "jq", "prettier", "tmux"} {
 		if !names[name] {
 			t.Errorf("expected optional tool %s to be in registry", name)
 		}
@@ -47,6 +50,13 @@ func TestRegistryAll(t *testing.T) {
 	all := All()
 	if len(all) != 7 {
 		t.Fatalf("expected 7 total tools, got %d", len(all))
+	}
+}
+
+func TestEngramIsOptional(t *testing.T) {
+	e := Engram()
+	if e.Required {
+		t.Error("engram should have Required=false (it is now an optional/legacy provider)")
 	}
 }
 
@@ -155,9 +165,6 @@ func TestEngramHasCustomFns(t *testing.T) {
 	}
 	if e.VersionFn == nil {
 		t.Error("engram should have a VersionFn")
-	}
-	if !e.Required {
-		t.Error("engram should have Required=true")
 	}
 	if e.Purpose == "" {
 		t.Error("engram should have a Purpose")
