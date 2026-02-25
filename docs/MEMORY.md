@@ -168,7 +168,6 @@ These agents write their memory into the **auto-memory layer** (`~/.claude/proje
 
 | Pattern | Why |
 |---|---|
-| `memory.json` | Legacy MCP memory server data file. Kept for backwards compatibility in case the old server is still in use. |
 | `.claude/MEMORY.md` | Auto-memory normally lives in `~/.claude/...` (outside repo), but if manually placed in `.claude/` it would be tracked. |
 | `.claude/*.jsonl` | JSONL conversation/log files that tools could write into the project's `.claude/` directory. |
 | `.claude/CLAUDE.local.md` | Personal project overrides. Already covered by Claude Code convention. |
@@ -180,7 +179,7 @@ These agents write their memory into the **auto-memory layer** (`~/.claude/proje
 - Session `.jsonl` files in `~/.claude/projects/*/` — outside the repo.
 - `~/.claude.json` — outside the repo.
 
-All three new patterns (`memory.json`, `.claude/MEMORY.md`, `.claude/*.jsonl`) are already present in this repo's `.gitignore`, `.claude/.gitignore`, and `_template/.claude/.gitignore`.
+Both patterns (`.claude/MEMORY.md`, `.claude/*.jsonl`) are already present in this repo's `.gitignore`, `.claude/.gitignore`, and `_template/.claude/.gitignore`.
 
 ---
 
