@@ -1,7 +1,6 @@
 ---
 name: onboarding
 description: Helps onboard Claude Code to a new project. Use when attaching the platform to a new repository or when first exploring an unfamiliar codebase.
-context: fork
 ---
 
 # Project Onboarding
