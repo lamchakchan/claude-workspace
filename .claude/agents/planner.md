@@ -2,7 +2,7 @@
 name: planner
 description: Deep planning agent for complex tasks. Use proactively before any multi-step implementation, refactoring, or task touching more than 2 files. Creates detailed, reviewable plans with clear success criteria and dependency ordering.
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
-model: sonnet
+model: opus
 permissionMode: plan
 maxTurns: 30
 memory: project
