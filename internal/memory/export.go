@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
@@ -109,8 +110,17 @@ func export(outputPath string) error {
 					}
 				}
 			case "mcp-memory-libsql":
-				fmt.Fprintln(os.Stderr, "  Warning: mcp-memory-libsql does not support CLI export.")
-				fmt.Fprintln(os.Stderr, "  To back up memories, use Claude with: mcp__mcp-memory-libsql__read_graph")
+				if !platform.Exists("claude") {
+					fmt.Fprintln(os.Stderr, "  Warning: claude CLI not available — cannot export mcp-memory-libsql data.")
+					fmt.Fprintln(os.Stderr, "  To back up memories, use Claude with: mcp__mcp-memory-libsql__read_graph")
+				} else {
+					raw, err := exportLibsqlViaClaude()
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "  Warning: mcp-memory-libsql export via Claude failed: %v\n", err)
+					} else if raw != nil {
+						em.Data = raw
+					}
+				}
 			}
 			data.Layers.MemoryMCP = em
 		}
@@ -247,8 +257,23 @@ func importMemory(filePath string, scope map[LayerName]bool, confirm bool) error
 				platform.PrintWarn(w, "Cannot import Memory MCP: engram not available")
 			}
 		case "mcp-memory-libsql":
-			platform.PrintWarn(w, "Cannot import Memory MCP: mcp-memory-libsql does not support CLI import.")
-			fmt.Fprintln(w, "  Use Claude with mcp__mcp-memory-libsql__create_entities to restore memories manually.")
+			if !platform.Exists("claude") {
+				platform.PrintWarn(w, "Cannot import Memory MCP: claude CLI not available.")
+				fmt.Fprintln(w, "  Use mcp__mcp-memory-libsql__create_entities in Claude directly to restore memories.")
+			} else {
+				dataJSON := string(*data.Layers.MemoryMCP.Data)
+				prompt := fmt.Sprintf(
+					"Use mcp__mcp-memory-libsql__create_entities and mcp__mcp-memory-libsql__create_relations to import this memory data, preserving all entities and their observations exactly:\n\n%s",
+					dataJSON,
+				)
+				if err := platform.Run("claude", "-p", prompt,
+					"--allowedTools", "mcp__mcp-memory-libsql__create_entities,mcp__mcp-memory-libsql__create_relations",
+				); err != nil {
+					platform.PrintFail(w, fmt.Sprintf("Memory MCP import via Claude: %v", err))
+				} else {
+					platform.PrintOK(w, "Memory MCP data imported via Claude + mcp-memory-libsql")
+				}
+			}
 		default:
 			platform.PrintWarn(w, fmt.Sprintf("Cannot import Memory MCP: provider %q not available", data.Layers.MemoryMCP.Provider))
 		}
@@ -271,6 +296,42 @@ func writeFileContent(path, content string) error {
 		return err
 	}
 	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// exportLibsqlViaClaude invokes the claude CLI to call read_graph and returns the JSON data.
+func exportLibsqlViaClaude() (*json.RawMessage, error) {
+	out, err := platform.Output("claude", "-p",
+		"Call mcp__mcp-memory-libsql__read_graph and output ONLY the raw JSON result — no commentary, no markdown fences, just valid JSON.",
+		"--allowedTools", "mcp__mcp-memory-libsql__read_graph",
+	)
+	if err != nil {
+		return nil, err
+	}
+	extracted := extractJSON(out)
+	if !json.Valid([]byte(extracted)) {
+		return nil, fmt.Errorf("claude output was not valid JSON")
+	}
+	raw := json.RawMessage(extracted)
+	return &raw, nil
+}
+
+// extractJSON strips optional markdown code fences from a string and returns the inner content.
+func extractJSON(s string) string {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "```") {
+		// strip opening fence (```json or ```)
+		end := strings.Index(s, "\n")
+		if end < 0 {
+			return s
+		}
+		s = s[end+1:]
+		// strip closing fence
+		if idx := strings.LastIndex(s, "```"); idx >= 0 {
+			s = s[:idx]
+		}
+		s = strings.TrimSpace(s)
+	}
+	return s
 }
 
 func exportEngram() *json.RawMessage {

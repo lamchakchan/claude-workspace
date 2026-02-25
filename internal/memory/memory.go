@@ -150,8 +150,18 @@ func show(scope map[LayerName]bool) error {
 				}
 			case "mcp-memory-libsql":
 				fmt.Fprintf(w, "  DB: %s\n", shortenHome(l.Path))
-				fmt.Fprintf(w, "  Search requires Claude: %s\n", platform.Bold("mcp__mcp-memory-libsql__search_nodes"))
-				fmt.Fprintf(w, "  Read all: %s\n", platform.Bold("mcp__mcp-memory-libsql__read_graph"))
+				if !platform.Exists("claude") {
+					fmt.Fprintf(w, "  Search requires Claude: %s\n", platform.Bold("mcp__mcp-memory-libsql__search_nodes"))
+					fmt.Fprintf(w, "  Read all: %s\n", platform.Bold("mcp__mcp-memory-libsql__read_graph"))
+				} else {
+					fmt.Fprintln(w)
+					if err := platform.Run("claude", "-p",
+						"Use mcp__mcp-memory-libsql__read_graph to retrieve all stored memories and display them in a clear, human-readable format grouped by entity type.",
+						"--allowedTools", "mcp__mcp-memory-libsql__read_graph",
+					); err != nil {
+						platform.PrintWarn(w, fmt.Sprintf("claude error: %v", err))
+					}
+				}
 			case "none":
 				platform.PrintWarn(w, "No memory MCP server configured")
 			default:
