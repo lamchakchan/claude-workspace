@@ -41,6 +41,14 @@ export CLAUDE_CODE_DISABLE_AUTO_MEMORY=0  # Force on (rolling out gradually)
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1  # Force off
 ```
 
+**Example prompts that trigger auto-memory:**
+
+- *"Remember that this project uses `make build-all`, not `go build ./...` — it cross-compiles for 4 targets."*
+- *"We just figured out that `_template/` must be rebuilt into the binary after any asset change — save that for next session."*
+- *"Note that the attach command spawns a `claude -p` subprocess with a 180s timeout when enriching CLAUDE.md."*
+
+Claude also writes to auto-memory unprompted when it discovers something significant about the codebase mid-session (build quirks, debugging insights, architecture patterns). The four platform agents (`planner`, `code-reviewer`, `security-scanner`, `incident-responder`) write here automatically due to `memory: project` in their frontmatter.
+
 **How to view and edit:**
 - Use `/memory` in any session to open the memory file selector
 - Tell Claude directly: *"remember that we use pnpm, not npm"*
@@ -70,6 +78,23 @@ CLAUDE.md files contain instructions you write for Claude. They are loaded at se
 3. **User CLAUDE.md** — `~/.claude/CLAUDE.md`. Personal preferences for all projects. For your tool preferences, communication style.
 4. **CLAUDE.local.md** — `./CLAUDE.local.md` in your repo, auto-gitignored. For personal project overrides (sandbox URLs, local test data).
 
+**Example Project CLAUDE.md instructions** (shared with the whole team):
+
+- *"Build with `make build-all`. Never run `go build .` directly — it won't cross-compile."*
+- *"All PRs require a test plan in the description. Never merge directly to main."*
+- *"Use `internal/platform/color.go` helpers for all terminal output — do not use `fmt.Println` for user-facing messages."*
+
+**Example User CLAUDE.md instructions** (personal, all projects):
+
+- *"I prefer short, direct responses. Skip preamble and summaries unless I ask."*
+- *"Always use `bun` instead of `npm` or `yarn`."*
+- *"When writing commit messages, use imperative mood and explain the 'why', not the 'what'."*
+
+**Example CLAUDE.local.md instructions** (personal, this project only):
+
+- *"My local API runs on port 9000, not the default 8080."*
+- *"Skip the smoke tests when iterating locally — they take 5 minutes."*
+
 **CLAUDE.md imports:** Use `@path/to/file` syntax to import other files:
 ```markdown
 See @README for project overview.
@@ -93,7 +118,19 @@ paths:
 
 ## 4. Memory MCP (cross-project persistent memory)
 
+> **Note:** Examples below use the default `engram` server. If using a different memory MCP
+> provider, replace `mcp__engram__` with your server's tool prefix.
+> Run `claude-workspace memory` to see your configured provider.
+
 The `engram` MCP server provides cross-project persistent memory backed by a SQLite database with FTS5 full-text search at `~/.engram/engram.db`. Unlike auto-memory (which is project-scoped and auto-loaded), engram memory is **cross-project** and must be **queried explicitly**.
+
+**Example prompts that trigger Memory MCP saves:**
+
+- *"Always use `bun` instead of `npm` for any JavaScript project — save this to engram."*
+- *"I prefer imperative commit messages that explain the 'why', not the 'what'. Remember this across all projects."*
+- *"Save to engram that I work with Go microservices and prefer one package per subcommand with a `Run()` entry point."*
+
+Unlike auto-memory, Claude will not write to Memory MCP unprompted — you must ask explicitly, or configure your `~/.claude/CLAUDE.md` to instruct Claude to save cross-project facts at session end.
 
 **When to use memory MCP (not auto-memory):**
 - User preferences that apply everywhere: *"always use bun, not npm"*
@@ -151,11 +188,69 @@ rm ~/.engram/engram.db
 
 Four platform agents (`planner`, `code-reviewer`, `security-scanner`, `incident-responder`) are configured with `memory: project` in their frontmatter. This tells Claude Code to give them persistent memory that survives between sessions.
 
-These agents write their memory into the **auto-memory layer** (`~/.claude/projects/<project>/memory/`). Clearing native agent memory uses the same process as clearing auto-memory — see Section 2 above.
+These agents write their memory into the **auto-memory layer** (`~/.claude/projects/<project>/memory/`). Clearing native agent memory uses the same process as clearing auto-memory — see Section 2 and Section 7 above.
 
 ---
 
-## 6. Clearing Reference
+## 6. Slash Commands & In-Session Writes
+
+Two built-in Claude Code slash commands interact with memory:
+
+### `/memory` — edit any loaded memory file
+
+Opens an interactive file picker showing every memory file currently loaded in the session. Selecting a file opens it in your `$EDITOR`.
+
+```
+/memory
+```
+
+Use this to directly edit any scope:
+
+| Want to write to... | Select in the picker |
+|---|---|
+| User CLAUDE.md | `~/.claude/CLAUDE.md` |
+| Project CLAUDE.md | `./.claude/CLAUDE.md` |
+| Personal project override | `./CLAUDE.local.md` |
+| Auto-memory index | `~/.claude/projects/<project>/memory/MEMORY.md` |
+
+### `/init` — bootstrap a project CLAUDE.md
+
+Analyzes your codebase and generates a `CLAUDE.md` with build commands, conventions, and architecture notes. Run once when setting up a new project (or use `claude-workspace attach` which does this as part of full platform setup).
+
+```
+/init
+```
+
+### Conversational writes (no slash command needed)
+
+For scopes without a dedicated command, just tell Claude what to remember:
+
+**Auto-memory (project-scoped facts):**
+```
+"Remember that this repo's integration tests require a running Docker daemon."
+"Note that `make build-all` must be used instead of `go build` — save this for next session."
+```
+
+**User CLAUDE.md (personal standing instructions):**
+```
+"Add to my user CLAUDE.md that I always want test coverage checked before declaring a task done."
+"Update my global instructions to prefer bun over npm."
+```
+
+**Memory MCP (cross-project facts):**
+```
+"Save to engram that I prefer flat package structures with one responsibility per file."
+"Remember across all projects that I use 1Password CLI for secrets — never ask me to paste credentials."
+```
+
+**CLAUDE.local.md (personal project overrides):**
+```
+"Add a CLAUDE.local.md note that my local Postgres runs on port 5433."
+```
+
+---
+
+## 7. Clearing Reference
 
 | Layer | In-session clear | Manual clear | Full wipe |
 |---|---|---|---|
@@ -169,7 +264,7 @@ These agents write their memory into the **auto-memory layer** (`~/.claude/proje
 
 ---
 
-## 7. .gitignore Rules
+## 8. .gitignore Rules
 
 **What to ignore:**
 
@@ -190,7 +285,7 @@ Both patterns (`.claude/MEMORY.md`, `.claude/*.jsonl`) are already present in th
 
 ---
 
-## 8. Choosing the Right Layer
+## 9. Choosing the Right Layer
 
 ```
 Is this fact relevant to ONE project only?
@@ -200,7 +295,7 @@ Is this fact relevant to ONE project only?
           NO  → Auto-memory (Claude writes it) or tell Claude "remember X"
   NO  → Does it apply to ALL my projects (personal preference)?
           YES + is it an instruction? → User CLAUDE.md (~/.claude/CLAUDE.md)
-          YES + is it a fact/pattern?  → Memory MCP (mcp__engram__mem_*)
+          YES + is it a fact/pattern?  → Memory MCP (search/save via your configured provider)
           YES + is it org policy?      → Managed policy CLAUDE.md
 ```
 

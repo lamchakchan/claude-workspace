@@ -10,6 +10,7 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/cost"
 	"github.com/lamchakchan/claude-workspace/internal/doctor"
 	"github.com/lamchakchan/claude-workspace/internal/mcp"
+	"github.com/lamchakchan/claude-workspace/internal/memory"
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 	"github.com/lamchakchan/claude-workspace/internal/sandbox"
 	"github.com/lamchakchan/claude-workspace/internal/sessions"
@@ -46,6 +47,11 @@ Commands:
     list --all                     List sessions across all projects
     list --limit N                 Limit results (default: 20)
     show <session-id>              Show all user prompts from a session
+  memory [subcommand] [options]  Inspect and manage memory layers
+    (no args)                    Overview of all layers
+    show [--scope=user|project|local|auto|mcp|all]
+    export [--output=path]       Export all layers to structured JSON
+    import <file> [--scope=...] [--confirm]
   cost [subcommand] [options]    View Claude Code usage and costs (via ccusage)
     daily|weekly|monthly         Usage by time period (default: daily)
     session                      Usage by conversation session
@@ -181,6 +187,11 @@ func main() {
 		}
 	case "statusline":
 		if err := statusline.Run(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "memory":
+		if err := memory.Run(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

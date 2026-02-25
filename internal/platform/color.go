@@ -68,6 +68,15 @@ func PrintBanner(w io.Writer, title string) {
 	fmt.Fprintf(w, "\n%s\n", BoldCyan("=== "+title+" ==="))
 }
 
+// PrintLayerBanner prints a prominent layer header with a full-width horizontal rule
+// followed by the title, suitable for separating major content sections:
+//
+//	──────────────────────────────────────────────────
+//	▶ title
+func PrintLayerBanner(w io.Writer, title string) {
+	fmt.Fprintf(w, "\n%s\n  %s\n", BoldCyan(strings.Repeat("─", 50)), Bold("▶ "+title))
+}
+
 // PrintSection prints a cyan section header: "\n--- title ---\n"
 func PrintSection(w io.Writer, title string) {
 	fmt.Fprintf(w, "\n%s\n", Cyan("--- "+title+" ---"))
