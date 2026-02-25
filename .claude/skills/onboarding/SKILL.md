@@ -40,13 +40,23 @@ You are onboarding to a new project. Your goal is to understand the project stru
 - Testing patterns and frameworks
 - Documentation standards
 
-### 6. Generate CLAUDE.md
+### 6. Detect Installed MCP Servers
+
+Run `claude mcp list` to identify which capability categories are covered by installed MCP servers. Map each detected server to a capability:
+
+- Search providers (brave, perplexity, tavily, exa) → web search
+- `filesystem` server → filesystem operations
+- GitHub/GitLab/Bitbucket servers → version control
+- Observability servers (honeycomb, datadog, grafana, newrelic, sentry) → traces/logs/metrics
+
+### 7. Generate CLAUDE.md
 Based on your findings, create or update the project's `.claude/CLAUDE.md` with:
 - Project description and tech stack
 - Build, test, and lint commands
 - Key directories and their purposes
 - Coding conventions and patterns
 - Important files to know about
+- **MCP Tool Preferences** section: list capability categories covered by detected MCP servers, using the same capability-based format (not specific tool names) so the entry survives MCP provider changes
 
 ## Output
 
