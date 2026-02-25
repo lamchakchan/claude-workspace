@@ -4,8 +4,7 @@ BINARY := claude-workspace
 
 .PHONY: build install test clean build-all vet smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast check dev-docker dev-vm deploy-docker deploy-vm shell-docker shell-vm destroy-docker destroy-vm
 
-build:
-	go build $(LDFLAGS) -o $(BINARY) .
+build: build-all
 
 install: build
 	sudo cp $(BINARY) /usr/local/bin/$(BINARY)
@@ -60,12 +59,12 @@ dev-docker:
 dev-vm:
 	bash scripts/dev-env.sh create --vm
 
-# Fast deploy to existing dev environment (cross-compile + copy binary)
-deploy-docker:
-	bash scripts/dev-env.sh deploy --docker
+# Fast deploy to existing dev environment (uses pre-built binary from build-all)
+deploy-docker: build-all
+	PREBUILT_BINARY=bin/$(BINARY)-linux-$$(go env GOARCH) bash scripts/dev-env.sh deploy --docker
 
-deploy-vm:
-	bash scripts/dev-env.sh deploy --vm
+deploy-vm: build-all
+	PREBUILT_BINARY=bin/$(BINARY)-linux-$$(go env GOARCH) bash scripts/dev-env.sh deploy --vm
 
 # Interactive shell into dev environment
 shell-docker:
