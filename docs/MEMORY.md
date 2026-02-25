@@ -138,6 +138,13 @@ mcp__engram__mem_delete(topicKey: "topic-name")
 rm ~/.engram/engram.db
 ```
 
+> **Important:** `~/.claude/CLAUDE.md` must stay in sync with the active memory MCP provider.
+> The platform writes this file once during `claude-workspace setup` and will not overwrite it
+> on subsequent runs. If you switch memory providers, update the MCP Tool Preferences table
+> and Memory Strategy section manually, or tell Claude:
+> *"Update my ~/.claude/CLAUDE.md MCP Tool Preferences and Memory Strategy sections to use
+> [new-provider] tools (e.g. `mcp__[new-provider]__*`) instead of the current engram entries."*
+
 ---
 
 ## 5. Native Agent Memory (`memory: project` frontmatter)
