@@ -1,0 +1,22 @@
+{
+  "_description": "Cross-project persistent memory MCP server configurations",
+  "examples": {
+    "engram": {
+      "command": "engram",
+      "args": ["mcp"]
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "env": {}
+    }
+  },
+  "setup_commands": {
+    "engram": "claude-workspace mcp add --scope user engram -- engram mcp",
+    "memory": "claude mcp add --scope user memory -- npx -y @modelcontextprotocol/server-memory"
+  },
+  "notes": {
+    "engram": "Auto-registered by claude-workspace setup. Go binary with FTS5 full-text search and SQLite persistence. Install: brew install gentleman-programming/tap/engram. Data: ~/.engram/engram.db",
+    "memory": "Legacy option. Node.js JSONL-based knowledge graph with substring search only. No install needed beyond Node.js (uses npx)."
+  }
+}
