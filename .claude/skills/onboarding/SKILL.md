@@ -48,6 +48,7 @@ Run `claude mcp list` to identify which capability categories are covered by ins
 - `filesystem` server → filesystem operations
 - GitHub/GitLab/Bitbucket servers → version control
 - Observability servers (honeycomb, datadog, grafana, newrelic, sentry) → traces/logs/metrics
+- `memory` server → cross-project knowledge graph
 
 ### 7. Initialize Memory Graph (if mcp__memory__ available)
 
