@@ -40,13 +40,33 @@ You are onboarding to a new project. Your goal is to understand the project stru
 - Testing patterns and frameworks
 - Documentation standards
 
-### 6. Generate CLAUDE.md
+### 6. Detect Installed MCP Servers
+
+Run `claude mcp list` to identify which capability categories are covered by installed MCP servers. Map each detected server to a capability:
+
+- Search providers (brave, perplexity, tavily, exa) → web search
+- `filesystem` server → filesystem operations
+- GitHub/GitLab/Bitbucket servers → version control
+- Observability servers (honeycomb, datadog, grafana, newrelic, sentry) → traces/logs/metrics
+- `memory` server → cross-project knowledge graph
+
+### 7. Initialize Memory Graph (if mcp__memory__ available)
+
+If `mcp__memory__` tools are available in this session:
+1. Call `mcp__memory__search_nodes` for the project name — skip if an entity already exists
+2. If not found, call `mcp__memory__create_entities` with type `project` and observations for: tech stack, purpose, build command, test command, key directories
+3. Call `mcp__memory__create_relations` to link to any existing entities (frameworks, team members, known dependencies)
+
+This creates a persistent cross-project record that survives context compaction and new sessions.
+
+### 8. Generate CLAUDE.md
 Based on your findings, create or update the project's `.claude/CLAUDE.md` with:
 - Project description and tech stack
 - Build, test, and lint commands
 - Key directories and their purposes
 - Coding conventions and patterns
 - Important files to know about
+- **MCP Tool Preferences** section: list capability categories covered by detected MCP servers, using the same capability-based format (not specific tool names) so the entry survives MCP provider changes
 
 ## Output
 

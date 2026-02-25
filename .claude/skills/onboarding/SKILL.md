@@ -49,7 +49,16 @@ Run `claude mcp list` to identify which capability categories are covered by ins
 - GitHub/GitLab/Bitbucket servers → version control
 - Observability servers (honeycomb, datadog, grafana, newrelic, sentry) → traces/logs/metrics
 
-### 7. Generate CLAUDE.md
+### 7. Initialize Memory Graph (if mcp__memory__ available)
+
+If `mcp__memory__` tools are available in this session:
+1. Call `mcp__memory__search_nodes` for the project name — skip if an entity already exists
+2. If not found, call `mcp__memory__create_entities` with type `project` and observations for: tech stack, purpose, build command, test command, key directories
+3. Call `mcp__memory__create_relations` to link to any existing entities (frameworks, team members, known dependencies)
+
+This creates a persistent cross-project record that survives context compaction and new sessions.
+
+### 8. Generate CLAUDE.md
 Based on your findings, create or update the project's `.claude/CLAUDE.md` with:
 - Project description and tech stack
 - Build, test, and lint commands

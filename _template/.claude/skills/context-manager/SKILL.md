@@ -52,6 +52,15 @@ Use TodoWrite as working memory:
 - Note key findings as you discover them
 - Plan remaining work to avoid re-reading
 
+## Strategy 6: Persistent Cross-Session Memory
+
+For facts that should survive context compaction and new sessions:
+- `mcp__memory__search_nodes` — load relevant prior context at session start
+- `mcp__memory__create_entities` + `add_observations` — record stable cross-project facts (user preferences, recurring patterns, architectural decisions)
+- `mcp__memory__delete_entities` — prune stale or wrong knowledge
+
+Use memory MCP for cross-project facts only. Project-specific notes belong in auto-memory (`~/.claude/projects/<project>/memory/MEMORY.md`), which is automatically loaded every session. See `docs/MEMORY.md` for the full six-layer memory reference.
+
 ## Anti-Patterns to Avoid
 
 - Reading files "just in case"
