@@ -70,3 +70,4 @@ claude-workspace doctor
 | [Architecture](docs/ARCHITECTURE.md) | Design philosophy, prompt layering, hook system, model strategy, sandboxing |
 | [MCP Configs](docs/MCP-CONFIGS.md) | Ready-to-use MCP server configurations by category (collaboration, databases, APIs, and more) |
 | [Runbook](docs/RUNBOOK.md) | Maintenance, troubleshooting, onboarding, security, rollback procedures |
+| [Memory](docs/MEMORY.md) | Six memory layers, auto-memory, CLAUDE.md files, Memory MCP, clearing procedures, and gitignore rules |

@@ -1,7 +1,7 @@
 ---
 name: dependency-updater
 description: Dependency update and maintenance agent. Use when updating dependencies, analyzing breaking changes, resolving version conflicts, or reviewing license compliance. Distinct from security-scanner which checks for known vulnerabilities.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 model: sonnet
 maxTurns: 20
 ---
@@ -37,6 +37,14 @@ project dependencies across package ecosystems.
 
 Summary table: package, current version, target version, change type (patch/minor/major),
 risk level, breaking changes (if any), required code changes (if any).
+
+## Web Research
+
+Use web search to supplement local package tooling:
+- Look up changelogs and migration guides for major version upgrades
+- Verify deprecation status for packages flagged as unmaintained
+- Check license changes by looking up the package on its registry page
+- Prefer MCP search tools (e.g. `mcp__brave-search__brave_web_search`) over built-in `WebSearch` when available
 
 ## Guidelines
 

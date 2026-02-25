@@ -26,6 +26,20 @@ Tech Stack: Go, Shell scripts, YAML, JSON, Markdown
 - Configuration changes must be reflected in README.md
 - Use inline comments for non-obvious logic
 
+## MCP Tool Preferences
+
+Prefer MCP tools over built-in Claude Code tools when both can satisfy the same request. MCP tools follow the `mcp__<server>__<tool>` naming pattern — identify available tools at runtime.
+
+| Capability | Prefer MCP tools from providers like... | Over built-in... |
+|---|---|---|
+| Web search | brave, perplexity, tavily, exa, duckduckgo | `WebSearch` |
+| Filesystem | filesystem | Bash file commands (cat, ls, find) |
+| GitHub / VCS | github, gitlab, bitbucket | `gh` CLI via Bash |
+| Observability | honeycomb, datadog, grafana, newrelic, sentry | (no built-in equivalent) |
+| Persistent memory | engram | (no built-in equivalent) |
+
+If no MCP tool covers a capability, fall back to built-in tools normally.
+
 ## Directory Layout
 
 ```

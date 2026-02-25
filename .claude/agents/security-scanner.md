@@ -1,7 +1,7 @@
 ---
 name: security-scanner
 description: Security vulnerability analysis. Use proactively before any PR involving auth, input handling, or dependency changes. Writes detailed findings to .claude/audits/ and returns a brief summary to preserve context.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 model: sonnet
 permissionMode: plan
 maxTurns: 25
@@ -91,6 +91,14 @@ Security scan complete. Report: .claude/audits/security-YYYY-MM-DD.md
 Findings: X critical, X high, X medium, X low
 Top issues: [1-2 sentence summary of most important findings]
 ```
+
+## Web Research
+
+Use web search to enrich findings with external data:
+- Look up CVE details on NVD for CVE IDs surfaced by audit tools
+- Check security advisories (GitHub Security Advisories, OSV) for known vulnerabilities
+- Verify whether a CVE has a patch or workaround available
+- Prefer MCP search tools (e.g. `mcp__brave-search__brave_web_search`) over built-in `WebSearch` when available
 
 ## Guidelines
 

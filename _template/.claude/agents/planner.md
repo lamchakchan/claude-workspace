@@ -90,6 +90,7 @@ Status: Draft | Approved | In Progress | Complete
 - Be thorough: consider edge cases and error scenarios
 - Be clear: anyone on the team should understand the plan
 - Update your agent memory with codebase patterns you discover
+- For web research: prefer MCP search tools (e.g. `mcp__brave-search__brave_web_search`, `mcp__tavily__search`) over built-in `WebSearch` when an MCP search server is available. Fall back to `WebSearch` if no MCP search tool is present.
 
 ## Memory Management
 
