@@ -1,3 +1,5 @@
+// Package cost implements the "cost" command, which delegates to ccusage
+// (via bun or npx) to display Claude Code usage and cost reports.
 package cost
 
 import (

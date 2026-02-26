@@ -1,3 +1,7 @@
+// Package platform provides shared utilities for file operations, shell execution,
+// color output, JSON handling, environment detection, CLAUDE.md generation, and
+// package manager integration. It serves as the common foundation imported by all
+// CLI subcommand packages.
 package platform
 
 import (

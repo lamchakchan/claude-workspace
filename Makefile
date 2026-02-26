@@ -7,7 +7,7 @@ GO_SOURCES := $(shell find . -name '*.go' -not -path './bin/*' -not -path './.gi
               $(wildcard go.mod go.sum) \
               $(shell find ./_template -type f 2>/dev/null)
 
-.PHONY: build install test clean build-all vet lint smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast check dev-docker dev-vm deploy-docker deploy-vm shell-docker shell-vm destroy-docker destroy-vm
+.PHONY: build install test clean build-all vet lint smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast check doc dev-docker dev-vm deploy-docker deploy-vm shell-docker shell-vm destroy-docker destroy-vm
 
 build: build-all
 
@@ -22,6 +22,18 @@ vet:
 
 lint:
 	bash scripts/lint-templates.sh
+
+# Serve godoc locally using pkgsite
+GOBIN := $(shell go env GOPATH)/bin
+PKGSITE := $(GOBIN)/pkgsite
+
+doc: $(PKGSITE)
+	@echo "Starting pkgsite at http://localhost:6060"
+	@echo "View docs at http://localhost:6060/github.com/lamchakchan/claude-workspace"
+	$(PKGSITE) -http=localhost:6060 -open .
+
+$(PKGSITE):
+	go install golang.org/x/pkgsite/cmd/pkgsite@latest
 
 clean:
 	rm -f $(BINARY)

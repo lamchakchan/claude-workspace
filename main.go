@@ -1,3 +1,6 @@
+// Package main provides the claude-workspace CLI, a platform engineering kit
+// for deploying Claude Code AI agents across organizations. It embeds template
+// assets at compile time and routes subcommands to their respective packages.
 package main
 
 import (

@@ -1,3 +1,6 @@
+// Package memory implements the "memory" command for inspecting and managing
+// Claude Code's layered memory system, including overview, show, export, import,
+// and provider configuration subcommands.
 package memory
 
 import (

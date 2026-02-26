@@ -48,18 +48,35 @@ func apply(code, s string) string {
 	return code + s + ansiReset
 }
 
-// --- Semantic color functions ---
+// Bold wraps s with ANSI bold when color is enabled.
+func Bold(s string) string { return apply(ansiBold, s) }
 
-func Bold(s string) string      { return apply(ansiBold, s) }
-func Red(s string) string       { return apply(ansiRed, s) }
-func Green(s string) string     { return apply(ansiGreen, s) }
-func Yellow(s string) string    { return apply(ansiYellow, s) }
-func Blue(s string) string      { return apply(ansiBlue, s) }
-func Cyan(s string) string      { return apply(ansiCyan, s) }
-func BoldRed(s string) string   { return apply(ansiBold+ansiRed, s) }
+// Red wraps s with ANSI red when color is enabled.
+func Red(s string) string { return apply(ansiRed, s) }
+
+// Green wraps s with ANSI green when color is enabled.
+func Green(s string) string { return apply(ansiGreen, s) }
+
+// Yellow wraps s with ANSI yellow when color is enabled.
+func Yellow(s string) string { return apply(ansiYellow, s) }
+
+// Blue wraps s with ANSI blue when color is enabled.
+func Blue(s string) string { return apply(ansiBlue, s) }
+
+// Cyan wraps s with ANSI cyan when color is enabled.
+func Cyan(s string) string { return apply(ansiCyan, s) }
+
+// BoldRed wraps s with ANSI bold red when color is enabled.
+func BoldRed(s string) string { return apply(ansiBold+ansiRed, s) }
+
+// BoldGreen wraps s with ANSI bold green when color is enabled.
 func BoldGreen(s string) string { return apply(ansiBold+ansiGreen, s) }
-func BoldBlue(s string) string  { return apply(ansiBold+ansiBlue, s) }
-func BoldCyan(s string) string  { return apply(ansiBold+ansiCyan, s) }
+
+// BoldBlue wraps s with ANSI bold blue when color is enabled.
+func BoldBlue(s string) string { return apply(ansiBold+ansiBlue, s) }
+
+// BoldCyan wraps s with ANSI bold cyan when color is enabled.
+func BoldCyan(s string) string { return apply(ansiBold+ansiCyan, s) }
 
 // --- High-level print helpers ---
 

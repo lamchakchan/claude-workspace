@@ -1,3 +1,5 @@
+// Package enrich implements the "enrich" command, which generates or regenerates
+// a project's .claude/CLAUDE.md file using AI-powered analysis of the codebase.
 package enrich
 
 import (
@@ -8,6 +10,9 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
 
+// Run executes the enrich command for the given project path. It generates a
+// static CLAUDE.md scaffold if one does not exist, then optionally enriches it
+// with AI analysis. Pass --scaffold-only in args to skip AI enrichment.
 func Run(projectPath string, args []string) error {
 	scaffoldOnly := contains(args, "--scaffold-only")
 

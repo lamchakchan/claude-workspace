@@ -1,3 +1,5 @@
+// Package upgrade implements the "upgrade" command for self-updating the
+// claude-workspace binary from GitHub releases and upgrading the Claude Code CLI.
 package upgrade
 
 import (
