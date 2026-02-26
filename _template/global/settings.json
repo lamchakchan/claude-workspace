@@ -57,6 +57,8 @@
       "Bash(env)",
       "Bash(make *)",
       "Bash(cmake *)",
+      "Bash(bazel *)",
+      "Bash(cue *)",
       "Bash(cargo *)",
       "Bash(rustup *)",
       "Bash(go *)",
