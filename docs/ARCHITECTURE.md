@@ -45,44 +45,16 @@ This document explains why the platform is structured the way it is, what trade-
 
 ## 2. Configuration Hierarchy
 
-Claude Code loads settings from multiple sources with strict precedence. Understanding this is critical for maintaining the platform.
+Claude Code loads settings from five sources with strict precedence: managed settings (IT-deployed, wins over all) → CLI arguments → local settings → project settings → user settings.
 
-```
-Precedence (highest wins):
-┌─────────────────────────────────────────────────────┐
-│ 1. Managed Settings (managed-settings.json)         │  ← IT-deployed, cannot override
-│    Location: /etc/claude-code/ (Linux)              │
-│              /Library/Application Support/ClaudeCode/│
-├─────────────────────────────────────────────────────┤
-│ 2. CLI Arguments (--model, etc.)                    │  ← Session-only
-├─────────────────────────────────────────────────────┤
-│ 3. Local Settings (.claude/settings.local.json)     │  ← Personal, gitignored
-├─────────────────────────────────────────────────────┤
-│ 4. Project Settings (.claude/settings.json)         │  ← Team-shared, committed
-├─────────────────────────────────────────────────────┤
-│ 5. User Settings (~/.claude/settings.json)          │  ← Personal, all projects
-└─────────────────────────────────────────────────────┘
-```
+> For the complete layering diagram, permission coalescing rules, MCP scope resolution, and all config file paths, see [CONFIG.md](CONFIG.md).
 
 ### Design Decision: Project Settings as the Primary Layer
 
-The platform's settings live in `.claude/settings.json` (layer 4). This means:
-- **Team members share the same defaults** - hooks, permissions, model choices
-- **Individuals can override** via `.claude/settings.local.json` (layer 3)
-- **Organizations can enforce** via managed settings (layer 1)
-
-### What Goes Where
-
-| Setting | Where | Why |
-|---------|-------|-----|
-| Safety hooks | `.claude/settings.json` | Everyone needs them |
-| Permission allow/deny lists | `.claude/settings.json` | Team consistency |
-| Default model | `.claude/settings.json` | Cost control |
-| Environment variables | `.claude/settings.json` | Feature flags |
-| Personal model override | `.claude/settings.local.json` | Individual preference |
-| Additional directories | `.claude/settings.local.json` | Personal workspace |
-| Org-wide model restrictions | `managed-settings.json` | Governance |
-| Org-wide MCP allowlists | `managed-settings.json` | Security policy |
+The platform's settings live in `.claude/settings.json` (layer 4 of 5). This means:
+- **Team members share the same defaults** — hooks, permissions, model choices
+- **Individuals can override** via `.claude/settings.local.json` (personal, gitignored)
+- **Organizations can enforce** via managed settings (layer 1, cannot be overridden)
 
 ---
 
@@ -90,29 +62,23 @@ The platform's settings live in `.claude/settings.json` (layer 4). This means:
 
 ### How CLAUDE.md Files Stack
 
-Claude loads instruction files at startup. They concatenate (not override), with higher-priority layers loaded later:
+CLAUDE.md files **concatenate** — they don't override each other. Claude receives all active files merged into a single instruction set, with later-loaded files treated as more specific. Load order: global user → project root → `.claude/CLAUDE.md` → `.claude/CLAUDE.local.md`.
 
-```
-Load order (all content is combined):
-1. ~/.claude/CLAUDE.md            ← Global: "always plan, never commit secrets"
-2. CLAUDE.md (project root)       ← Platform: core principles and workflow
-3. .claude/CLAUDE.md              ← Project: tech stack, conventions, key files
-4. .claude/CLAUDE.local.md        ← Personal: your name, preferences, env notes
-```
+> For the full load order diagram, path-specific rules, and `@import` syntax, see [CONFIG.md — Prompt Layering](CONFIG.md#3-prompt-layering-claudemd).
 
 ### Design Decision: Three-Layer Prompt Architecture
 
 | Layer | Purpose | Managed By |
 |-------|---------|------------|
-| **Global** (`~/.claude/CLAUDE.md`) | Universal behaviors - plan first, test always, never commit secrets | Platform setup script |
-| **Project** (`.claude/CLAUDE.md`) | Project-specific context - tech stack, conventions, directory layout | Team lead / developers |
-| **Personal** (`.claude/CLAUDE.local.md`) | Individual preferences - response style, local env details | Each developer |
+| **Global** (`~/.claude/CLAUDE.md`) | Universal behaviors — plan first, test always, never commit secrets | Platform setup script |
+| **Project** (`.claude/CLAUDE.md`) | Project-specific context — tech stack, conventions, directory layout | Team lead / developers |
+| **Personal** (`.claude/CLAUDE.local.md`) | Individual preferences — response style, local env details | Each developer |
 
 ### Why Not One Big Prompt?
 
-1. **Separation of concerns** - Safety rules don't change per-project. Tech stack context doesn't change per-person.
-2. **Version control** - Team prompts are committed. Personal prompts are not.
-3. **Composability** - Attaching to a new project only needs to update layer 2, not touch layers 1 or 3.
+1. **Separation of concerns** — Safety rules don't change per-project. Tech stack context doesn't change per-person.
+2. **Version control** — Team prompts are committed. Personal prompts are not.
+3. **Composability** — Attaching to a new project only needs to update layer 2, not touch layers 1 or 3.
 
 ### Subagent and Skill Prompts
 
@@ -284,18 +250,9 @@ User or Claude triggers a tool call
 
 ### MCP Scopes
 
-```
-┌─────────────────────────────────────────────┐
-│ Managed MCP (managed-mcp.json)              │ ← Org-wide, IT controls
-│ Users CANNOT add/modify/remove these        │
-├─────────────────────────────────────────────┤
-│ User scope (~/.claude.json global section)  │ ← Personal, all projects
-├─────────────────────────────────────────────┤
-│ Project scope (.mcp.json in project root)   │ ← Team-shared, committed
-├─────────────────────────────────────────────┤
-│ Local scope (~/.claude.json per-project)    │ ← Personal, this project
-└─────────────────────────────────────────────┘
-```
+MCP servers from all scopes are **additive** — Claude sees the union. Managed (IT-controlled) → User (all projects) → Project (team-shared via `.mcp.json`) → Local (personal, this project). Credentials are never stored in `.mcp.json`.
+
+> For the full scope resolution diagram and credential handling, see [CONFIG.md — MCP Scope Resolution](CONFIG.md#5-mcp-scope-resolution).
 
 The platform uses **project scope** (`.mcp.json`) for the three default servers so they're shared with the team. Additional servers added via the CLI default to **local scope** (personal).
 
