@@ -78,6 +78,8 @@ done
 
 # ---------- shared helpers ----------
 source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/lib-provision.sh"
+source "$(dirname "$0")/lib-phases.sh"
 
 # Override assert_pass/assert_fail to add GitHub Step Summary tracking
 assert_pass() {
@@ -92,6 +94,22 @@ assert_fail() {
     FAIL_COUNT=$((FAIL_COUNT + 1))
     echo -e "  ${RED}[FAIL]${NC} $desc"
     summary_append "- :x: $desc"
+}
+
+# Override _phase_skip to add GitHub Step Summary tracking
+_phase_skip() {
+    local msg="$1"
+    echo -e "  ${YELLOW}[SKIP]${NC} $msg"
+    summary_append "- :warning: Skipped -- $msg"
+}
+
+# Hook: extra assertions for setup phase (symlink + bashrc)
+phase_setup_extra() {
+    assert "~/.local/bin/claude symlink exists" \
+        vm_exec_quiet "test -L /home/ubuntu/.local/bin/claude"
+
+    assert "~/.bashrc contains .local/bin PATH entry" \
+        vm_exec_quiet "grep -q '.local/bin' /home/ubuntu/.bashrc"
 }
 
 cleanup() {
@@ -200,256 +218,32 @@ fi
 
 # ========== Phase 4: Provision the VM/Container ==========
 echo -e "\n${BOLD}=== Phase 4: Provision ===${NC}"
-
-if [[ "$MODE" == "docker" ]]; then
-    # Create ubuntu user in the container so /home/ubuntu paths work
-    echo "  Creating ubuntu user..."
-    docker exec "$VM_NAME" bash -c "useradd -m -s /bin/bash ubuntu" 2>/dev/null || true
-fi
-
-echo "  Transferring binary..."
-copy_binary
-
-# Install prerequisites
-echo "  Installing prerequisites (git, curl, python3, sudo)..."
-root_exec "apt-get update -qq && apt-get install -y -qq git curl python3 sudo >/dev/null 2>&1"
-
-if [[ "$MODE" == "docker" ]]; then
-    echo "  Configuring passwordless sudo for ubuntu..."
-    root_exec "usermod -aG sudo ubuntu && echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"
-fi
-
-# Pre-seed ~/.claude.json so setup skips interactive API key flow
-echo "  Pre-seeding ~/.claude.json..."
-vm_exec 'cat > /home/ubuntu/.claude.json << '\''SEED'\''
-{"oauthAccount":{"email":"smoke-test@example.com"}}
-SEED'
-
-# Always install a stub claude CLI so doctor doesn't report [FAIL] for missing CLI.
-# The --skip-claude-cli flag is kept for compatibility but the stub is unconditional.
-echo "  Creating stub claude CLI..."
-root_exec 'tee /usr/local/bin/claude > /dev/null << '\''STUB'\''
-#!/bin/bash
-if [[ "$1" == "--version" ]]; then
-    echo "claude 1.0.0-stub"
-else
-    echo "stub: $*"
-fi
-STUB
-chmod +x /usr/local/bin/claude'
-
-echo "  Provision complete."
+provision_environment "smoke-test@example.com"
 
 # ========== Phase 5: Run setup ==========
 echo -e "\n${BOLD}=== Phase 5: claude-workspace setup ===${NC}"
-
-SETUP_OUTPUT=$(vm_exec "claude-workspace setup" 2>&1) || true
-echo "$SETUP_OUTPUT" | sed 's/^/  | /'
-
-echo ""
-echo "  Assertions:"
 summary_phase 5 "claude-workspace setup"
-
-# Assert ~/.claude/settings.json exists
-assert "~/.claude/settings.json exists" \
-    vm_exec_quiet "test -f /home/ubuntu/.claude/settings.json"
-
-# Assert ~/.claude/CLAUDE.md exists
-assert "~/.claude/CLAUDE.md exists" \
-    vm_exec_quiet "test -f /home/ubuntu/.claude/CLAUDE.md"
-
-# Assert binary is executable in PATH
-assert "claude-workspace is executable in PATH" \
-    vm_exec_quiet "test -x /usr/local/bin/claude-workspace"
-
-# Assert ~/.local/bin/claude symlink was created (fixes Claude Code startup warnings
-# when claude is installed outside the native ~/.local/bin path)
-assert "~/.local/bin/claude symlink exists" \
-    vm_exec_quiet "test -L /home/ubuntu/.local/bin/claude"
-
-# Assert ~/.bashrc was updated with ~/.local/bin PATH entry
-assert "~/.bashrc contains .local/bin PATH entry" \
-    vm_exec_quiet "grep -q '.local/bin' /home/ubuntu/.bashrc"
+run_phase_setup
 
 # ========== Phase 6: Run attach ==========
 echo -e "\n${BOLD}=== Phase 6: claude-workspace attach ===${NC}"
-
-# Create a dummy git repo
-echo "  Creating test project..."
-vm_exec "mkdir -p /home/ubuntu/test-project && cd /home/ubuntu/test-project && git init && git config user.email test@example.com && git config user.name Test && touch README.md && git add . && git commit -m 'init' -q"
-
-# Run attach
-ATTACH_OUTPUT=$(vm_exec "claude-workspace attach /home/ubuntu/test-project" 2>&1) || true
-echo "$ATTACH_OUTPUT" | sed 's/^/  | /'
-
-echo ""
-echo "  Assertions:"
 summary_phase 6 "claude-workspace attach"
-
-PROJECT="/home/ubuntu/test-project"
-
-# .claude/settings.json
-assert ".claude/settings.json exists" \
-    vm_exec_quiet "test -f ${PROJECT}/.claude/settings.json"
-
-# .claude/CLAUDE.md
-assert ".claude/CLAUDE.md exists" \
-    vm_exec_quiet "test -f ${PROJECT}/.claude/CLAUDE.md"
-
-# .mcp.json exists and is valid JSON
-assert ".mcp.json exists and is valid JSON" \
-    vm_exec_quiet "python3 -c \"import json; json.load(open('${PROJECT}/.mcp.json'))\""
-
-# Hook scripts exist and are executable
-for hook in auto-format.sh block-dangerous-commands.sh enforce-branch-policy.sh validate-secrets.sh; do
-    assert "hook ${hook} exists and is executable" \
-        vm_exec_quiet "test -x ${PROJECT}/.claude/hooks/${hook}"
-done
-
-# .claude/agents/ is non-empty
-assert ".claude/agents/ is non-empty" \
-    vm_exec_quiet "test -d ${PROJECT}/.claude/agents && [ \"\$(ls -A ${PROJECT}/.claude/agents)\" ]"
-
-# .claude/skills/ is non-empty
-assert ".claude/skills/ is non-empty" \
-    vm_exec_quiet "test -d ${PROJECT}/.claude/skills && [ \"\$(ls -A ${PROJECT}/.claude/skills)\" ]"
+run_phase_attach
 
 # ========== Phase 7: Run doctor ==========
 echo -e "\n${BOLD}=== Phase 7: claude-workspace doctor ===${NC}"
-
-DOCTOR_OUTPUT=$(vm_exec "cd ${PROJECT} && ANTHROPIC_API_KEY=sk-fake claude-workspace doctor" 2>&1) || true
-echo "$DOCTOR_OUTPUT" | sed 's/^/  | /'
-
-echo ""
-echo "  Assertions:"
 summary_phase 7 "claude-workspace doctor"
-
-# Assert no [FAIL] lines in output
-FAIL_LINES=$(echo "$DOCTOR_OUTPUT" | grep -c '\[FAIL\]' || true)
-if [[ "$FAIL_LINES" -eq 0 ]]; then
-    assert_pass "doctor output contains no [FAIL] lines"
-else
-    assert_fail "doctor output contains ${FAIL_LINES} [FAIL] line(s)"
-fi
+run_phase_doctor
 
 # ========== Phase 8: Run sessions ==========
 echo -e "\n${BOLD}=== Phase 8: claude-workspace sessions ===${NC}"
-
-# Create fake session data that mirrors Claude Code's JSONL format
-echo "  Creating test session data..."
-vm_exec 'mkdir -p /home/ubuntu/.claude/projects/-home-ubuntu-test-project'
-vm_exec 'cat > /home/ubuntu/.claude/projects/-home-ubuntu-test-project/aaaaaaaa-1111-2222-3333-444444444444.jsonl << '\''SESS'\''
-{"type":"file-history-snapshot","messageId":"snap-1"}
-{"type":"user","message":{"role":"user","content":"Add authentication middleware"},"timestamp":"2026-02-24T10:00:00.000Z","cwd":"/home/ubuntu/test-project","uuid":"u1","parentUuid":null,"isMeta":false}
-{"type":"user","message":{"role":"user","content":"Also add rate limiting"},"timestamp":"2026-02-24T10:05:00.000Z","cwd":"/home/ubuntu/test-project","uuid":"u2","parentUuid":"u1","isMeta":false}
-SESS'
-vm_exec 'cat > /home/ubuntu/.claude/projects/-home-ubuntu-test-project/bbbbbbbb-5555-6666-7777-888888888888.jsonl << '\''SESS'\''
-{"type":"file-history-snapshot","messageId":"snap-2"}
-{"type":"user","message":{"role":"user","content":"<command-name>/exit</command-name>"},"timestamp":"2026-02-24T09:00:00.000Z","cwd":"/home/ubuntu/test-project","uuid":"u3","parentUuid":null,"isMeta":false}
-SESS'
-
-echo ""
-echo "  Assertions:"
 summary_phase 8 "claude-workspace sessions"
-
-# sessions list should work from the project directory
-SESSIONS_LIST=$(vm_exec "cd ${PROJECT} && claude-workspace sessions" 2>&1) || true
-echo "$SESSIONS_LIST" | sed 's/^/  | /'
-
-# Should show the real session
-if echo "$SESSIONS_LIST" | grep -q 'Add authentication middleware'; then
-    assert_pass "sessions list shows session with real prompt"
-else
-    assert_fail "sessions list shows session with real prompt"
-fi
-
-# Should NOT show the /exit-only session
-if echo "$SESSIONS_LIST" | grep -q 'bbbbbbbb'; then
-    assert_fail "sessions list filters out empty sessions (exit-only)"
-else
-    assert_pass "sessions list filters out empty sessions (exit-only)"
-fi
-
-# sessions show should display prompts
-echo ""
-SESSIONS_SHOW=$(vm_exec "cd ${PROJECT} && claude-workspace sessions show aaaaaaaa" 2>&1) || true
-echo "$SESSIONS_SHOW" | sed 's/^/  | /'
-
-if echo "$SESSIONS_SHOW" | grep -q 'Add authentication middleware'; then
-    assert_pass "sessions show displays first prompt"
-else
-    assert_fail "sessions show displays first prompt"
-fi
-
-if echo "$SESSIONS_SHOW" | grep -q 'Also add rate limiting'; then
-    assert_pass "sessions show displays second prompt"
-else
-    assert_fail "sessions show displays second prompt"
-fi
-
-if echo "$SESSIONS_SHOW" | grep -q 'Prompts: 2'; then
-    assert_pass "sessions show reports correct prompt count"
-else
-    assert_fail "sessions show reports correct prompt count"
-fi
+run_phase_sessions
 
 # ========== Phase 9: Run upgrade --check ==========
 echo -e "\n${BOLD}=== Phase 9: claude-workspace upgrade --check ===${NC}"
-
-# upgrade --check should exit 1 (update available) since the binary is a dev build
-UPGRADE_EXIT=0
-UPGRADE_OUTPUT=$(vm_exec "claude-workspace upgrade --check" 2>&1) || UPGRADE_EXIT=$?
-echo "$UPGRADE_OUTPUT" | sed 's/^/  | /'
-
-echo ""
-echo "  Assertions:"
 summary_phase 9 "claude-workspace upgrade --check"
-
-# Assert exit code is 1 (update available) — 0 would mean "already up to date"
-if [[ "$UPGRADE_EXIT" -eq 1 ]]; then
-    assert_pass "exit code is 1 (update available)"
-else
-    # Exit 0 = up-to-date, other = error (e.g. network failure)
-    # Treat network errors as non-fatal since GitHub API may be rate-limited
-    if echo "$UPGRADE_OUTPUT" | grep -q "rate limit\|checking for updates"; then
-        echo -e "  ${YELLOW}[SKIP]${NC} GitHub API unavailable (rate limited or no network)"
-        summary_append "- :warning: Skipped — GitHub API unavailable"
-    else
-        assert_fail "exit code was ${UPGRADE_EXIT}, expected 1 (update available)"
-    fi
-fi
-
-# Assert output contains current version info
-if echo "$UPGRADE_OUTPUT" | grep -q "Current: dev"; then
-    assert_pass "output shows 'Current: dev'"
-else
-    assert_fail "output missing 'Current: dev'"
-fi
-
-# Assert output contains latest version from GitHub
-if echo "$UPGRADE_OUTPUT" | grep -q "Latest:"; then
-    assert_pass "output shows 'Latest:' version"
-else
-    # Skip if GitHub API failed
-    if echo "$UPGRADE_OUTPUT" | grep -q "rate limit\|checking for updates"; then
-        echo -e "  ${YELLOW}[SKIP]${NC} Cannot verify latest version (API unavailable)"
-        summary_append "- :warning: Skipped — cannot verify latest version"
-    else
-        assert_fail "output missing 'Latest:' version"
-    fi
-fi
-
-# Assert dev build warning is shown
-if echo "$UPGRADE_OUTPUT" | grep -q "dev build"; then
-    assert_pass "output shows dev build warning"
-else
-    if echo "$UPGRADE_OUTPUT" | grep -q "rate limit\|checking for updates"; then
-        echo -e "  ${YELLOW}[SKIP]${NC} Cannot verify dev warning (API unavailable)"
-        summary_append "- :warning: Skipped — cannot verify dev warning"
-    else
-        assert_fail "output missing dev build warning"
-    fi
-fi
+run_phase_upgrade_check
 
 # ========== Phase 10: Summary ==========
 echo -e "\n${BOLD}=== Summary ===${NC}"
