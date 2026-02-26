@@ -1,0 +1,56 @@
+# Business Source License 1.1
+
+**License text copyright © 2017 MariaDB Corporation Ab**
+
+---
+
+## Parameters
+
+**Licensor:**  
+Lam Chan
+
+**Licensed Work:**  
+claude-workspace
+
+**Additional Use Grant:**  
+Internal use of the Licensed Work is permitted, including use by employees and contractors for internal business purposes.  
+The Licensed Work may be used as part of a publicly accessible service, hosted service, managed service, or Software-as-a-Service (SaaS) offering, provided that such use is limited to fewer than one hundred (100) total users.  
+Any use exceeding this limit, or any use intended to serve the general public without a defined user limit, requires prior written consent from the Licensor.
+
+**Change Date:**  
+2030-02-25
+
+**Change License:**  
+Apache License, Version 2.0
+
+---
+
+## Terms
+
+The Licensor hereby grants you the right to copy, modify, create derivative works, redistribute, and make non-production use of the Licensed Work. The Licensor may make an Additional Use Grant, above, permitting limited production use.
+
+Effective on the Change Date, or the fourth anniversary of the first publicly available distribution of a specific version of the Licensed Work under this License, whichever comes first, the Licensor hereby grants you rights under the terms of the Change License, and the rights granted in the paragraph above terminate.
+
+If your use of the Licensed Work does not comply with the requirements currently in effect as described in this License, you must purchase a commercial license from the Licensor, its affiliated entities, or authorized resellers, or you must refrain from using the Licensed Work.
+
+All copies of the original and modified Licensed Work, and derivative works of the Licensed Work, are subject to this License. This License applies separately for each version of the Licensed Work and the Change Date may vary for each version of the Licensed Work released by Licensor.
+
+You must conspicuously display this License on each original or modified copy of the Licensed Work. If you receive the Licensed Work in object code form only, you must display this License in the documentation, or other materials provided with the Licensed Work.
+
+Any use of the Licensed Work in violation of this License will automatically terminate your rights under this License for the current and all other versions of the Licensed Work.
+
+This License does not grant you any right in any trademark or logo of Licensor or its affiliates (provided that you may use a trademark or logo of Licensor as expressly required by this License).
+
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED ON AN “AS IS” BASIS. LICENSOR HEREBY DISCLAIMS ALL WARRANTIES AND CONDITIONS, EXPRESS OR IMPLIED, INCLUDING (WITHOUT LIMITATION) WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND TITLE.
+
+MariaDB hereby grants you permission to use this License’s text to license your works, and to refer to it using the trademark “Business Source License”, as long as you comply with the Covenants of Licensor below.
+
+---
+
+## Covenants of Licensor
+
+In consideration of the right to use this License’s text and the “Business Source License” name and trademark, Licensor covenants to MariaDB, and to all other recipients of the Licensed Work, that:
+
+1. Licensor will not modify this License in any way other than filling in the parameters listed above.
+2. Licensor will not directly or indirectly claim that this License is approved by the Open Source Initiative (OSI).
+3. Licensor will not add any terms or conditions to the License text other than those permitted by this License.
