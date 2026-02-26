@@ -1,3 +1,6 @@
+// Package attach implements the "attach" command, which overlays platform
+// configuration (agents, skills, hooks, settings, MCP config, and CLAUDE.md)
+// onto a target project directory.
 package attach
 
 import (
@@ -9,6 +12,9 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
 
+// Run executes the attach command, overlaying platform configuration onto the
+// project at targetPath. It supports --symlink, --force, and --no-enrich flags
+// parsed from allArgs.
 func Run(targetPath string, allArgs []string) error {
 	if targetPath == "" {
 		fmt.Fprintln(os.Stderr, "Usage: claude-workspace attach <project-path> [--symlink] [--force] [--no-enrich]")

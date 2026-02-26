@@ -1,3 +1,5 @@
+// Package tools provides a registry of required and optional system tools
+// with detection, installation, and version reporting capabilities.
 package tools
 
 import (
@@ -13,9 +15,9 @@ type Tool struct {
 	Name       string
 	Purpose    string
 	Required   bool
-	InstallCmd string                // manual install hint; auto-detected if empty
-	CheckFn    func() bool           // nil → defaults to platform.Exists(Name)
-	InstallFn  func() error          // nil → defaults to system package manager
+	InstallCmd string                 // manual install hint; auto-detected if empty
+	CheckFn    func() bool            // nil → defaults to platform.Exists(Name)
+	InstallFn  func() error           // nil → defaults to system package manager
 	VersionFn  func() (string, error) // nil → no version reported
 }
 

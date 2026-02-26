@@ -1,3 +1,6 @@
+// Package statusline implements the "statusline" command, which configures the
+// Claude Code status bar to display session cost, context usage, model name,
+// and weekly subscription reset countdown.
 package statusline
 
 import (

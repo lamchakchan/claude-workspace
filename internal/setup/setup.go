@@ -1,3 +1,7 @@
+// Package setup implements the "setup" command, which handles first-time
+// platform setup including Claude CLI installation, API key provisioning,
+// global settings, Node.js verification, MCP server registration, and
+// optional tool installation.
 package setup
 
 import (
@@ -26,6 +30,8 @@ func init() {
 // knownMemoryProviders is the set of memory MCP server keys this platform manages.
 var knownMemoryProviders = []string{"mcp-memory-libsql", "engram", "memory"}
 
+// Run executes the setup command, performing first-time platform configuration.
+// Pass --force in args to overwrite existing settings.
 func Run(args []string) error {
 	force := false
 	for _, a := range args {
@@ -206,6 +212,8 @@ func setupGlobalSettings(force bool) error {
 	return nil
 }
 
+// GetDefaultGlobalSettings returns the default global settings map parsed from
+// the embedded settings.json template.
 func GetDefaultGlobalSettings() map[string]interface{} {
 	data, err := platform.ReadGlobalAsset("settings.json")
 	if err != nil {
@@ -221,6 +229,8 @@ func GetDefaultGlobalSettings() map[string]interface{} {
 	return settings
 }
 
+// MergeSettings merges platform default settings into existing settings without
+// overwriting user-customized values. Env vars and permission lists are unioned.
 func MergeSettings(existing, defaults map[string]interface{}) map[string]interface{} {
 	return mergeSettings(existing, defaults, false)
 }

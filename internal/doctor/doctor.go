@@ -1,3 +1,6 @@
+// Package doctor implements the "doctor" command, which performs health checks
+// on the platform configuration including CLI tools, global settings, project
+// setup, agents, skills, hooks, MCP servers, and authentication.
 package doctor
 
 import (
@@ -14,6 +17,8 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/upgrade"
 )
 
+// Run executes the doctor command, checking platform configuration health
+// and printing a summary of issues and warnings.
 func Run() error {
 	platform.PrintBanner(os.Stdout, "Claude Platform Health Check")
 

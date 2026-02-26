@@ -1,3 +1,6 @@
+// Package mcp implements the "mcp" command for adding, listing, and connecting
+// to MCP (Model Context Protocol) servers with support for stdio, HTTP, and SSE
+// transports and secure credential handling.
 package mcp
 
 import (

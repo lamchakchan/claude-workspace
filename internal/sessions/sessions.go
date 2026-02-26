@@ -1,3 +1,6 @@
+// Package sessions implements the "sessions" command for browsing and reviewing
+// Claude Code session history, including listing sessions and displaying user
+// prompts from individual sessions.
 package sessions
 
 import (

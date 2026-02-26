@@ -1,3 +1,6 @@
+// Package sandbox implements the "sandbox" command, which creates isolated
+// git worktrees for parallel development with Claude Code configuration
+// automatically copied into each worktree.
 package sandbox
 
 import (
@@ -8,6 +11,8 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
 
+// Run creates a git worktree sandbox for the given project path and branch name.
+// It copies Claude configuration and installs dependencies in the new worktree.
 func Run(projectPath, branchName string) error {
 	if projectPath == "" || branchName == "" {
 		fmt.Fprintln(os.Stderr, "Usage: claude-workspace sandbox <project-path> <branch-name>")

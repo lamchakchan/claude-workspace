@@ -10,12 +10,12 @@ import (
 type PackageManager int
 
 const (
-	PMNone   PackageManager = iota
-	PMBrew                  // macOS (Homebrew)
-	PMApt                   // Debian, Ubuntu
-	PMDnf                   // Fedora, RHEL, CentOS Stream
-	PMPacman                // Arch, Manjaro
-	PMApk                   // Alpine
+	PMNone   PackageManager = iota // no package manager detected
+	PMBrew                         // macOS (Homebrew)
+	PMApt                          // Debian, Ubuntu
+	PMDnf                          // Fedora, RHEL, CentOS Stream
+	PMPacman                       // Arch, Manjaro
+	PMApk                          // Alpine
 )
 
 // DetectPackageManager returns the detected system package manager.
