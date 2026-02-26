@@ -84,7 +84,7 @@ func Run(args []string) error {
 
 	// Step 3: Create global user settings
 	platform.PrintStep(os.Stdout, 3, 9, "Setting up global user configuration...")
-	if err := setupGlobalSettings(); err != nil {
+	if err := setupGlobalSettings(force); err != nil {
 		return err
 	}
 
@@ -179,7 +179,7 @@ func provisionApiKey() error {
 	return nil
 }
 
-func setupGlobalSettings() error {
+func setupGlobalSettings(force bool) error {
 	settingsPath := filepath.Join(claudeHome, "settings.json")
 
 	defaults := GetDefaultGlobalSettings()
@@ -191,7 +191,12 @@ func setupGlobalSettings() error {
 			fmt.Println("  Could not merge settings. Skipping global settings update.")
 			return nil
 		}
-		merged := MergeSettings(existing, defaults)
+		var merged map[string]interface{}
+		if force {
+			merged = MergeSettingsForce(existing, defaults)
+		} else {
+			merged = MergeSettings(existing, defaults)
+		}
 		if err := platform.WriteJSONFile(settingsPath, merged); err != nil {
 			return fmt.Errorf("writing global settings: %w", err)
 		}
@@ -212,34 +217,31 @@ func setupGlobalSettings() error {
 }
 
 func GetDefaultGlobalSettings() map[string]interface{} {
-	return map[string]interface{}{
-		"$schema": "https://json.schemastore.org/claude-code-settings.json",
-		"env": map[string]interface{}{
-			"CLAUDE_CODE_ENABLE_TELEMETRY":         "1",
-			"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
-			"CLAUDE_CODE_ENABLE_TASKS":             "true",
-			"CLAUDE_CODE_SUBAGENT_MODEL":           "sonnet",
-			"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE":      "80",
-		},
-		"permissions": map[string]interface{}{
-			"deny": []string{
-				"Bash(rm -rf /)",
-				"Bash(rm -rf /*)",
-				"Bash(git push --force * main)",
-				"Bash(git push --force * master)",
-				"Bash(git push -f * main)",
-				"Bash(git push -f * master)",
-				"Read(./.env)",
-				"Read(./.env.*)",
-				"Read(./secrets/**)",
-			},
-		},
-		"alwaysThinkingEnabled": true,
-		"showTurnDuration":      true,
+	data, err := platform.ReadGlobalAsset("settings.json")
+	if err != nil {
+		// Should never happen — file is embedded at compile time
+		panic(fmt.Sprintf("reading embedded global settings.json: %v", err))
 	}
+
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		panic(fmt.Sprintf("parsing embedded global settings.json: %v", err))
+	}
+
+	return settings
 }
 
 func MergeSettings(existing, defaults map[string]interface{}) map[string]interface{} {
+	return mergeSettings(existing, defaults, false)
+}
+
+// MergeSettingsForce merges settings with force mode: replaces permissions wholesale
+// from defaults instead of performing a union merge.
+func MergeSettingsForce(existing, defaults map[string]interface{}) map[string]interface{} {
+	return mergeSettings(existing, defaults, true)
+}
+
+func mergeSettings(existing, defaults map[string]interface{}, force bool) map[string]interface{} {
 	merged := make(map[string]interface{})
 	for k, v := range existing {
 		merged[k] = v
@@ -261,46 +263,32 @@ func MergeSettings(existing, defaults map[string]interface{}) map[string]interfa
 		merged["env"] = mergedEnv
 	}
 
-	// Merge deny permissions (union)
+	// Merge permissions
 	if defaultPerms, ok := defaults["permissions"].(map[string]interface{}); ok {
-		if defaultDeny, ok := defaultPerms["deny"].([]string); ok {
+		if force {
+			// Force mode: replace permissions entirely with defaults
+			merged["permissions"] = defaultPerms
+		} else {
 			existingPerms, _ := existing["permissions"].(map[string]interface{})
 			if existingPerms == nil {
 				existingPerms = make(map[string]interface{})
-			}
-
-			var existingDeny []string
-			if ed, ok := existingPerms["deny"]; ok {
-				switch v := ed.(type) {
-				case []string:
-					existingDeny = v
-				case []interface{}:
-					for _, item := range v {
-						if s, ok := item.(string); ok {
-							existingDeny = append(existingDeny, s)
-						}
-					}
-				}
-			}
-
-			denySet := make(map[string]bool)
-			for _, rule := range existingDeny {
-				denySet[rule] = true
-			}
-
-			combined := make([]string, len(existingDeny))
-			copy(combined, existingDeny)
-			for _, rule := range defaultDeny {
-				if !denySet[rule] {
-					combined = append(combined, rule)
-				}
 			}
 
 			mergedPerms := make(map[string]interface{})
 			for k, v := range existingPerms {
 				mergedPerms[k] = v
 			}
-			mergedPerms["deny"] = combined
+
+			// Merge deny list (union)
+			if defaultPerms["deny"] != nil {
+				mergedPerms["deny"] = mergeStringList(existingPerms["deny"], extractStrings(defaultPerms["deny"]))
+			}
+
+			// Merge allow list (union)
+			if defaultPerms["allow"] != nil {
+				mergedPerms["allow"] = mergeStringList(existingPerms["allow"], extractStrings(defaultPerms["allow"]))
+			}
+
 			merged["permissions"] = mergedPerms
 		}
 	}
@@ -315,6 +303,58 @@ func MergeSettings(existing, defaults map[string]interface{}) map[string]interfa
 	}
 
 	return merged
+}
+
+// extractStrings converts a value that may be []string or []interface{} (from JSON
+// deserialization) into a []string.
+func extractStrings(v interface{}) []string {
+	switch s := v.(type) {
+	case []string:
+		return s
+	case []interface{}:
+		out := make([]string, 0, len(s))
+		for _, item := range s {
+			if str, ok := item.(string); ok {
+				out = append(out, str)
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+// mergeStringList computes the union of an existing list (which may be []string or
+// []interface{} from JSON deserialization) and a defaults list of []string.
+// Existing entries come first, then any new defaults are appended.
+func mergeStringList(existing interface{}, defaults []string) []string {
+	var existingList []string
+	if existing != nil {
+		switch v := existing.(type) {
+		case []string:
+			existingList = v
+		case []interface{}:
+			for _, item := range v {
+				if s, ok := item.(string); ok {
+					existingList = append(existingList, s)
+				}
+			}
+		}
+	}
+
+	seen := make(map[string]bool)
+	for _, rule := range existingList {
+		seen[rule] = true
+	}
+
+	combined := make([]string, len(existingList))
+	copy(combined, existingList)
+	for _, rule := range defaults {
+		if !seen[rule] {
+			combined = append(combined, rule)
+		}
+	}
+
+	return combined
 }
 
 func setupGlobalClaudeMd() error {

@@ -7,7 +7,32 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
+
+func TestMain(m *testing.M) {
+	// Wire up GlobalFS so GetDefaultGlobalSettings() can read the embedded template
+	platform.GlobalFS = os.DirFS(filepath.Join("..", "..", "_template", "global"))
+	os.Exit(m.Run())
+}
+
+// toStringSlice converts []interface{} (from JSON) to []string for test assertions.
+func toStringSlice(v interface{}) []string {
+	switch s := v.(type) {
+	case []string:
+		return s
+	case []interface{}:
+		out := make([]string, 0, len(s))
+		for _, item := range s {
+			if str, ok := item.(string); ok {
+				out = append(out, str)
+			}
+		}
+		return out
+	}
+	return nil
+}
 
 func TestMergeSettings_EmptyExisting(t *testing.T) {
 	defaults := map[string]interface{}{
@@ -159,26 +184,37 @@ func TestMergeSettings_PreservesExtraKeys(t *testing.T) {
 func TestMergeSettings_PreservesExtraPermissions(t *testing.T) {
 	defaults := map[string]interface{}{
 		"permissions": map[string]interface{}{
-			"deny": []string{"rule-a"},
+			"deny":  []string{"rule-a"},
+			"allow": []string{"Read", "Write"},
 		},
 	}
 	existing := map[string]interface{}{
 		"permissions": map[string]interface{}{
-			"deny":  []string{"rule-b"},
-			"allow": []string{"Bash(npm test)"},
+			"deny":                  []string{"rule-b"},
+			"allow":                 []string{"Bash(npm test)"},
+			"additionalDirectories": []string{"/tmp"},
 		},
 	}
 
 	merged := MergeSettings(existing, defaults)
 
 	perms := merged["permissions"].(map[string]interface{})
-	if allow, ok := perms["allow"]; !ok {
-		t.Error("should preserve 'allow' key from existing permissions")
-	} else {
-		allowSlice := allow.([]string)
-		if len(allowSlice) != 1 || allowSlice[0] != "Bash(npm test)" {
-			t.Errorf("unexpected allow value: %v", allowSlice)
+
+	// allow should be unioned
+	allow := perms["allow"].([]string)
+	allowSet := make(map[string]bool)
+	for _, a := range allow {
+		allowSet[a] = true
+	}
+	for _, want := range []string{"Bash(npm test)", "Read", "Write"} {
+		if !allowSet[want] {
+			t.Errorf("expected %q in allow list, got %v", want, allow)
 		}
+	}
+
+	// additionalDirectories should be preserved
+	if _, ok := perms["additionalDirectories"]; !ok {
+		t.Error("should preserve 'additionalDirectories' key from existing permissions")
 	}
 }
 
@@ -208,12 +244,15 @@ func TestGetDefaultGlobalSettings(t *testing.T) {
 	if !ok {
 		t.Fatal("expected permissions to be map[string]interface{}")
 	}
-	deny, ok := perms["deny"].([]string)
-	if !ok {
-		t.Fatal("expected permissions.deny to be []string")
-	}
+	deny := toStringSlice(perms["deny"])
 	if len(deny) == 0 {
 		t.Error("deny list should not be empty")
+	}
+
+	// Verify allow list exists and has entries
+	allow := toStringSlice(perms["allow"])
+	if len(allow) == 0 {
+		t.Error("allow list should not be empty")
 	}
 
 	// Verify boolean flags
@@ -222,6 +261,178 @@ func TestGetDefaultGlobalSettings(t *testing.T) {
 	}
 	if settings["showTurnDuration"] != true {
 		t.Error("showTurnDuration should be true")
+	}
+}
+
+func TestGetDefaultGlobalSettings_HasAllow(t *testing.T) {
+	settings := GetDefaultGlobalSettings()
+	perms := settings["permissions"].(map[string]interface{})
+	allow := toStringSlice(perms["allow"])
+
+	allowSet := make(map[string]bool)
+	for _, a := range allow {
+		allowSet[a] = true
+	}
+
+	// Spot-check key entries
+	for _, want := range []string{"Read", "Write", "Edit", "mcp__*", "WebSearch", "Bash(go *)", "Bash(git push *)"} {
+		if !allowSet[want] {
+			t.Errorf("expected %q in allow list", want)
+		}
+	}
+}
+
+func TestGetDefaultGlobalSettings_DenyReconciled(t *testing.T) {
+	settings := GetDefaultGlobalSettings()
+	perms := settings["permissions"].(map[string]interface{})
+	deny := toStringSlice(perms["deny"])
+
+	denySet := make(map[string]bool)
+	for _, d := range deny {
+		denySet[d] = true
+	}
+
+	// Wildcards should be present
+	if !denySet["Bash(git push --force *)"] {
+		t.Error("expected wildcard force-push deny rule")
+	}
+	if !denySet["Read(./.env.*)"] {
+		t.Error("expected Read(./.env.*) deny rule")
+	}
+
+	// Branch-scoped rules should NOT be present (superseded by wildcards)
+	if denySet["Bash(git push --force * main)"] {
+		t.Error("branch-scoped force-push rule should not be present")
+	}
+	if denySet["Bash(git push -f * master)"] {
+		t.Error("branch-scoped force-push rule should not be present")
+	}
+}
+
+func TestMergeSettings_AllowListUnion(t *testing.T) {
+	defaults := map[string]interface{}{
+		"permissions": map[string]interface{}{
+			"allow": []string{"Read", "Write", "Edit"},
+		},
+	}
+	existing := map[string]interface{}{
+		"permissions": map[string]interface{}{
+			"allow": []string{"Write", "Bash(go *)"},
+		},
+	}
+
+	merged := MergeSettings(existing, defaults)
+
+	perms := merged["permissions"].(map[string]interface{})
+	allow := perms["allow"].([]string)
+
+	sort.Strings(allow)
+	want := []string{"Bash(go *)", "Edit", "Read", "Write"}
+	sort.Strings(want)
+
+	if !reflect.DeepEqual(allow, want) {
+		t.Errorf("allow list union: got %v, want %v", allow, want)
+	}
+}
+
+func TestMergeSettings_AllowListFromJSON(t *testing.T) {
+	// When loaded from JSON, allow is []interface{} not []string
+	defaults := map[string]interface{}{
+		"permissions": map[string]interface{}{
+			"allow": []string{"Read", "Write"},
+		},
+	}
+	existing := map[string]interface{}{
+		"permissions": map[string]interface{}{
+			"allow": []interface{}{"Write", "Edit"},
+		},
+	}
+
+	merged := MergeSettings(existing, defaults)
+
+	perms := merged["permissions"].(map[string]interface{})
+	allow := perms["allow"].([]string)
+
+	sort.Strings(allow)
+	want := []string{"Edit", "Read", "Write"}
+	sort.Strings(want)
+
+	if !reflect.DeepEqual(allow, want) {
+		t.Errorf("allow list union with []interface{}: got %v, want %v", allow, want)
+	}
+}
+
+func TestMergeSettings_NoAllowInExisting(t *testing.T) {
+	defaults := map[string]interface{}{
+		"permissions": map[string]interface{}{
+			"allow": []string{"Read", "Write"},
+			"deny":  []string{"rule-a"},
+		},
+	}
+	existing := map[string]interface{}{}
+
+	merged := MergeSettings(existing, defaults)
+
+	perms := merged["permissions"].(map[string]interface{})
+	allow := perms["allow"].([]string)
+
+	if len(allow) != 2 || allow[0] != "Read" || allow[1] != "Write" {
+		t.Errorf("expected default allow list, got %v", allow)
+	}
+}
+
+func TestMergeSettings_ForcePermissionsReplace(t *testing.T) {
+	defaults := map[string]interface{}{
+		"permissions": map[string]interface{}{
+			"allow": []string{"Read", "Write"},
+			"deny":  []string{"rule-a"},
+		},
+		"env": map[string]interface{}{
+			"KEY1": "default",
+		},
+	}
+	existing := map[string]interface{}{
+		"permissions": map[string]interface{}{
+			"allow":                 []string{"Bash(custom *)"},
+			"deny":                  []string{"rule-b"},
+			"additionalDirectories": []string{"/tmp"},
+		},
+		"env": map[string]interface{}{
+			"KEY1": "custom",
+			"KEY2": "user",
+		},
+		"customSetting": true,
+	}
+
+	merged := MergeSettingsForce(existing, defaults)
+
+	// Permissions should be replaced wholesale from defaults
+	perms := merged["permissions"].(map[string]interface{})
+	allow := perms["allow"].([]string)
+	if len(allow) != 2 || allow[0] != "Read" || allow[1] != "Write" {
+		t.Errorf("force should replace allow list: got %v", allow)
+	}
+	deny := perms["deny"].([]string)
+	if len(deny) != 1 || deny[0] != "rule-a" {
+		t.Errorf("force should replace deny list: got %v", deny)
+	}
+	// additionalDirectories should NOT be present (replaced wholesale)
+	if _, ok := perms["additionalDirectories"]; ok {
+		t.Error("force should replace all permissions, removing additionalDirectories")
+	}
+
+	// Env should still be merged (existing takes precedence)
+	env := merged["env"].(map[string]interface{})
+	if env["KEY1"] != "custom" {
+		t.Errorf("env should preserve existing values: got KEY1=%v", env["KEY1"])
+	}
+	if env["KEY2"] != "user" {
+		t.Errorf("env should preserve user-only keys: got KEY2=%v", env["KEY2"])
+	}
+
+	// Other settings should be preserved
+	if merged["customSetting"] != true {
+		t.Error("force should preserve non-permission settings")
 	}
 }
 
