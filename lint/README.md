@@ -5,11 +5,11 @@ CUE-based schema validation for `_template/` configuration files. Catches invali
 ## Quick Start
 
 ```bash
-# Install CUE
-brew install cue-lang/tap/cue
-
-# Run lint
+# Run lint (auto-installs CUE if missing)
 make lint
+
+# Or install all build dependencies explicitly
+make dep
 ```
 
 ## What Gets Validated

@@ -47,6 +47,8 @@ cd ~/claude-workspace
 make install   # builds and copies to /usr/local/bin
 ```
 
+> **Note:** Go and CUE are automatically installed by Make targets if not already present. You only need Git and Make to build from source.
+
 Then run the setup wizard:
 
 ```bash

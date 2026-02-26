@@ -108,6 +108,8 @@ git clone --branch v1.0.0 <platform-repo> ~/claude-workspace
 | `install` | `make install` | Build and copy to `/usr/local/bin` (requires sudo) |
 | `test` | `make test` | Run `go test ./...` |
 | `vet` | `make vet` | Run `go vet ./...` for static analysis |
+| `lint` | `make lint` | CUE-based template validation (auto-installs CUE if missing) |
+| `dep` | `make dep` | Auto-install Go and CUE toolchains if missing |
 | `clean` | `make clean` | Remove compiled binaries |
 | `build-all` | `make build-all` | Cross-compile for darwin/linux × amd64/arm64 |
 | `smoke-test` | `make smoke-test` | Full end-to-end smoke test in a Multipass VM |
@@ -115,7 +117,7 @@ git clone --branch v1.0.0 <platform-repo> ~/claude-workspace
 | `smoke-test-fast` | `make smoke-test-fast` | Smoke test with stubbed Claude CLI (~1-2 min) |
 | `smoke-test-docker` | `make smoke-test-docker` | Full smoke test using Docker (no VM required) |
 | `smoke-test-docker-fast` | `make smoke-test-docker-fast` | Docker smoke test with stubbed Claude CLI (used in CI) |
-| `check` | `make check` | Pre-push validation: vet + test + build |
+| `check` | `make check` | Pre-push validation: vet + test + lint + build (auto-installs deps) |
 | `dev-docker` | `make dev-docker` | Create persistent Docker dev environment |
 | `dev-vm` | `make dev-vm` | Create persistent Multipass VM dev environment |
 | `deploy-docker` | `make deploy-docker` | Fast deploy binary to Docker dev env (~10s) |

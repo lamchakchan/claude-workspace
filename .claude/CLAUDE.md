@@ -26,7 +26,7 @@ Lint: `go vet ./...` and `make lint` (CUE-based template validation)
 - _template/project/   - Embedded assets copied into target projects by `attach` (agents, skills, hooks, settings)
 - _template/global/    - Embedded global-level assets (global CLAUDE.md, global settings)
 - docs/                - Documentation: architecture, CLI reference, getting started, config, MCP configs, runbook, memory
-- scripts/             - Shell scripts: smoke tests, dev environment management, CI helpers, template linting, shared libraries
+- scripts/             - Shell scripts: smoke tests, dev environment management, CI helpers, template linting, dependency auto-install, shared libraries
 - lint/                - CUE schemas for validating template JSON files (agents, skills, settings, MCP configs)
 - plans/               - Implementation plans directory (created by attach in target projects)
 
@@ -42,6 +42,7 @@ Lint: `go vet ./...` and `make lint` (CUE-based template validation)
 - Shell scripts (.sh) get 0755 permissions when extracted; all other files get 0644
 - Only one external dependency: `golang.org/x/term` (for masked terminal input)
 - Scripts share common functions via `lib.sh`, `lib-phases.sh`, and `lib-provision.sh` in `scripts/`
+- `make dep` auto-installs Go and CUE if missing; individual targets (test, vet, lint, build) also ensure their deps before running
 
 ## Important Files
 - `main.go` - CLI entry point, command routing, embedded FS wiring
@@ -58,6 +59,7 @@ Lint: `go vet ./...` and `make lint` (CUE-based template validation)
 - `internal/setup/setup.go` - First-time setup flow including Claude CLI and API key provisioning
 - `Makefile` - Build targets, cross-compilation, smoke tests, dev environment management
 - `install.sh` - Curl-pipe installer for end users
+- `scripts/install-deps.sh` - Auto-detection and installation of Go and CUE toolchains (reads go.mod for version)
 
 ## Important Notes
 - The `_template/project/` directory must stay in sync with the root `.claude/` folder; changes to agents, skills, hooks, or settings in one must be mirrored to the other (exception: auto-memory files under `.claude/` are NOT mirrored)
