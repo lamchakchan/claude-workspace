@@ -1,13 +1,11 @@
 package setup
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 	"github.com/lamchakchan/claude-workspace/internal/statusline"
@@ -124,18 +122,10 @@ func Run(args []string) error {
 	platform.PrintStep(os.Stdout, 8, 9, "Checking optional system tools...")
 	tools.CheckAndInstall(tools.Optional())
 
-	// Step 9: Optional statusline setup
+	// Step 9: Statusline setup
 	platform.PrintStep(os.Stdout, 9, 9, "Statusline setup (cost & context display)...")
-	platform.PrintPrompt(os.Stdout, "  Configure statusline for cost & context display? [Y/n] ")
-	reader := bufio.NewReader(os.Stdin)
-	answer, _ := reader.ReadString('\n')
-	answer = strings.TrimSpace(strings.ToLower(answer))
-	if answer == "" || answer == "y" || answer == "yes" {
-		if err := statusline.Run([]string{}); err != nil {
-			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("statusline setup skipped: %v", err))
-		}
-	} else {
-		fmt.Println("  Skipped. Run 'claude-workspace statusline' anytime to configure.")
+	if err := statusline.Run([]string{}); err != nil {
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("statusline setup skipped: %v", err))
 	}
 
 	platform.PrintBanner(os.Stdout, "Setup Complete")
