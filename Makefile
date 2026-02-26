@@ -7,7 +7,7 @@ GO_SOURCES := $(shell find . -name '*.go' -not -path './bin/*' -not -path './.gi
               $(wildcard go.mod go.sum) \
               $(shell find ./_template -type f 2>/dev/null)
 
-.PHONY: build install test clean build-all vet smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast check dev-docker dev-vm deploy-docker deploy-vm shell-docker shell-vm destroy-docker destroy-vm
+.PHONY: build install test clean build-all vet lint smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast check dev-docker dev-vm deploy-docker deploy-vm shell-docker shell-vm destroy-docker destroy-vm
 
 build: build-all
 
@@ -19,6 +19,9 @@ test:
 
 vet:
 	go vet ./...
+
+lint:
+	bash scripts/lint-templates.sh
 
 clean:
 	rm -f $(BINARY)
@@ -58,8 +61,8 @@ smoke-test-docker:
 smoke-test-docker-fast:
 	bash scripts/smoke-test.sh --docker --skip-claude-cli
 
-# Pre-push validation (vet + test + build)
-check: vet test build
+# Pre-push validation (vet + test + lint + build)
+check: vet test lint build
 	@echo "All checks passed."
 
 # Persistent dev environment (create + provision)

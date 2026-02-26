@@ -55,9 +55,9 @@
       }
     ]
   },
-  "alwaysThinkingEnabled": true,
   "plansDirectory": "./plans",
   "showTurnDuration": true,
   "enableAllProjectMcpServers": false,
+  "alwaysThinkingEnabled": true,
   "respectGitignore": true
 }
