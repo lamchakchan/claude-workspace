@@ -56,6 +56,8 @@ done
 
 # ---------- shared helpers ----------
 source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/lib-provision.sh"
+source "$(dirname "$0")/lib-phases.sh"
 
 # ---------- dev-env helpers ----------
 env_exists() {
@@ -141,38 +143,7 @@ cmd_create() {
 
     # Provision
     echo -e "\n${BOLD}--- Provision ---${NC}"
-
-    if [[ "$MODE" == "docker" ]]; then
-        echo "  Creating ubuntu user..."
-        docker exec "$VM_NAME" bash -c "useradd -m -s /bin/bash ubuntu" 2>/dev/null || true
-    fi
-
-    echo "  Transferring binary..."
-    copy_binary
-
-    echo "  Installing prerequisites (git, curl, python3, sudo)..."
-    root_exec "apt-get update -qq && apt-get install -y -qq git curl python3 sudo >/dev/null 2>&1"
-
-    if [[ "$MODE" == "docker" ]]; then
-        echo "  Configuring passwordless sudo for ubuntu..."
-        root_exec "usermod -aG sudo ubuntu && echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"
-    fi
-
-    echo "  Pre-seeding ~/.claude.json..."
-    vm_exec 'cat > /home/ubuntu/.claude.json << '\''SEED'\''
-{"oauthAccount":{"email":"dev-test@example.com"}}
-SEED'
-
-    echo "  Creating stub claude CLI..."
-    root_exec 'tee /usr/local/bin/claude > /dev/null << '\''STUB'\''
-#!/bin/bash
-if [[ "$1" == "--version" ]]; then
-    echo "claude 1.0.0-stub"
-else
-    echo "stub: $*"
-fi
-STUB
-chmod +x /usr/local/bin/claude'
+    provision_environment "dev-test@example.com"
 
     echo -e "\n${GREEN}Dev environment '${VM_NAME}' is ready.${NC}"
     echo "  Deploy:   bash scripts/dev-env.sh deploy --${MODE}"
@@ -247,132 +218,6 @@ SEED'
         exit 1
     else
         echo -e "\n${GREEN}ALL TESTS PASSED${NC}"
-    fi
-}
-
-# ---------- test phases ----------
-run_phase_setup() {
-    echo -e "\n${BOLD}--- Phase: claude-workspace setup ---${NC}"
-
-    local output
-    output=$(vm_exec "claude-workspace setup" 2>&1) || true
-    echo "$output" | sed 's/^/  | /'
-
-    echo ""
-    echo "  Assertions:"
-
-    assert "~/.claude/settings.json exists" \
-        vm_exec_quiet "test -f /home/ubuntu/.claude/settings.json"
-
-    assert "~/.claude/CLAUDE.md exists" \
-        vm_exec_quiet "test -f /home/ubuntu/.claude/CLAUDE.md"
-
-    assert "claude-workspace is executable in PATH" \
-        vm_exec_quiet "test -x /usr/local/bin/claude-workspace"
-}
-
-run_phase_attach() {
-    echo -e "\n${BOLD}--- Phase: claude-workspace attach ---${NC}"
-
-    # Create a test git repo
-    echo "  Creating test project..."
-    vm_exec "mkdir -p /home/ubuntu/test-project && cd /home/ubuntu/test-project && git init && git config user.email test@example.com && git config user.name Test && touch README.md && git add . && git commit -m 'init' -q"
-
-    local output
-    output=$(vm_exec "claude-workspace attach /home/ubuntu/test-project" 2>&1) || true
-    echo "$output" | sed 's/^/  | /'
-
-    echo ""
-    echo "  Assertions:"
-
-    local project="/home/ubuntu/test-project"
-
-    assert ".claude/settings.json exists" \
-        vm_exec_quiet "test -f ${project}/.claude/settings.json"
-
-    assert ".claude/CLAUDE.md exists" \
-        vm_exec_quiet "test -f ${project}/.claude/CLAUDE.md"
-
-    assert ".mcp.json exists and is valid JSON" \
-        vm_exec_quiet "python3 -c \"import json; json.load(open('${project}/.mcp.json'))\""
-
-    for hook in auto-format.sh block-dangerous-commands.sh enforce-branch-policy.sh validate-secrets.sh; do
-        assert "hook ${hook} exists and is executable" \
-            vm_exec_quiet "test -x ${project}/.claude/hooks/${hook}"
-    done
-
-    assert ".claude/agents/ is non-empty" \
-        vm_exec_quiet "test -d ${project}/.claude/agents && [ \"\$(ls -A ${project}/.claude/agents)\" ]"
-
-    assert ".claude/skills/ is non-empty" \
-        vm_exec_quiet "test -d ${project}/.claude/skills && [ \"\$(ls -A ${project}/.claude/skills)\" ]"
-}
-
-run_phase_doctor() {
-    echo -e "\n${BOLD}--- Phase: claude-workspace doctor ---${NC}"
-
-    local project="/home/ubuntu/test-project"
-    local output
-    output=$(vm_exec "cd ${project} && ANTHROPIC_API_KEY=sk-fake claude-workspace doctor" 2>&1) || true
-    echo "$output" | sed 's/^/  | /'
-
-    echo ""
-    echo "  Assertions:"
-
-    local fail_lines
-    fail_lines=$(echo "$output" | grep -c '\[FAIL\]' || true)
-    if [[ "$fail_lines" -eq 0 ]]; then
-        assert_pass "doctor output contains no [FAIL] lines"
-    else
-        assert_fail "doctor output contains ${fail_lines} [FAIL] line(s)"
-    fi
-}
-
-run_phase_upgrade_check() {
-    echo -e "\n${BOLD}--- Phase: claude-workspace upgrade --check ---${NC}"
-
-    local exit_code=0
-    local output
-    output=$(vm_exec "claude-workspace upgrade --check" 2>&1) || exit_code=$?
-    echo "$output" | sed 's/^/  | /'
-
-    echo ""
-    echo "  Assertions:"
-
-    if [[ "$exit_code" -eq 1 ]]; then
-        assert_pass "exit code is 1 (update available)"
-    else
-        if echo "$output" | grep -q "rate limit\|checking for updates"; then
-            echo -e "  ${YELLOW}[SKIP]${NC} GitHub API unavailable (rate limited or no network)"
-        else
-            assert_fail "exit code was ${exit_code}, expected 1 (update available)"
-        fi
-    fi
-
-    if echo "$output" | grep -q "Current: dev"; then
-        assert_pass "output shows 'Current: dev'"
-    else
-        assert_fail "output missing 'Current: dev'"
-    fi
-
-    if echo "$output" | grep -q "Latest:"; then
-        assert_pass "output shows 'Latest:' version"
-    else
-        if echo "$output" | grep -q "rate limit\|checking for updates"; then
-            echo -e "  ${YELLOW}[SKIP]${NC} Cannot verify latest version (API unavailable)"
-        else
-            assert_fail "output missing 'Latest:' version"
-        fi
-    fi
-
-    if echo "$output" | grep -q "dev build"; then
-        assert_pass "output shows dev build warning"
-    else
-        if echo "$output" | grep -q "rate limit\|checking for updates"; then
-            echo -e "  ${YELLOW}[SKIP]${NC} Cannot verify dev warning (API unavailable)"
-        else
-            assert_fail "output missing dev build warning"
-        fi
     fi
 }
 

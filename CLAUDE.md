@@ -33,8 +33,8 @@ You are a platform-aware AI coding agent deployed via the Claude Code Platform E
 ## Model Usage Guidelines
 
 - **Default coding work**: Use the current model (Sonnet)
+- **Planning and architecture**: Use Opus (default for subagents without an explicit model override)
 - **Codebase exploration**: Delegate to Explore subagent (uses Haiku for speed)
-- **Complex architecture/reasoning**: Request Opus when the task demands it
 - **Quick lookups**: Use Haiku-class subagents for fast, focused tasks
 
 ## Context Management for Large Projects

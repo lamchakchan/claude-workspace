@@ -18,8 +18,7 @@ This guide walks you through setting up the platform, attaching it to your first
 10. [Agent Teams](#10-agent-teams)
 11. [Day-to-Day Workflow](#11-day-to-day-workflow)
 12. [Tips and Tricks](#12-tips-and-tricks)
-13. [Configuration File Reference](#13-configuration-file-reference)
-14. [Environment Variables](#14-environment-variables)
+13. [Configuration Reference](#13-configuration-reference)
 
 ---
 
@@ -649,35 +648,6 @@ This runs in an isolated context and returns a concise summary, keeping your mai
 
 ---
 
-## 13. Configuration File Reference
+## 13. Configuration Reference
 
-All configuration files used by the platform, with their purpose and whether they are committed to git.
-
-| File | Purpose | Shared? |
-|------|---------|---------|
-| `.claude/settings.json` | Team defaults, permissions, hooks | Yes (git) |
-| `.claude/settings.local.json` | Personal overrides | No (gitignored) |
-| `.claude/CLAUDE.md` | Team instructions | Yes (git) |
-| `.claude/CLAUDE.local.md` | Personal instructions | No (gitignored) |
-| `.claude/agents/*.md` | Subagent definitions | Yes (git) |
-| `.claude/skills/*/SKILL.md` | Skill definitions | Yes (git) |
-| `.claude/hooks/*.sh` | Hook scripts | Yes (git) |
-| `.mcp.json` | Project MCP servers | Yes (git) |
-| `~/.claude/settings.json` | Global user settings | No (local) |
-| `~/.claude/CLAUDE.md` | Global user instructions | No (local) |
-| `~/.claude/agents/*.md` | User-level agents | No (local) |
-
----
-
-## 14. Environment Variables
-
-Environment variables that control platform behavior. Set these in your shell profile or in `.claude/settings.json` under the `env` key.
-
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `ANTHROPIC_API_KEY` | API authentication | (required) |
-| `ANTHROPIC_MODEL` | Override default model | `sonnet` |
-| `CLAUDE_CODE_SUBAGENT_MODEL` | Subagent model | `sonnet` |
-| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | Enable agent teams | `1` |
-| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | Auto-compact threshold | `80` |
-| `CLAUDE_CODE_ENABLE_TASKS` | Enable task tracking | `true` |
+For the complete reference covering every configuration file, settings layering, permission coalescing, MCP scopes, model resolution, and environment variables, see **[CONFIG.md](CONFIG.md)**.

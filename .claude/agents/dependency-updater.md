@@ -4,6 +4,7 @@ description: Dependency update and maintenance agent. Use when updating dependen
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 model: sonnet
 maxTurns: 20
+permissionMode: acceptEdits
 ---
 
 You are a dependency management specialist. You analyze, update, and maintain

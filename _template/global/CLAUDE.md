@@ -6,7 +6,7 @@ Follow the platform conventions, use subagents for delegation, and plan before i
 
 ## Defaults
 - Always use TodoWrite for multi-step tasks
-- Prefer Sonnet for coding, Haiku for exploration
+- Prefer Sonnet for coding, Opus for planning, Haiku for exploration
 - Read files before modifying them
 - Run tests after making changes
 - Never commit secrets or credentials

@@ -8,6 +8,8 @@ on:
       - 'go.sum'
       - '.claude/**'
       - '.mcp.json'
+      - '_template/**'
+      - 'lint/**'
       - 'Makefile'
       - 'scripts/**'
       - '.github/workflows/ci.yml'
@@ -19,6 +21,8 @@ on:
       - 'go.sum'
       - '.claude/**'
       - '.mcp.json'
+      - '_template/**'
+      - 'lint/**'
       - 'Makefile'
       - 'scripts/**'
       - '.github/workflows/ci.yml'
@@ -38,6 +42,15 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.24"
+
+      - name: Setup CUE
+        uses: cue-lang/setup-cue@v1.0.1
+        with:
+          version: 'latest'
+
+      - name: Lint templates
+        if: always()
+        run: make lint
 
       - name: Vet
         run: go vet ./...

@@ -69,14 +69,11 @@ rm -rf ~/.claude/projects/-Users-lam-git-myproject/memory/
 
 ## 3. CLAUDE.md Files (instruction memory)
 
-CLAUDE.md files contain instructions you write for Claude. They are loaded at session start and persist until you edit them.
+CLAUDE.md files contain instructions you write for Claude. They are loaded at session start and concatenated — all active files are merged into one instruction set, with later-loaded (more specific) files taking precedence for the same directive.
 
-**Hierarchy (most specific wins):**
+Load order: global user (`~/.claude/CLAUDE.md`) → project root (`CLAUDE.md`) → project config (`.claude/CLAUDE.md`) → personal override (`.claude/CLAUDE.local.md`).
 
-1. **Managed policy** — IT/DevOps-deployed, applies to all org users. Edit via your config management system.
-2. **Project CLAUDE.md** — `.claude/CLAUDE.md` in your repo. Shared with the team via git. For architecture, conventions, build commands.
-3. **User CLAUDE.md** — `~/.claude/CLAUDE.md`. Personal preferences for all projects. For your tool preferences, communication style.
-4. **CLAUDE.local.md** — `./CLAUDE.local.md` in your repo, auto-gitignored. For personal project overrides (sandbox URLs, local test data).
+> For the full layering diagram, path-specific rules, and `@import` syntax, see [CONFIG.md — Prompt Layering](CONFIG.md#3-prompt-layering-claudemd).
 
 **Example Project CLAUDE.md instructions** (shared with the whole team):
 

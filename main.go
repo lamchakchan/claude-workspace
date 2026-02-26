@@ -9,6 +9,7 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/attach"
 	"github.com/lamchakchan/claude-workspace/internal/cost"
 	"github.com/lamchakchan/claude-workspace/internal/doctor"
+	"github.com/lamchakchan/claude-workspace/internal/enrich"
 	"github.com/lamchakchan/claude-workspace/internal/mcp"
 	"github.com/lamchakchan/claude-workspace/internal/memory"
 	"github.com/lamchakchan/claude-workspace/internal/platform"
@@ -34,6 +35,8 @@ Commands:
     [--symlink]                  Use symlinks instead of copying assets
     [--force]                    Overwrite existing files
     [--no-enrich]                Skip AI-powered CLAUDE.md enrichment
+  enrich [project-path]          Re-generate .claude/CLAUDE.md with AI analysis
+    [--scaffold-only]            Generate static scaffold only (skip AI enrichment)
   sandbox <project-path> <name>  Create a sandboxed branch worktree
   mcp add <name> [options]       Add an MCP server (local or remote)
   mcp remote <url>               Connect to a remote MCP server/gateway
@@ -133,6 +136,15 @@ func main() {
 			target = args[1]
 		}
 		if err := attach.Run(target, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "enrich":
+		var target string
+		if len(args) > 1 && args[1][0] != '-' {
+			target = args[1]
+		}
+		if err := enrich.Run(target, args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

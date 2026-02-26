@@ -62,6 +62,49 @@ claude-workspace attach /path/to/my-project --no-enrich
 
 ---
 
+## claude-workspace enrich
+
+Re-generate `.claude/CLAUDE.md` with AI-powered project analysis, without re-running the full `attach` workflow. Useful when a project evolves and the CLAUDE.md falls out of date.
+
+**Synopsis:**
+
+```
+claude-workspace enrich [project-path] [--scaffold-only]
+```
+
+**Flags:**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--scaffold-only` | bool | `false` | Generate the static scaffold only (skip AI enrichment). Useful without an API key or for a quick reset. |
+
+**Behavior:**
+
+1. Resolves the project directory (defaults to the current working directory if omitted).
+2. Creates `.claude/` if it does not exist.
+3. If `.claude/CLAUDE.md` is missing, generates a static scaffold (auto-detects tech stack from `go.mod`, `package.json`, `Cargo.toml`, `pyproject.toml`).
+4. Unless `--scaffold-only`, runs `claude -p` with Opus to analyze the project and overwrite `.claude/CLAUDE.md` with enriched content (directories, conventions, important files). Falls back gracefully if the Claude CLI is unavailable or errors.
+
+**Examples:**
+
+```bash
+# Re-enrich the current project's CLAUDE.md
+claude-workspace enrich
+
+# Enrich a specific project
+claude-workspace enrich /path/to/my-project
+
+# Generate scaffold only (no API key needed)
+claude-workspace enrich --scaffold-only
+
+# Generate scaffold for a specific project
+claude-workspace enrich /path/to/my-project --scaffold-only
+```
+
+**See also:** [`claude-workspace attach --no-enrich`](#claude-workspace-attach)
+
+---
+
 ## claude-workspace sandbox
 
 Create a sandboxed git worktree branch for parallel Claude Code sessions on the same repository.
