@@ -7,32 +7,42 @@ GO_SOURCES := $(shell find . -name '*.go' -not -path './bin/*' -not -path './.gi
               $(wildcard go.mod go.sum) \
               $(shell find ./_template -type f 2>/dev/null)
 
-.PHONY: build install test clean build-all vet lint smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast check doc dev-docker dev-vm deploy-docker deploy-vm shell-docker shell-vm destroy-docker destroy-vm
+.PHONY: build install test clean build-all vet lint smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast check doc dev-docker dev-vm deploy-docker deploy-vm shell-docker shell-vm destroy-docker destroy-vm dep ensure-go ensure-cue
 
+# ---------- dependency targets ----------
+dep: ensure-go ensure-cue
+
+ensure-go:
+	@bash scripts/install-deps.sh --go
+
+ensure-cue:
+	@bash scripts/install-deps.sh --cue
+
+# ---------- build / test / lint ----------
 build: build-all
 
 install: build
 	sudo cp $(BINARY) /usr/local/bin/$(BINARY)
 
-test:
+test: ensure-go
 	go test ./...
 
-vet:
+vet: ensure-go
 	go vet ./...
 
-lint:
+lint: ensure-cue
 	bash scripts/lint-templates.sh
 
 # Serve godoc locally using pkgsite
 GOBIN := $(shell go env GOPATH)/bin
 PKGSITE := $(GOBIN)/pkgsite
 
-doc: $(PKGSITE)
+doc: ensure-go $(PKGSITE)
 	@echo "Starting pkgsite at http://localhost:6060"
 	@echo "View docs at http://localhost:6060/github.com/lamchakchan/claude-workspace"
 	$(PKGSITE) -http=localhost:6060 -open .
 
-$(PKGSITE):
+$(PKGSITE): | ensure-go
 	go install golang.org/x/pkgsite/cmd/pkgsite@latest
 
 clean:
@@ -43,7 +53,8 @@ clean:
 build-all: bin/.stamp
 
 # Real file target: only rebuilds when Go sources or template assets change
-bin/.stamp: $(GO_SOURCES)
+# ensure-go is order-only (|) so it doesn't force rebuilds — only GO_SOURCES drive that
+bin/.stamp: $(GO_SOURCES) | ensure-go
 	@mkdir -p bin
 	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o bin/$(BINARY)-darwin-arm64 .
 	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY)-darwin-amd64 .
