@@ -1,6 +1,7 @@
 package statusline
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -71,7 +72,7 @@ func TestConfigure_WritesScriptAndSettings(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	if err := configure(false); err != nil {
+	if err := configureTo(io.Discard, false); err != nil {
 		t.Fatalf("configure: %v", err)
 	}
 

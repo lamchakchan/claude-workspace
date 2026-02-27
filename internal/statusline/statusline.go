@@ -5,6 +5,7 @@ package statusline
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -153,11 +154,22 @@ func Run(args []string) error {
 			force = true
 		}
 	}
-	return configure(force)
+	return configureTo(os.Stdout, force)
 }
 
-// configure writes ~/.claude/statusline.sh and registers it in ~/.claude/settings.json.
-func configure(force bool) error {
+// RunTo is like Run but writes all output to w instead of os.Stdout.
+func RunTo(w io.Writer, args []string) error {
+	force := false
+	for _, a := range args {
+		if a == "--force" {
+			force = true
+		}
+	}
+	return configureTo(w, force)
+}
+
+// configureTo writes ~/.claude/statusline.sh and registers it in ~/.claude/settings.json.
+func configureTo(w io.Writer, force bool) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("getting home directory: %w", err)
@@ -181,7 +193,7 @@ func configure(force bool) error {
 
 	if !force {
 		if _, exists := settings["statusLine"]; exists {
-			platform.PrintOK(os.Stdout, "statusLine already configured in ~/.claude/settings.json (use --force to overwrite)")
+			platform.PrintOK(w, "statusLine already configured in ~/.claude/settings.json (use --force to overwrite)")
 			return nil
 		}
 	}
@@ -190,7 +202,7 @@ func configure(force bool) error {
 	if err := writeWrapperScript(scriptPath); err != nil {
 		return fmt.Errorf("writing statusline script: %w", err)
 	}
-	fmt.Printf("  Script written: %s\n", scriptPath)
+	fmt.Fprintf(w, "  Script written: %s\n", scriptPath)
 
 	cmd := "bash " + scriptPath
 	settings["statusLine"] = map[string]interface{}{
@@ -203,8 +215,8 @@ func configure(force bool) error {
 		return fmt.Errorf("writing settings: %w", err)
 	}
 
-	platform.PrintOK(os.Stdout, "statusLine configured in ~/.claude/settings.json")
-	fmt.Println("  Restart Claude Code to activate the statusline.")
+	platform.PrintOK(w, "statusLine configured in ~/.claude/settings.json")
+	fmt.Fprintln(w, "  Restart Claude Code to activate the statusline.")
 	return nil
 }
 

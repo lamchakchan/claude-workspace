@@ -168,11 +168,13 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd {
 	case "cost":
 		return pushView(NewCost(m.theme))
 
-	// Setup and statusline suspend the TUI, run their interactive flow,
-	// then resume back to the launcher when done.
-	default:
-		return execAndReturn(item.command, item.args)
+	// In-app viewers for setup and statusline
+	case "setup":
+		return pushView(NewSetup(m.theme))
+	case "statusline":
+		return pushView(NewStatusline(m.theme))
 	}
+	return nil
 }
 
 func (m *launcherModel) View() tea.View {
@@ -245,11 +247,5 @@ func (m *launcherModel) View() tea.View {
 func pushView(model tea.Model) tea.Cmd {
 	return func() tea.Msg {
 		return PushViewMsg{Model: model}
-	}
-}
-
-func execAndReturn(command string, args []string) tea.Cmd {
-	return func() tea.Msg {
-		return ExecAndReturnMsg{Command: command, Args: args}
 	}
 }

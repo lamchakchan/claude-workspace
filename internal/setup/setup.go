@@ -7,6 +7,7 @@ package setup
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -39,149 +40,187 @@ func Run(args []string) error {
 			force = true
 		}
 	}
+	return runTo(os.Stdout, force, true)
+}
 
-	platform.PrintBanner(os.Stdout, "Claude Code Platform Setup")
+// RunTo is like Run but writes all output to w instead of os.Stdout and skips
+// interactive steps (e.g., API key provisioning that requires stdin).
+func RunTo(w io.Writer, args []string) error {
+	force := false
+	for _, a := range args {
+		if a == "--force" {
+			force = true
+		}
+	}
+	return runTo(w, force, false)
+}
 
-	platform.PrintStep(os.Stdout, 1, 9, "Checking Claude Code installation...")
-	if err := ensureClaudeCLI(); err != nil {
+func runTo(w io.Writer, force, interactive bool) error {
+	platform.PrintBanner(w, "Claude Code Platform Setup")
+
+	platform.PrintStep(w, 1, 9, "Checking Claude Code installation...")
+	if err := ensureClaudeCLITo(w); err != nil {
 		return err
 	}
 
-	platform.PrintStep(os.Stdout, 2, 9, "API Key provisioning...")
-	if err := provisionAPIKey(); err != nil {
+	platform.PrintStep(w, 2, 9, "API Key provisioning...")
+	if err := provisionAPIKeyTo(w, interactive); err != nil {
 		return err
 	}
 
-	platform.PrintStep(os.Stdout, 3, 9, "Setting up global user configuration...")
-	if err := setupGlobalSettings(force); err != nil {
+	platform.PrintStep(w, 3, 9, "Setting up global user configuration...")
+	if err := setupGlobalSettingsTo(w, force); err != nil {
 		return err
 	}
 
-	platform.PrintStep(os.Stdout, 4, 9, "Setting up global CLAUDE.md...")
-	if err := setupGlobalClaudeMd(); err != nil {
+	platform.PrintStep(w, 4, 9, "Setting up global CLAUDE.md...")
+	if err := setupGlobalClaudeMdTo(w); err != nil {
 		return err
 	}
 
-	platform.PrintStep(os.Stdout, 5, 9, "Installing claude-workspace to PATH...")
-	installBinaryToPath()
+	platform.PrintStep(w, 5, 9, "Installing claude-workspace to PATH...")
+	installBinaryToPathTo(w)
 
-	platform.PrintStep(os.Stdout, 6, 9, "Checking Node.js (required for filesystem MCP server)...")
-	ensureNode()
+	platform.PrintStep(w, 6, 9, "Checking Node.js (required for filesystem MCP server)...")
+	ensureNodeTo(w)
 
-	platform.PrintStep(os.Stdout, 7, 9, "Registering user-scoped MCP servers...")
-	if err := setupUserMCPServers(force); err != nil {
-		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("MCP server registration skipped: %v", err))
+	platform.PrintStep(w, 7, 9, "Registering user-scoped MCP servers...")
+	if err := setupUserMCPServersTo(w, force); err != nil {
+		platform.PrintWarningLine(w, fmt.Sprintf("MCP server registration skipped: %v", err))
 	}
 
-	platform.PrintStep(os.Stdout, 8, 9, "Checking optional system tools...")
-	tools.CheckAndInstall(tools.Optional())
+	platform.PrintStep(w, 8, 9, "Checking optional system tools...")
+	tools.CheckAndInstallTo(w, tools.Optional())
 
-	platform.PrintStep(os.Stdout, 9, 9, "Statusline setup (cost & context display)...")
-	if err := statusline.Run([]string{}); err != nil {
-		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("statusline setup skipped: %v", err))
+	platform.PrintStep(w, 9, 9, "Statusline setup (cost & context display)...")
+	if err := statusline.RunTo(w, []string{}); err != nil {
+		platform.PrintWarningLine(w, fmt.Sprintf("statusline setup skipped: %v", err))
 	}
 
-	platform.PrintBanner(os.Stdout, "Setup Complete")
-	fmt.Println("\nNext steps:")
-	fmt.Println()
-	platform.PrintCommand(os.Stdout, "claude-workspace attach /path/to/project")
-	platform.PrintCommand(os.Stdout, "cd /path/to/project && claude")
-	platform.PrintCommand(os.Stdout, "claude-workspace mcp add <name> -- <command>")
-	fmt.Println()
+	platform.PrintBanner(w, "Setup Complete")
+	fmt.Fprintln(w, "\nNext steps:")
+	fmt.Fprintln(w)
+	platform.PrintCommand(w, "claude-workspace attach /path/to/project")
+	platform.PrintCommand(w, "cd /path/to/project && claude")
+	platform.PrintCommand(w, "claude-workspace mcp add <name> -- <command>")
+	fmt.Fprintln(w)
 
 	return nil
 }
 
 // ensureClaudeCLI checks for and installs the Claude Code CLI.
 func ensureClaudeCLI() error {
+	return ensureClaudeCLITo(os.Stdout)
+}
+
+func ensureClaudeCLITo(w io.Writer) error {
 	npmInfo := DetectNpmClaude()
 	if npmInfo.Detected {
-		fmt.Printf("  Detected Claude Code installed via npm (source: %s).\n", npmInfo.Source)
-		fmt.Println("  Removing npm version before installing official binary...")
+		fmt.Fprintf(w, "  Detected Claude Code installed via npm (source: %s).\n", npmInfo.Source)
+		fmt.Fprintln(w, "  Removing npm version before installing official binary...")
 		if err := UninstallNpmClaude(npmInfo); err != nil {
-			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not remove npm Claude: %v", err))
-			fmt.Println("  Please run manually: npm uninstall -g @anthropic-ai/claude-code")
-			fmt.Println("  Then re-run: claude-workspace setup")
+			platform.PrintWarningLine(w, fmt.Sprintf("could not remove npm Claude: %v", err))
+			fmt.Fprintln(w, "  Please run manually: npm uninstall -g @anthropic-ai/claude-code")
+			fmt.Fprintln(w, "  Then re-run: claude-workspace setup")
 			return fmt.Errorf("npm Claude uninstall failed: %w", err)
 		}
-		fmt.Println("  npm Claude Code removed successfully.")
+		fmt.Fprintln(w, "  npm Claude Code removed successfully.")
 	}
 
 	claudeTool := tools.Claude()
 	if claudeTool.IsInstalled() {
 		ver, _ := platform.Output("claude", "--version")
-		fmt.Printf("  Claude Code CLI found: %s\n", ver)
+		fmt.Fprintf(w, "  Claude Code CLI found: %s\n", ver)
 
 		if claudePath, err := exec.LookPath("claude"); err == nil {
 			home, _ := os.UserHomeDir()
-			if err := ensureLocalBinClaude(home, claudePath); err != nil {
-				platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not create ~/.local/bin/claude: %v", err))
+			if err := ensureLocalBinClaudeTo(w, home, claudePath); err != nil {
+				platform.PrintWarningLine(w, fmt.Sprintf("could not create ~/.local/bin/claude: %v", err))
 			}
 		}
 		return nil
 	}
 
-	fmt.Println("  Claude Code CLI not found. Installing...")
+	fmt.Fprintln(w, "  Claude Code CLI not found. Installing...")
 	return claudeTool.Install()
 }
 
 // ensureNode checks for Node.js and installs it if missing.
 func ensureNode() {
+	ensureNodeTo(os.Stdout)
+}
+
+func ensureNodeTo(w io.Writer) {
 	nodeTool := tools.Node()
 	if nodeTool.IsInstalled() {
 		ver, _ := platform.Output("node", "--version")
-		fmt.Printf("  Node.js found: %s\n", ver)
+		fmt.Fprintf(w, "  Node.js found: %s\n", ver)
 		return
 	}
-	fmt.Println("  Node.js not found or below minimum version. Installing...")
+	fmt.Fprintln(w, "  Node.js not found or below minimum version. Installing...")
 	if err := nodeTool.Install(); err != nil {
-		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Node.js install failed: %v", err))
-		fmt.Println("  MCP servers require Node.js. Install manually: https://nodejs.org")
+		platform.PrintWarningLine(w, fmt.Sprintf("Node.js install failed: %v", err))
+		fmt.Fprintln(w, "  MCP servers require Node.js. Install manually: https://nodejs.org")
 	} else if ver, err := platform.Output("node", "--version"); err == nil {
-		fmt.Printf("  Node.js installed: %s\n", ver)
+		fmt.Fprintf(w, "  Node.js installed: %s\n", ver)
 	}
 }
 
 func provisionAPIKey() error {
+	return provisionAPIKeyTo(os.Stdout, true)
+}
+
+func provisionAPIKeyTo(w io.Writer, interactive bool) error {
 	if platform.FileExists(claudeConfig) {
 		var config map[string]json.RawMessage
 		if err := platform.ReadJSONFile(claudeConfig, &config); err == nil {
 			if _, hasOAuth := config["oauthAccount"]; hasOAuth {
-				fmt.Println("  Already authenticated. Skipping API key provisioning.")
+				fmt.Fprintln(w, "  Already authenticated. Skipping API key provisioning.")
 				return nil
 			}
 			if _, hasKey := config["primaryApiKey"]; hasKey {
-				fmt.Println("  Already authenticated. Skipping API key provisioning.")
+				fmt.Fprintln(w, "  Already authenticated. Skipping API key provisioning.")
 				return nil
 			}
 		}
 	}
 
-	fmt.Println("  Starting self-service API key provisioning (Option 2)...")
-	fmt.Println("  This will open Claude Code's interactive login flow.")
-	fmt.Println("  Select 'Use an API key' when prompted.")
-	fmt.Println()
+	if !interactive {
+		fmt.Fprintln(w, "  API key provisioning requires interactive setup.")
+		fmt.Fprintln(w, "  Run 'claude' directly to complete the login flow.")
+		fmt.Fprintln(w, "  You can set ANTHROPIC_API_KEY in your environment as an alternative.")
+		return nil
+	}
+
+	fmt.Fprintln(w, "  Starting self-service API key provisioning (Option 2)...")
+	fmt.Fprintln(w, "  This will open Claude Code's interactive login flow.")
+	fmt.Fprintln(w, "  Select 'Use an API key' when prompted.")
+	fmt.Fprintln(w)
 
 	exitCode, err := platform.RunSpawn("claude", "--print-api-key-config")
 	if err != nil || exitCode != 0 {
-		fmt.Println("\n  API key provisioning requires interactive setup.")
-		fmt.Println("  Run 'claude' directly to complete the login flow.")
-		fmt.Println("  You can set ANTHROPIC_API_KEY in your environment as an alternative.")
+		fmt.Fprintln(w, "\n  API key provisioning requires interactive setup.")
+		fmt.Fprintln(w, "  Run 'claude' directly to complete the login flow.")
+		fmt.Fprintln(w, "  You can set ANTHROPIC_API_KEY in your environment as an alternative.")
 	}
 
 	return nil
 }
 
 func setupGlobalSettings(force bool) error {
+	return setupGlobalSettingsTo(os.Stdout, force)
+}
+
+func setupGlobalSettingsTo(w io.Writer, force bool) error {
 	settingsPath := filepath.Join(claudeHome, "settings.json")
 
 	defaults := GetDefaultGlobalSettings()
 
 	if platform.FileExists(settingsPath) {
-		fmt.Println("  Global settings already exist. Merging platform defaults...")
+		fmt.Fprintln(w, "  Global settings already exist. Merging platform defaults...")
 		var existing map[string]interface{}
 		if err := platform.ReadJSONFile(settingsPath, &existing); err != nil {
-			fmt.Println("  Could not merge settings. Skipping global settings update.")
+			fmt.Fprintln(w, "  Could not merge settings. Skipping global settings update.")
 			return nil
 		}
 		var merged map[string]interface{}
@@ -193,7 +232,7 @@ func setupGlobalSettings(force bool) error {
 		if err := platform.WriteJSONFile(settingsPath, merged); err != nil {
 			return fmt.Errorf("writing global settings: %w", err)
 		}
-		fmt.Println("  Global settings updated.")
+		fmt.Fprintln(w, "  Global settings updated.")
 		return nil
 	}
 
@@ -205,7 +244,7 @@ func setupGlobalSettings(force bool) error {
 	if err := platform.WriteJSONFile(settingsPath, defaults); err != nil {
 		return fmt.Errorf("writing global settings: %w", err)
 	}
-	fmt.Println("  Global settings created at ~/.claude/settings.json")
+	fmt.Fprintln(w, "  Global settings created at ~/.claude/settings.json")
 	return nil
 }
 
@@ -355,10 +394,14 @@ func mergeStringList(existing interface{}, defaults []string) []string {
 }
 
 func setupGlobalClaudeMd() error {
+	return setupGlobalClaudeMdTo(os.Stdout)
+}
+
+func setupGlobalClaudeMdTo(w io.Writer) error {
 	claudeMdPath := filepath.Join(claudeHome, "CLAUDE.md")
 
 	if platform.FileExists(claudeMdPath) {
-		fmt.Println("  Global CLAUDE.md already exists. Skipping.")
+		fmt.Fprintln(w, "  Global CLAUDE.md already exists. Skipping.")
 		return nil
 	}
 
@@ -370,7 +413,7 @@ func setupGlobalClaudeMd() error {
 	if err := os.WriteFile(claudeMdPath, content, 0644); err != nil {
 		return fmt.Errorf("writing CLAUDE.md: %w", err)
 	}
-	fmt.Println("  Global CLAUDE.md created at ~/.claude/CLAUDE.md")
+	fmt.Fprintln(w, "  Global CLAUDE.md created at ~/.claude/CLAUDE.md")
 	return nil
 }
 
@@ -436,6 +479,10 @@ func MergeUserMCPServers(config map[string]interface{}, servers map[string]inter
 }
 
 func setupUserMCPServers(force bool) error {
+	return setupUserMCPServersTo(os.Stdout, force)
+}
+
+func setupUserMCPServersTo(w io.Writer, force bool) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("getting home directory: %w", err)
@@ -458,7 +505,7 @@ func setupUserMCPServers(force bool) error {
 		for _, key := range knownMemoryProviders {
 			if existing != nil {
 				if _, found := existing[key]; found {
-					fmt.Printf("  Memory MCP already configured (provider: %s). Run 'claude-workspace memory configure' to change providers.\n", key)
+					fmt.Fprintf(w, "  Memory MCP already configured (provider: %s). Run 'claude-workspace memory configure' to change providers.\n", key)
 					return nil
 				}
 			}
@@ -467,7 +514,7 @@ func setupUserMCPServers(force bool) error {
 
 	dbDir := filepath.Join(home, ".config", "claude-workspace")
 	if err := os.MkdirAll(dbDir, 0755); err != nil {
-		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not create %s: %v", dbDir, err))
+		platform.PrintWarningLine(w, fmt.Sprintf("could not create %s: %v", dbDir, err))
 	}
 
 	servers := platformMCPServers(home)
@@ -477,12 +524,16 @@ func setupUserMCPServers(force bool) error {
 		return fmt.Errorf("writing %s: %w", claudeConfig, err)
 	}
 
-	reportMCPRegistration(config, servers)
+	reportMCPRegistrationTo(w, config, servers)
 	return nil
 }
 
 // reportMCPRegistration prints which servers were added vs already present.
 func reportMCPRegistration(config map[string]interface{}, servers map[string]interface{}) {
+	reportMCPRegistrationTo(os.Stdout, config, servers)
+}
+
+func reportMCPRegistrationTo(w io.Writer, config map[string]interface{}, servers map[string]interface{}) {
 	existing, _ := config["mcpServers"].(map[string]interface{})
 	var added, skipped []string
 	for name := range servers {
@@ -496,24 +547,28 @@ func reportMCPRegistration(config map[string]interface{}, servers map[string]int
 	}
 
 	if len(added) > 0 {
-		platform.PrintOK(os.Stdout, fmt.Sprintf("Registered: %s", joinStrings(added, ", ")))
-		fmt.Println("  Memory tools: mcp__mcp-memory-libsql__search_nodes, create_entities, read_graph")
+		platform.PrintOK(w, fmt.Sprintf("Registered: %s", joinStrings(added, ", ")))
+		fmt.Fprintln(w, "  Memory tools: mcp__mcp-memory-libsql__search_nodes, create_entities, read_graph")
 	}
 	if len(skipped) > 0 {
-		fmt.Printf("  Already registered: %s\n", joinStrings(skipped, ", "))
+		fmt.Fprintf(w, "  Already registered: %s\n", joinStrings(skipped, ", "))
 	}
 }
 
 func installBinaryToPath() {
+	installBinaryToPathTo(os.Stdout)
+}
+
+func installBinaryToPathTo(w io.Writer) {
 	execPath, err := os.Executable()
 	if err != nil {
-		fmt.Println("  Could not determine binary path. Skipping PATH installation.")
+		fmt.Fprintln(w, "  Could not determine binary path. Skipping PATH installation.")
 		return
 	}
 
 	// Check if already in a standard PATH location
 	if _, err := platform.Output("which", "claude-workspace"); err == nil {
-		fmt.Println("  claude-workspace is already in PATH.")
+		fmt.Fprintln(w, "  claude-workspace is already in PATH.")
 		return
 	}
 
@@ -521,13 +576,13 @@ func installBinaryToPath() {
 	destPath := filepath.Join(installDir, "claude-workspace")
 
 	// Try to copy the binary
-	fmt.Printf("  Installing to %s...\n", destPath)
+	fmt.Fprintf(w, "  Installing to %s...\n", destPath)
 	if err := platform.CopyFile(execPath, destPath); err != nil {
 		// Try with sudo
 		if err := platform.Run("sudo", "cp", execPath, destPath); err != nil {
-			fmt.Printf("  Could not install to %s (permission denied).\n", installDir)
-			fmt.Printf("  To install manually:\n")
-			fmt.Printf("    sudo cp %s %s\n", execPath, destPath)
+			fmt.Fprintf(w, "  Could not install to %s (permission denied).\n", installDir)
+			fmt.Fprintf(w, "  To install manually:\n")
+			fmt.Fprintf(w, "    sudo cp %s %s\n", execPath, destPath)
 			return
 		}
 		// Make executable
@@ -535,7 +590,7 @@ func installBinaryToPath() {
 	} else {
 		_ = os.Chmod(destPath, 0755)
 	}
-	fmt.Println("  Installed: claude-workspace is now available globally.")
+	fmt.Fprintln(w, "  Installed: claude-workspace is now available globally.")
 }
 
 // ensureLocalBinClaude creates ~/.local/bin/claude as a symlink to claudePath when it doesn't
@@ -543,6 +598,10 @@ func installBinaryToPath() {
 // We do not resolve symlinks in claudePath so that package-manager managed paths (e.g.
 // /opt/homebrew/bin/claude) remain valid across version upgrades.
 func ensureLocalBinClaude(home, claudePath string) error {
+	return ensureLocalBinClaudeTo(os.Stdout, home, claudePath)
+}
+
+func ensureLocalBinClaudeTo(w io.Writer, home, claudePath string) error {
 	localBinClaude := filepath.Join(home, ".local", "bin", "claude")
 
 	if platform.FileExists(localBinClaude) {
@@ -552,16 +611,16 @@ func ensureLocalBinClaude(home, claudePath string) error {
 	if err := platform.SymlinkFile(claudePath, localBinClaude); err != nil {
 		return fmt.Errorf("creating ~/.local/bin/claude symlink: %w", err)
 	}
-	fmt.Printf("  Created ~/.local/bin/claude → %s\n", claudePath)
+	fmt.Fprintf(w, "  Created ~/.local/bin/claude → %s\n", claudePath)
 
 	// AppendPathToRC is idempotent — it checks for ".local/bin" before writing.
 	rcPath, shellName := platform.DetectShellRC(home)
 	if modified, err := platform.AppendPathToRC(home, shellName, rcPath); err != nil {
-		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not update PATH in %s: %v", rcPath, err))
-		fmt.Println(`  Add manually: export PATH="$HOME/.local/bin:$PATH"`)
+		platform.PrintWarningLine(w, fmt.Sprintf("could not update PATH in %s: %v", rcPath, err))
+		fmt.Fprintln(w, `  Add manually: export PATH="$HOME/.local/bin:$PATH"`)
 	} else if modified {
-		fmt.Printf("  Added ~/.local/bin to PATH in %s\n", filepath.Base(rcPath))
-		fmt.Printf("  Restart your shell or run: source %s\n", rcPath)
+		fmt.Fprintf(w, "  Added ~/.local/bin to PATH in %s\n", filepath.Base(rcPath))
+		fmt.Fprintf(w, "  Restart your shell or run: source %s\n", rcPath)
 	}
 
 	return nil

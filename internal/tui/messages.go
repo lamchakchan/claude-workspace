@@ -11,10 +11,3 @@ type PopViewMsg struct{}
 type PushViewMsg struct {
 	Model tea.Model
 }
-
-// ExecAndReturnMsg suspends the TUI, runs a CLI command, then resumes the
-// current view (typically the launcher). Use for data-display commands.
-type ExecAndReturnMsg struct {
-	Command string
-	Args    []string
-}

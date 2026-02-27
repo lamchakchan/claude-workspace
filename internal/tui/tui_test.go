@@ -322,6 +322,22 @@ func TestNewCost(t *testing.T) {
 	}
 }
 
+func TestNewSetup(t *testing.T) {
+	theme := DefaultTheme()
+	m := NewSetup(&theme)
+	if m.viewer == nil {
+		t.Error("NewSetup viewer is nil")
+	}
+}
+
+func TestNewStatusline(t *testing.T) {
+	theme := DefaultTheme()
+	m := NewStatusline(&theme)
+	if m.viewer == nil {
+		t.Error("NewStatusline viewer is nil")
+	}
+}
+
 func TestListPathSuggestions_Empty(t *testing.T) {
 	suggestions := listPathSuggestions("")
 	if suggestions != nil {
