@@ -3,9 +3,8 @@
 # Generate a GitHub Actions job summary from golangci-lint JSON output.
 #
 # Reads JSON produced by golangci-lint --output.json.path and writes a
-# markdown summary of lint results. When run outside of GitHub Actions
-# (no $GITHUB_STEP_SUMMARY), output goes to stdout so the script is
-# testable locally.
+# markdown summary. Output always goes to stdout (visible in step logs)
+# and to $GITHUB_STEP_SUMMARY when running in GitHub Actions.
 #
 # Usage:
 #   bash scripts/ci-lint-summary.sh [input-file] [label]
@@ -20,17 +19,28 @@ set -euo pipefail
 
 INPUT_FILE="${1:-/tmp/lint-output.json}"
 LABEL="${2:-local}"
-OUT="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
+
+# Write to a temp file, then copy to both stdout and summary
+TMP=$(mktemp)
+trap 'rm -f "$TMP"' EXIT
+
+# Emit the temp file to stdout and $GITHUB_STEP_SUMMARY (if set)
+emit() {
+    cat "$TMP"
+    if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+        cat "$TMP" >> "$GITHUB_STEP_SUMMARY"
+    fi
+}
 
 # ---- guard ---------------------------------------------------------------
 
-# Log file status to step logs (stderr) for diagnostics
-ls -la "$INPUT_FILE" >&2 2>/dev/null || echo "ci-lint-summary: $INPUT_FILE not found" >&2
-
 if [ ! -s "$INPUT_FILE" ]; then
-    echo "## Lint \`${LABEL}\`" >> "$OUT"
-    echo "" >> "$OUT"
-    echo "⚠️ No lint output captured (build may have failed)." >> "$OUT"
+    {
+        echo "## Lint \`${LABEL}\`"
+        echo ""
+        echo "⚠️ No lint output captured (build may have failed)."
+    } > "$TMP"
+    emit
     exit 0
 fi
 
@@ -40,9 +50,12 @@ ISSUE_COUNT=$(jq '.Issues | length' "$INPUT_FILE")
 LINTER_COUNT=$(jq '[.Report.Linters[] | select(.Enabled == true)] | length' "$INPUT_FILE")
 
 if [ "$ISSUE_COUNT" -eq 0 ]; then
-    echo "## Lint \`${LABEL}\`" >> "$OUT"
-    echo "" >> "$OUT"
-    echo "✅ **0 issues** from ${LINTER_COUNT} linters" >> "$OUT"
+    {
+        echo "## Lint \`${LABEL}\`"
+        echo ""
+        echo "✅ **0 issues** from ${LINTER_COUNT} linters"
+    } > "$TMP"
+    emit
     exit 0
 fi
 
@@ -53,14 +66,7 @@ fi
     echo ""
     echo "| Linter | Location | Message |"
     echo "|---|---|---|"
-} >> "$OUT"
-
-jq -r '.Issues[] | "| `\(.FromLinter)` | `\(.Pos.Filename):\(.Pos.Line)` | \(.Text) |"' \
-    "$INPUT_FILE" >> "$OUT"
-
-# ---- per-linter breakdown ------------------------------------------------
-
-{
+    jq -r '.Issues[] | "| `\(.FromLinter)` | `\(.Pos.Filename):\(.Pos.Line)` | \(.Text) |"' "$INPUT_FILE"
     echo ""
     jq -r '
         [.Issues[] | .FromLinter] | group_by(.) |
@@ -70,4 +76,6 @@ jq -r '.Issues[] | "| `\(.FromLinter)` | `\(.Pos.Filename):\(.Pos.Line)` | \(.Te
     ' "$INPUT_FILE"
     echo ""
     echo "❌ **${ISSUE_COUNT} issues** from ${LINTER_COUNT} linters"
-} >> "$OUT"
+} > "$TMP"
+
+emit
