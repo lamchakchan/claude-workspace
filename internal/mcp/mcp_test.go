@@ -8,6 +8,7 @@ const (
 	scopeProject = "project"
 )
 
+//nolint:gocyclo
 func TestParseAddArgs(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -176,6 +177,7 @@ func TestParseAddArgs(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo
 func TestParseRemoteArgs(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -445,11 +447,11 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 		{
 			name: "headers included after positional args",
 			cfg: &addConfig{
+				authOpts:  authOpts{Headers: []string{"X-Custom: value"}},
 				Name:      "srv",
 				Scope:     "local",
 				Transport: transportHTTP,
 				EnvVars:   map[string]string{},
-				Headers:   []string{"X-Custom: value"},
 				McpURL:    "https://example.com",
 			},
 			check: func(t *testing.T, args []string) {
@@ -469,13 +471,12 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 		{
 			name: "client-id and client-secret included",
 			cfg: &addConfig{
-				Name:         "srv",
-				Scope:        "local",
-				Transport:    transportHTTP,
-				EnvVars:      map[string]string{},
-				ClientID:     "my-id",
-				ClientSecret: "tok",
-				McpURL:       "https://example.com",
+				authOpts:  authOpts{ClientID: "my-id", ClientSecret: "tok"},
+				Name:      "srv",
+				Scope:     "local",
+				Transport: transportHTTP,
+				EnvVars:   map[string]string{},
+				McpURL:    "https://example.com",
 			},
 			check: func(t *testing.T, args []string) {
 				assertContains(t, args, "--client-id")
@@ -527,11 +528,11 @@ func TestBuildRemoteClaudeArgs(t *testing.T) {
 		{
 			name: "with headers after positional args",
 			cfg: &remoteConfig{
+				authOpts:  authOpts{Headers: []string{"Authorization: Bearer token123"}},
 				Name:      "srv",
 				McpURL:    "https://example.com/mcp",
 				Scope:     "user",
 				Transport: transportHTTP,
-				Headers:   []string{"Authorization: Bearer token123"},
 			},
 			check: func(t *testing.T, args []string) {
 				// --header must come after <name> and <url> to avoid the variadic
@@ -550,12 +551,11 @@ func TestBuildRemoteClaudeArgs(t *testing.T) {
 		{
 			name: "with client-id and client-secret",
 			cfg: &remoteConfig{
-				Name:         "srv",
-				McpURL:       "https://example.com/mcp",
-				Scope:        "user",
-				Transport:    transportHTTP,
-				ClientID:     "my-id",
-				ClientSecret: "tok",
+				authOpts:  authOpts{ClientID: "my-id", ClientSecret: "tok"},
+				Name:      "srv",
+				McpURL:    "https://example.com/mcp",
+				Scope:     "user",
+				Transport: transportHTTP,
 			},
 			check: func(t *testing.T, args []string) {
 				assertContains(t, args, "--client-id")

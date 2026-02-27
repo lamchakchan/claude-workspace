@@ -91,78 +91,41 @@ func Run(args []string) error {
 	}
 }
 
-// list displays sessions for the current project or all projects.
-func list(limit int, all bool) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("cannot determine home directory: %w", err)
-	}
-
-	projectsDir := filepath.Join(home, ".claude", "projects")
-	if !platform.FileExists(projectsDir) {
-		return fmt.Errorf("no Claude Code session data found at %s", projectsDir)
-	}
-
-	var projectDirs []string
+// resolveProjectDirs returns the session directories to scan.
+func resolveProjectDirs(projectsDir string, all bool) ([]string, error) {
 	if all {
 		entries, err := os.ReadDir(projectsDir)
 		if err != nil {
-			return fmt.Errorf("reading projects directory: %w", err)
+			return nil, fmt.Errorf("reading projects directory: %w", err)
 		}
+		dirs := make([]string, 0, len(entries))
 		for _, e := range entries {
 			if e.IsDir() {
-				projectDirs = append(projectDirs, filepath.Join(projectsDir, e.Name()))
+				dirs = append(dirs, filepath.Join(projectsDir, e.Name()))
 			}
 		}
-	} else {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return fmt.Errorf("cannot determine working directory: %w", err)
-		}
-		encoded := encodeProjectPath(cwd)
-		dir := filepath.Join(projectsDir, encoded)
-		if !platform.FileExists(dir) {
-			return fmt.Errorf("no sessions found for project %s", cwd)
-		}
-		projectDirs = []string{dir}
+		return dirs, nil
 	}
-
-	var sessions []session
-	for _, dir := range projectDirs {
-		projectName := decodeProjectPath(filepath.Base(dir))
-		s, err := scanProjectSessions(dir, projectName)
-		if err != nil {
-			continue // skip unreadable projects
-		}
-		sessions = append(sessions, s...)
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("cannot determine working directory: %w", err)
 	}
-
-	// Sort by start time descending (newest first)
-	sort.Slice(sessions, func(i, j int) bool {
-		return sessions[i].StartTime.After(sessions[j].StartTime)
-	})
-
-	if len(sessions) == 0 {
-		fmt.Println("No sessions found.")
-		return nil
+	encoded := encodeProjectPath(cwd)
+	dir := filepath.Join(projectsDir, encoded)
+	if !platform.FileExists(dir) {
+		return nil, fmt.Errorf("no sessions found for project %s", cwd)
 	}
+	return []string{dir}, nil
+}
 
-	if limit > 0 && len(sessions) > limit {
-		sessions = sessions[:limit]
-	}
-
-	w := os.Stdout
+// printSessionTable prints the session list as a formatted table.
+func printSessionTable(w *os.File, sessions []session, all bool) {
 	if all {
 		platform.PrintBanner(w, "Sessions (all projects)")
-	} else {
-		project := decodeProjectPath(filepath.Base(filepath.Dir(sessions[0].ID)))
-		if len(sessions) > 0 {
-			project = sessions[0].Project
-		}
-		platform.PrintBanner(w, fmt.Sprintf("Sessions for %s", project))
+	} else if len(sessions) > 0 {
+		platform.PrintBanner(w, fmt.Sprintf("Sessions for %s", sessions[0].Project))
 	}
 
-	// Print table
 	fmt.Fprintf(w, "\n  %-10s  %-12s  %s\n", "ID", "DATE", "TITLE")
 	fmt.Fprintf(w, "  %-10s  %-12s  %s\n", "----------", "------------", strings.Repeat("-", 50))
 
@@ -183,6 +146,49 @@ func list(limit int, all bool) error {
 	}
 
 	fmt.Fprintf(w, "\n  %d session(s) shown. Use 'sessions show <id>' to view prompts.\n\n", len(sessions))
+}
+
+// list displays sessions for the current project or all projects.
+func list(limit int, all bool) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("cannot determine home directory: %w", err)
+	}
+
+	projectsDir := filepath.Join(home, ".claude", "projects")
+	if !platform.FileExists(projectsDir) {
+		return fmt.Errorf("no Claude Code session data found at %s", projectsDir)
+	}
+
+	projectDirs, err := resolveProjectDirs(projectsDir, all)
+	if err != nil {
+		return err
+	}
+
+	var sessions []session
+	for _, dir := range projectDirs {
+		projectName := decodeProjectPath(filepath.Base(dir))
+		s, err := scanProjectSessions(dir, projectName)
+		if err != nil {
+			continue
+		}
+		sessions = append(sessions, s...)
+	}
+
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].StartTime.After(sessions[j].StartTime)
+	})
+
+	if len(sessions) == 0 {
+		fmt.Println("No sessions found.")
+		return nil
+	}
+
+	if limit > 0 && len(sessions) > limit {
+		sessions = sessions[:limit]
+	}
+
+	printSessionTable(os.Stdout, sessions, all)
 	return nil
 }
 

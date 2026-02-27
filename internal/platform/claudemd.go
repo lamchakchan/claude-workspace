@@ -10,10 +10,64 @@ import (
 	"time"
 )
 
+// jsDep maps a package.json dependency name to a human-readable framework name.
+type jsDep struct {
+	dep  string
+	name string
+}
+
+// frameworkDeps are exclusive front-end frameworks (first match wins).
+var frameworkDeps = []jsDep{
+	{dep: "next", name: "Next.js"},
+	{dep: "react", name: "React"},
+	{dep: "vue", name: "Vue"},
+	{dep: "@angular/core", name: "Angular"},
+	{dep: "svelte", name: "Svelte"},
+}
+
+// addonDeps are additive dependencies (all matches are included).
+var addonDeps = []jsDep{
+	{dep: "express", name: "Express"},
+	{dep: "fastify", name: "Fastify"},
+	{dep: "hono", name: "Hono"},
+	{dep: "typescript", name: "TypeScript"},
+	{dep: "prisma", name: "Prisma"},
+	{dep: "@prisma/client", name: "Prisma"},
+	{dep: "drizzle", name: "Drizzle"},
+}
+
 // DetectJSTechStack scans package.json deps for known frameworks.
 func DetectJSTechStack(pkg map[string]json.RawMessage) string {
-	allDeps := make(map[string]bool)
+	allDeps := collectJSDeps(pkg)
 
+	var stack []string
+
+	// Exclusive framework detection: first match wins
+	for _, fw := range frameworkDeps {
+		if allDeps[fw.dep] {
+			stack = append(stack, fw.name)
+			break
+		}
+	}
+
+	// Additive dependency detection: all matches included
+	seen := make(map[string]bool, len(addonDeps))
+	for _, addon := range addonDeps {
+		if allDeps[addon.dep] && !seen[addon.name] {
+			stack = append(stack, addon.name)
+			seen[addon.name] = true
+		}
+	}
+
+	if len(stack) > 0 {
+		return strings.Join(stack, ", ")
+	}
+	return "Node.js"
+}
+
+// collectJSDeps merges dependencies and devDependencies from a parsed package.json.
+func collectJSDeps(pkg map[string]json.RawMessage) map[string]bool {
+	allDeps := make(map[string]bool)
 	for _, key := range []string{"dependencies", "devDependencies"} {
 		if raw, ok := pkg[key]; ok {
 			var deps map[string]string
@@ -24,45 +78,7 @@ func DetectJSTechStack(pkg map[string]json.RawMessage) string {
 			}
 		}
 	}
-
-	var stack []string
-
-	switch {
-	case allDeps["next"]:
-		stack = append(stack, "Next.js")
-	case allDeps["react"]:
-		stack = append(stack, "React")
-	case allDeps["vue"]:
-		stack = append(stack, "Vue")
-	case allDeps["@angular/core"]:
-		stack = append(stack, "Angular")
-	case allDeps["svelte"]:
-		stack = append(stack, "Svelte")
-	}
-
-	if allDeps["express"] {
-		stack = append(stack, "Express")
-	}
-	if allDeps["fastify"] {
-		stack = append(stack, "Fastify")
-	}
-	if allDeps["hono"] {
-		stack = append(stack, "Hono")
-	}
-	if allDeps["typescript"] {
-		stack = append(stack, "TypeScript")
-	}
-	if allDeps["prisma"] || allDeps["@prisma/client"] {
-		stack = append(stack, "Prisma")
-	}
-	if allDeps["drizzle"] {
-		stack = append(stack, "Drizzle")
-	}
-
-	if len(stack) > 0 {
-		return strings.Join(stack, ", ")
-	}
-	return "Node.js"
+	return allDeps
 }
 
 // GenerateClaudeMdScaffold builds the static scaffold content for a project.

@@ -24,44 +24,56 @@ func Run(args []string) error {
 
 	switch args[0] {
 	case "show":
-		scope := "all"
-		for i := 1; i < len(args); i++ {
-			if args[i] == "--scope" && i+1 < len(args) {
-				i++
-				scope = args[i]
-			}
-		}
-		return show(ParseScope(scope))
+		return runShow(args[1:])
 	case "export":
-		output := ""
-		for i := 1; i < len(args); i++ {
-			if args[i] == "--output" && i+1 < len(args) {
-				i++
-				output = args[i]
-			}
-		}
-		return export(output)
+		return runExport(args[1:])
 	case "import":
-		if len(args) < 2 {
-			return fmt.Errorf("usage: claude-workspace memory import <file> [--scope=...] [--confirm]")
-		}
-		file := args[1]
-		scope := "auto,mcp"
-		confirm := false
-		for i := 2; i < len(args); i++ {
-			if args[i] == "--confirm" {
-				confirm = true
-			} else if args[i] == "--scope" && i+1 < len(args) {
-				i++
-				scope = args[i]
-			}
-		}
-		return importMemory(file, ParseScope(scope), confirm)
+		return runImport(args[1:])
 	case "configure":
 		return runConfigure(args[1:])
 	default:
 		return fmt.Errorf("unknown memory subcommand: %s\nAvailable: show, export, import, configure", args[0])
 	}
+}
+
+func runShow(args []string) error {
+	scope := "all"
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--scope" && i+1 < len(args) {
+			i++
+			scope = args[i]
+		}
+	}
+	return show(ParseScope(scope))
+}
+
+func runExport(args []string) error {
+	output := ""
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--output" && i+1 < len(args) {
+			i++
+			output = args[i]
+		}
+	}
+	return export(output)
+}
+
+func runImport(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: claude-workspace memory import <file> [--scope=...] [--confirm]")
+	}
+	file := args[0]
+	scope := "auto,mcp"
+	confirm := false
+	for i := 1; i < len(args); i++ {
+		if args[i] == "--confirm" {
+			confirm = true
+		} else if args[i] == "--scope" && i+1 < len(args) {
+			i++
+			scope = args[i]
+		}
+	}
+	return importMemory(file, ParseScope(scope), confirm)
 }
 
 // overview displays a summary of all memory layers.
@@ -120,64 +132,82 @@ func show(scope map[LayerName]bool) error {
 
 		switch l.Name {
 		case LayerUserClaudeMD, LayerProjectClaudeMD, LayerLocalMD:
-			if !l.Exists {
-				platform.PrintWarn(w, fmt.Sprintf("%s (not found)", l.Path))
-				continue
-			}
-			content := readFileContent(l.Path)
-			fmt.Fprintln(w, content)
-
+			showFileContent(w, l)
 		case LayerAutoMemory:
-			if !l.Exists || len(l.Files) == 0 {
-				platform.PrintWarn(w, fmt.Sprintf("%s (empty or not found)", l.Path))
-				continue
-			}
-			for name, content := range l.Files {
-				platform.PrintSection(w, name)
-				fmt.Fprintln(w, content)
-			}
-
+			showAutoMemoryContent(w, l)
 		case LayerMemoryMCP:
-			switch l.Provider {
-			case providerEngram:
-				if platform.Exists(providerEngram) {
-					fmt.Fprintln(w)
-					if l.Stats != "" {
-						fmt.Fprintln(w, l.Stats)
-					}
-					out, err := platform.Output(providerEngram, "search", "*")
-					if err == nil && out != "" {
-						platform.PrintSection(w, "Recent observations")
-						fmt.Fprintln(w, out)
-					}
-				} else {
-					platform.PrintWarn(w, fmt.Sprintf("Provider %q CLI not available", l.Provider))
-				}
-			case providerLibsql:
-				fmt.Fprintf(w, "  DB: %s\n", shortenHome(l.Path))
-				if !platform.Exists("claude") {
-					fmt.Fprintf(w, "  Search requires Claude: %s\n", platform.Bold("mcp__mcp-memory-libsql__search_nodes"))
-					fmt.Fprintf(w, "  Read all: %s\n", platform.Bold("mcp__mcp-memory-libsql__read_graph"))
-				} else {
-					fmt.Fprintln(w)
-					if err := platform.RunWithSpinner(
-						"Querying memory graph via Claude...",
-						"claude", "-p",
-						"Use mcp__mcp-memory-libsql__read_graph to retrieve all stored memories and display them in a clear, human-readable format grouped by entity type.",
-						"--allowedTools", "mcp__mcp-memory-libsql__read_graph",
-					); err != nil {
-						platform.PrintWarn(w, fmt.Sprintf("claude error: %v", err))
-					}
-				}
-			case providerNone:
-				platform.PrintWarn(w, "No memory MCP server configured")
-			default:
-				platform.PrintWarn(w, fmt.Sprintf("Provider %q CLI not available", l.Provider))
-			}
+			showMCPContent(w, l)
 		}
 	}
 
 	return nil
+}
+
+func showFileContent(w *os.File, l *Layer) {
+	if !l.Exists {
+		platform.PrintWarn(w, fmt.Sprintf("%s (not found)", l.Path))
+		return
+	}
+	content := readFileContent(l.Path)
+	fmt.Fprintln(w, content)
+}
+
+func showAutoMemoryContent(w *os.File, l *Layer) {
+	if !l.Exists || len(l.Files) == 0 {
+		platform.PrintWarn(w, fmt.Sprintf("%s (empty or not found)", l.Path))
+		return
+	}
+	for name, content := range l.Files {
+		platform.PrintSection(w, name)
+		fmt.Fprintln(w, content)
+	}
+}
+
+func showMCPContent(w *os.File, l *Layer) {
+	switch l.Provider {
+	case providerEngram:
+		showEngramContent(w, l)
+	case providerLibsql:
+		showLibsqlContent(w, l)
+	case providerNone:
+		platform.PrintWarn(w, "No memory MCP server configured")
+	default:
+		platform.PrintWarn(w, fmt.Sprintf("Provider %q CLI not available", l.Provider))
+	}
+}
+
+func showEngramContent(w *os.File, l *Layer) {
+	if !platform.Exists(providerEngram) {
+		platform.PrintWarn(w, fmt.Sprintf("Provider %q CLI not available", l.Provider))
+		return
+	}
+	fmt.Fprintln(w)
+	if l.Stats != "" {
+		fmt.Fprintln(w, l.Stats)
+	}
+	out, err := platform.Output(providerEngram, "search", "*")
+	if err == nil && out != "" {
+		platform.PrintSection(w, "Recent observations")
+		fmt.Fprintln(w, out)
+	}
+}
+
+func showLibsqlContent(w *os.File, l *Layer) {
+	fmt.Fprintf(w, "  DB: %s\n", shortenHome(l.Path))
+	if !platform.Exists("claude") {
+		fmt.Fprintf(w, "  Search requires Claude: %s\n", platform.Bold("mcp__mcp-memory-libsql__search_nodes"))
+		fmt.Fprintf(w, "  Read all: %s\n", platform.Bold("mcp__mcp-memory-libsql__read_graph"))
+		return
+	}
+	fmt.Fprintln(w)
+	if err := platform.RunWithSpinner(
+		"Querying memory graph via Claude...",
+		"claude", "-p",
+		"Use mcp__mcp-memory-libsql__read_graph to retrieve all stored memories and display them in a clear, human-readable format grouped by entity type.",
+		"--allowedTools", "mcp__mcp-memory-libsql__read_graph",
+	); err != nil {
+		platform.PrintWarn(w, fmt.Sprintf("claude error: %v", err))
+	}
 }
 
 func providerSuffix(l *Layer) string {
@@ -247,150 +277,95 @@ func printMCPLayer(w *os.File, l *Layer) {
 	}
 }
 
-// runConfigure implements the `memory configure` subcommand.
-// It interactively (or via flags) sets the active memory MCP provider in ~/.claude.json.
-func runConfigure(args []string) error {
-	var flagProvider, flagDBPath string
-	autoYes := false
+type configureOpts struct {
+	provider string
+	dbPath   string
+	autoYes  bool
+}
+
+func parseConfigureFlags(args []string) configureOpts {
+	var opts configureOpts
 	for i := 0; i < len(args); i++ {
 		switch {
 		case args[i] == "--provider" && i+1 < len(args):
 			i++
-			flagProvider = args[i]
+			opts.provider = args[i]
 		case strings.HasPrefix(args[i], "--provider="):
-			flagProvider = strings.TrimPrefix(args[i], "--provider=")
+			opts.provider = strings.TrimPrefix(args[i], "--provider=")
 		case args[i] == "--db-path" && i+1 < len(args):
 			i++
-			flagDBPath = args[i]
+			opts.dbPath = args[i]
 		case strings.HasPrefix(args[i], "--db-path="):
-			flagDBPath = strings.TrimPrefix(args[i], "--db-path=")
+			opts.dbPath = strings.TrimPrefix(args[i], "--db-path=")
 		case args[i] == "--yes", args[i] == "-y":
-			autoYes = true
+			opts.autoYes = true
 		}
 	}
+	return opts
+}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("getting home directory: %w", err)
+func promptProvider(w *os.File, reader *bufio.Reader) (string, error) {
+	fmt.Fprintln(w, "  Choose a memory provider:")
+	fmt.Fprintln(w, "    1) mcp-memory-libsql  (recommended — no extra install, uses npx)")
+	fmt.Fprintln(w, "    2) engram              (optional — requires: brew install gentleman-programming/tap/engram)")
+	fmt.Fprintln(w, "    3) none                (remove all memory MCP config)")
+	platform.PrintPrompt(w, "  Provider [1]: ")
+	line, _ := reader.ReadString('\n')
+	line = strings.TrimSpace(line)
+	switch line {
+	case "", "1", providerLibsql:
+		return providerLibsql, nil
+	case "2", providerEngram:
+		return providerEngram, nil
+	case "3", providerNone:
+		return providerNone, nil
+	default:
+		return "", fmt.Errorf("unknown provider choice %q; expected 1, 2, or 3", line)
 	}
-	claudeConfig := filepath.Join(home, ".claude.json")
+}
 
-	// Read current config
-	var config map[string]interface{}
-	if platform.FileExists(claudeConfig) {
-		if err := platform.ReadJSONFile(claudeConfig, &config); err != nil {
-			return fmt.Errorf("reading %s: %w", claudeConfig, err)
-		}
+func resolveDBPath(w *os.File, reader *bufio.Reader, home, flagDBPath string, autoYes bool) string {
+	if flagDBPath != "" {
+		return flagDBPath
 	}
-	if config == nil {
-		config = make(map[string]interface{})
+	defaultDB := filepath.Join(home, ".config", "claude-workspace", "memory.db")
+	if autoYes {
+		return defaultDB
 	}
-
-	// Detect and display current memory provider
-	currentProvider, currentPath := detectProvider(home)
-	w := os.Stdout
-	platform.PrintBanner(w, "Memory Configure")
-
-	if currentProvider != providerNone {
-		fmt.Fprintf(w, "  Current provider: %s\n", currentProvider)
-		if currentPath != "" {
-			fmt.Fprintf(w, "  Current DB path:  %s\n", shortenHome(currentPath))
-		}
-	} else {
-		fmt.Fprintln(w, "  No memory MCP provider currently configured.")
+	platform.PrintPrompt(w, fmt.Sprintf("  DB file path [%s]: ", shortenHome(defaultDB)))
+	line, _ := reader.ReadString('\n')
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return defaultDB
 	}
-	fmt.Fprintln(w)
-
-	reader := bufio.NewReader(os.Stdin)
-
-	// Prompt for provider
-	provider := flagProvider
-	if provider == "" {
-		fmt.Fprintln(w, "  Choose a memory provider:")
-		fmt.Fprintln(w, "    1) mcp-memory-libsql  (recommended — no extra install, uses npx)")
-		fmt.Fprintln(w, "    2) engram              (optional — requires: brew install gentleman-programming/tap/engram)")
-		fmt.Fprintln(w, "    3) none                (remove all memory MCP config)")
-		platform.PrintPrompt(w, "  Provider [1]: ")
-		line, _ := reader.ReadString('\n')
-		line = strings.TrimSpace(line)
-		switch line {
-		case "", "1", providerLibsql:
-			provider = providerLibsql
-		case "2", providerEngram:
-			provider = providerEngram
-		case "3", providerNone:
-			provider = providerNone
-		default:
-			return fmt.Errorf("unknown provider choice %q; expected 1, 2, or 3", line)
-		}
+	if strings.HasPrefix(line, "~/") {
+		return filepath.Join(home, line[2:])
 	}
+	return line
+}
 
-	// For mcp-memory-libsql, prompt for DB path
-	dbPath := flagDBPath
-	if provider == providerLibsql && dbPath == "" && !autoYes {
-		defaultDB := filepath.Join(home, ".config", "claude-workspace", "memory.db")
-		platform.PrintPrompt(w, fmt.Sprintf("  DB file path [%s]: ", shortenHome(defaultDB)))
-		line, _ := reader.ReadString('\n')
-		line = strings.TrimSpace(line)
-		if line == "" {
-			dbPath = defaultDB
-		} else {
-			// Expand ~ if present
-			if strings.HasPrefix(line, "~/") {
-				dbPath = filepath.Join(home, line[2:])
-			} else {
-				dbPath = line
-			}
-		}
-	} else if provider == providerLibsql && dbPath == "" {
-		dbPath = filepath.Join(home, ".config", "claude-workspace", "memory.db")
-	}
-
-	// Remove all known memory provider keys
-	config = removeMemoryProviders(config, knownMemoryProviders)
-
-	// Add the new provider (unless "none")
-	var newEntry map[string]interface{}
+func buildProviderEntry(provider, dbPath string) map[string]interface{} {
 	switch provider {
 	case providerLibsql:
-		newEntry = map[string]interface{}{
+		return map[string]interface{}{
 			"command": "npx",
 			"args":    []string{"-y", providerLibsql},
 			"env":     map[string]interface{}{"LIBSQL_URL": "file:" + dbPath},
 		}
 	case providerEngram:
-		newEntry = map[string]interface{}{
+		return map[string]interface{}{
 			"command": providerEngram,
 			"args":    []string{"mcp"},
 		}
-	case providerNone:
-		// nothing to add
+	default:
+		return nil
 	}
+}
 
-	if newEntry != nil {
-		existing, _ := config["mcpServers"].(map[string]interface{})
-		if existing == nil {
-			existing = make(map[string]interface{})
-		}
-		existing[provider] = newEntry
-		config["mcpServers"] = existing
-	}
-
-	if err := platform.WriteJSONFile(claudeConfig, config); err != nil {
-		return fmt.Errorf("writing %s: %w", claudeConfig, err)
-	}
-
-	// Create DB parent directory for mcp-memory-libsql
-	if provider == providerLibsql {
-		if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-			platform.PrintWarningLine(w, fmt.Sprintf("could not create DB directory: %v", err))
-		}
-	}
-
-	// Print confirmation
+func printConfigureResult(w *os.File, provider, dbPath, previousProvider string) {
 	fmt.Fprintln(w)
-	if currentProvider != providerNone && currentProvider != provider {
-		platform.PrintOK(w, fmt.Sprintf("Removed: %s", currentProvider))
+	if previousProvider != providerNone && previousProvider != provider {
+		platform.PrintOK(w, fmt.Sprintf("Removed: %s", previousProvider))
 	}
 	switch provider {
 	case providerLibsql:
@@ -408,6 +383,80 @@ func runConfigure(args []string) error {
 		platform.PrintOK(w, "All memory MCP providers removed")
 	}
 	fmt.Fprintln(w)
+}
+
+// runConfigure implements the `memory configure` subcommand.
+// It interactively (or via flags) sets the active memory MCP provider in ~/.claude.json.
+func runConfigure(args []string) error {
+	opts := parseConfigureFlags(args)
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("getting home directory: %w", err)
+	}
+	claudeConfig := filepath.Join(home, ".claude.json")
+
+	var config map[string]interface{}
+	if platform.FileExists(claudeConfig) {
+		if err := platform.ReadJSONFile(claudeConfig, &config); err != nil {
+			return fmt.Errorf("reading %s: %w", claudeConfig, err)
+		}
+	}
+	if config == nil {
+		config = make(map[string]interface{})
+	}
+
+	currentProvider, currentPath := detectProvider(home)
+	w := os.Stdout
+	platform.PrintBanner(w, "Memory Configure")
+
+	if currentProvider != providerNone {
+		fmt.Fprintf(w, "  Current provider: %s\n", currentProvider)
+		if currentPath != "" {
+			fmt.Fprintf(w, "  Current DB path:  %s\n", shortenHome(currentPath))
+		}
+	} else {
+		fmt.Fprintln(w, "  No memory MCP provider currently configured.")
+	}
+	fmt.Fprintln(w)
+
+	reader := bufio.NewReader(os.Stdin)
+
+	provider := opts.provider
+	if provider == "" {
+		provider, err = promptProvider(w, reader)
+		if err != nil {
+			return err
+		}
+	}
+
+	dbPath := ""
+	if provider == providerLibsql {
+		dbPath = resolveDBPath(w, reader, home, opts.dbPath, opts.autoYes)
+	}
+
+	config = removeMemoryProviders(config, knownMemoryProviders)
+
+	if newEntry := buildProviderEntry(provider, dbPath); newEntry != nil {
+		existing, _ := config["mcpServers"].(map[string]interface{})
+		if existing == nil {
+			existing = make(map[string]interface{})
+		}
+		existing[provider] = newEntry
+		config["mcpServers"] = existing
+	}
+
+	if err := platform.WriteJSONFile(claudeConfig, config); err != nil {
+		return fmt.Errorf("writing %s: %w", claudeConfig, err)
+	}
+
+	if provider == providerLibsql {
+		if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+			platform.PrintWarningLine(w, fmt.Sprintf("could not create DB directory: %v", err))
+		}
+	}
+
+	printConfigureResult(w, provider, dbPath, currentProvider)
 	return nil
 }
 

@@ -25,15 +25,9 @@ const (
 	transportSSE   = "sse"
 )
 
-type addConfig struct {
-	Name               string
-	Scope              string
-	Transport          string
-	EnvVars            map[string]string
+// authOpts holds shared authentication flags for MCP server configuration.
+type authOpts struct {
 	Headers            []string
-	CommandArgs        []string
-	McpURL             string
-	APIKeyEnvVar       string
 	PromptBearer       bool
 	UseOAuth           bool
 	ClientID           string
@@ -41,17 +35,82 @@ type addConfig struct {
 	ClientSecret       string
 }
 
+// parseFlag parses an auth-related CLI flag. Returns true if consumed.
+func (a *authOpts) parseFlag(args []string, i *int) bool {
+	switch args[*i] {
+	case flagHeader:
+		(*i)++
+		if *i < len(args) {
+			a.Headers = append(a.Headers, args[*i])
+		}
+		return true
+	case "--bearer":
+		a.PromptBearer = true
+		return true
+	case "--oauth":
+		a.UseOAuth = true
+		return true
+	case "--client-id":
+		(*i)++
+		if *i < len(args) {
+			a.ClientID = args[*i]
+		}
+		return true
+	case flagClientSec:
+		a.PromptClientSecret = true
+		return true
+	}
+	return false
+}
+
+// promptCredentials prompts for bearer token and/or client secret if requested.
+func (a *authOpts) promptCredentials(serverName string) error {
+	if a.PromptBearer {
+		fmt.Printf("\nBearer token required for '%s'.\n", serverName)
+		fmt.Println("Stored securely in your Claude config.")
+		fmt.Println()
+		token, err := promptSecret("Enter Bearer token: ")
+		if err != nil {
+			return err
+		}
+		if token == "" {
+			return fmt.Errorf("no token provided")
+		}
+		a.Headers = append(a.Headers, "Authorization: Bearer "+token)
+	}
+	if a.PromptClientSecret {
+		fmt.Printf("\nOAuth client secret required for '%s'.\n", serverName)
+		fmt.Println("Stored securely in your Claude config.")
+		fmt.Println()
+		secret, err := promptSecret("Enter OAuth client secret: ")
+		if err != nil {
+			return err
+		}
+		if secret == "" {
+			return fmt.Errorf("no client secret provided")
+		}
+		a.ClientSecret = secret
+	}
+	return nil
+}
+
+type addConfig struct {
+	authOpts
+	Name         string
+	Scope        string
+	Transport    string
+	EnvVars      map[string]string
+	CommandArgs  []string
+	McpURL       string
+	APIKeyEnvVar string
+}
+
 type remoteConfig struct {
-	Name               string
-	McpURL             string
-	Scope              string
-	Headers            []string
-	PromptBearer       bool
-	UseOAuth           bool
-	ClientID           string
-	PromptClientSecret bool
-	ClientSecret       string
-	Transport          string
+	authOpts
+	Name      string
+	McpURL    string
+	Scope     string
+	Transport string
 }
 
 func promptSecret(prompt string) (string, error) {
@@ -120,61 +179,10 @@ func parseAddArgs(args []string) (*addConfig, error) {
 			cfg.CommandArgs = args[i+1:]
 			break
 		}
-
-		switch args[i] {
-		case "--scope":
-			i++
-			if i < len(args) {
-				cfg.Scope = args[i]
-			}
-		case "--transport":
-			i++
-			if i < len(args) {
-				cfg.Transport = args[i]
-			}
-		case "--env":
-			i++
-			if i < len(args) {
-				envPair := args[i]
-				eqIdx := strings.Index(envPair, "=")
-				if eqIdx > 0 {
-					cfg.EnvVars[envPair[:eqIdx]] = envPair[eqIdx+1:]
-				}
-			}
-		case "--api-key":
-			i++
-			if i < len(args) {
-				cfg.APIKeyEnvVar = args[i]
-			}
-		case flagHeader:
-			i++
-			if i < len(args) {
-				cfg.Headers = append(cfg.Headers, args[i])
-			}
-		case "--bearer":
-			cfg.PromptBearer = true
-		case "--oauth":
-			cfg.UseOAuth = true
-		case "--client-id":
-			i++
-			if i < len(args) {
-				cfg.ClientID = args[i]
-			}
-		case flagClientSec:
-			cfg.PromptClientSecret = true
-		default:
-			if strings.HasPrefix(args[i], "http://") || strings.HasPrefix(args[i], "https://") {
-				cfg.McpURL = args[i]
-			} else {
-				cfg.CommandArgs = args[i:]
-				i = len(args)
-				continue
-			}
-		}
+		parseAddFlag(args, &i, cfg)
 		i++
 	}
 
-	// Determine transport
 	if cfg.Transport == "" {
 		if cfg.McpURL != "" {
 			cfg.Transport = transportHTTP
@@ -184,6 +192,43 @@ func parseAddArgs(args []string) (*addConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+func parseAddFlag(args []string, i *int, cfg *addConfig) {
+	switch args[*i] {
+	case "--scope":
+		(*i)++
+		if *i < len(args) {
+			cfg.Scope = args[*i]
+		}
+	case "--transport":
+		(*i)++
+		if *i < len(args) {
+			cfg.Transport = args[*i]
+		}
+	case "--env":
+		(*i)++
+		if *i < len(args) {
+			envPair := args[*i]
+			if eqIdx := strings.Index(envPair, "="); eqIdx > 0 {
+				cfg.EnvVars[envPair[:eqIdx]] = envPair[eqIdx+1:]
+			}
+		}
+	case "--api-key":
+		(*i)++
+		if *i < len(args) {
+			cfg.APIKeyEnvVar = args[*i]
+		}
+	default:
+		if !cfg.parseFlag(args, i) {
+			if strings.HasPrefix(args[*i], "http://") || strings.HasPrefix(args[*i], "https://") {
+				cfg.McpURL = args[*i]
+			} else {
+				cfg.CommandArgs = args[*i:]
+				*i = len(args) - 1
+			}
+		}
+	}
 }
 
 func parseRemoteArgs(mcpURL string, extraArgs []string) (*remoteConfig, error) {
@@ -209,22 +254,8 @@ func parseRemoteArgs(mcpURL string, extraArgs []string) (*remoteConfig, error) {
 			if i < len(extraArgs) {
 				cfg.Scope = extraArgs[i]
 			}
-		case flagHeader:
-			i++
-			if i < len(extraArgs) {
-				cfg.Headers = append(cfg.Headers, extraArgs[i])
-			}
-		case "--bearer":
-			cfg.PromptBearer = true
-		case "--oauth":
-			cfg.UseOAuth = true
-		case "--client-id":
-			i++
-			if i < len(extraArgs) {
-				cfg.ClientID = extraArgs[i]
-			}
-		case flagClientSec:
-			cfg.PromptClientSecret = true
+		default:
+			cfg.parseFlag(extraArgs, &i)
 		}
 	}
 
@@ -342,6 +373,47 @@ func maskSensitiveArgs(args []string) []string {
 	return safeArgs
 }
 
+func promptAPIKey(cfg *addConfig) error {
+	if cfg.APIKeyEnvVar == "" {
+		return nil
+	}
+	fmt.Printf("\nAPI key required for '%s' server.\n", cfg.Name)
+	fmt.Printf("The key will be stored as env var: %s\n", cfg.APIKeyEnvVar)
+	fmt.Println("Stored in your Claude config (~/.claude.json), NOT in project files.")
+	fmt.Println()
+
+	keyValue, err := promptSecret(fmt.Sprintf("Enter %s: ", cfg.APIKeyEnvVar))
+	if err != nil {
+		return err
+	}
+	if keyValue == "" {
+		return fmt.Errorf("no API key provided")
+	}
+	cfg.EnvVars[cfg.APIKeyEnvVar] = keyValue
+	return nil
+}
+
+func printAddResult(cfg *addConfig, exitCode int) {
+	if exitCode == 0 {
+		fmt.Fprintf(os.Stdout, "\n%s\n", platform.Green(fmt.Sprintf("MCP server '%s' added successfully.", cfg.Name)))
+		if cfg.UseOAuth {
+			fmt.Println("Next: Run '/mcp' in Claude Code to complete OAuth authentication.")
+		} else {
+			fmt.Println("Run '/mcp' in Claude Code to verify the connection.")
+		}
+		if cfg.Scope == "project" && len(cfg.EnvVars) > 0 {
+			fmt.Println("\n  NOTE: Server added to .mcp.json (project scope).")
+			fmt.Println("  API keys are in your LOCAL Claude config, not in .mcp.json.")
+			fmt.Println("  Team members must set these env vars in their own environment:")
+			for key := range cfg.EnvVars {
+				fmt.Printf("    export %s=<value>\n", key)
+			}
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "\n%s\n", platform.Red(fmt.Sprintf("Failed to add MCP server. Exit code: %d", exitCode)))
+	}
+}
+
 // Add adds a local or remote MCP server to the project or user config.
 func Add(args []string) error {
 	cfg, err := parseAddArgs(args)
@@ -349,51 +421,12 @@ func Add(args []string) error {
 		return err
 	}
 
-	// Secure API key prompting
-	if cfg.APIKeyEnvVar != "" {
-		fmt.Printf("\nAPI key required for '%s' server.\n", cfg.Name)
-		fmt.Printf("The key will be stored as env var: %s\n", cfg.APIKeyEnvVar)
-		fmt.Println("Stored in your Claude config (~/.claude.json), NOT in project files.")
-		fmt.Println()
-
-		keyValue, err := promptSecret(fmt.Sprintf("Enter %s: ", cfg.APIKeyEnvVar))
-		if err != nil {
-			return err
-		}
-		if keyValue == "" {
-			return fmt.Errorf("no API key provided")
-		}
-		cfg.EnvVars[cfg.APIKeyEnvVar] = keyValue
+	if err := promptAPIKey(cfg); err != nil {
+		return err
 	}
 
-	if cfg.PromptBearer {
-		fmt.Printf("\nBearer token required for '%s' server.\n", cfg.Name)
-		fmt.Println("Stored in your Claude config (~/.claude.json), NOT in project files.")
-		fmt.Println()
-
-		token, err := promptSecret("Enter Bearer token: ")
-		if err != nil {
-			return err
-		}
-		if token == "" {
-			return fmt.Errorf("no token provided")
-		}
-		cfg.Headers = append(cfg.Headers, "Authorization: Bearer "+token)
-	}
-
-	if cfg.PromptClientSecret {
-		fmt.Printf("\nOAuth client secret required for '%s' server.\n", cfg.Name)
-		fmt.Println("Stored in your Claude config (~/.claude.json), NOT in project files.")
-		fmt.Println()
-
-		secret, err := promptSecret("Enter OAuth client secret: ")
-		if err != nil {
-			return err
-		}
-		if secret == "" {
-			return fmt.Errorf("no client secret provided")
-		}
-		cfg.ClientSecret = secret
+	if err := cfg.promptCredentials(cfg.Name); err != nil {
+		return err
 	}
 
 	claudeArgs, err := buildAddClaudeArgs(cfg)
@@ -411,28 +444,33 @@ func Add(args []string) error {
 		return fmt.Errorf("could not run 'claude' command. Is Claude Code installed?")
 	}
 
-	if exitCode == 0 {
-		fmt.Fprintf(os.Stdout, "\n%s\n", platform.Green(fmt.Sprintf("MCP server '%s' added successfully.", cfg.Name)))
-
-		if cfg.UseOAuth {
-			fmt.Println("Next: Run '/mcp' in Claude Code to complete OAuth authentication.")
-		} else {
-			fmt.Println("Run '/mcp' in Claude Code to verify the connection.")
-		}
-
-		if cfg.Scope == "project" && len(cfg.EnvVars) > 0 {
-			fmt.Println("\n  NOTE: Server added to .mcp.json (project scope).")
-			fmt.Println("  API keys are in your LOCAL Claude config, not in .mcp.json.")
-			fmt.Println("  Team members must set these env vars in their own environment:")
-			for key := range cfg.EnvVars {
-				fmt.Printf("    export %s=<value>\n", key)
-			}
-		}
-	} else {
-		fmt.Fprintf(os.Stderr, "\n%s\n", platform.Red(fmt.Sprintf("Failed to add MCP server. Exit code: %d", exitCode)))
-	}
-
+	printAddResult(cfg, exitCode)
 	return nil
+}
+
+func printRemoteStatus(cfg *remoteConfig) {
+	fmt.Printf("\nConnecting to remote MCP server '%s'...\n", cfg.Name)
+	fmt.Printf("  URL:       %s\n", cfg.McpURL)
+	fmt.Printf("  Transport: %s\n", cfg.Transport)
+	fmt.Printf("  Scope:     %s\n", cfg.Scope)
+	switch {
+	case cfg.UseOAuth || cfg.ClientID != "":
+		fmt.Println("  Auth:      OAuth 2.0")
+	case hasAuthHeader(cfg.Headers):
+		fmt.Println("  Auth:      Bearer token")
+	default:
+		fmt.Println("  Auth:      OAuth (via /mcp in session)")
+	}
+	fmt.Println()
+}
+
+func hasAuthHeader(headers []string) bool {
+	for _, h := range headers {
+		if strings.HasPrefix(strings.ToLower(h), "authorization") {
+			return true
+		}
+	}
+	return false
 }
 
 // Remote connects to a remote MCP gateway.
@@ -442,59 +480,12 @@ func Remote(mcpURL string, extraArgs []string) error {
 		return err
 	}
 
-	if cfg.PromptBearer {
-		fmt.Printf("\nBearer token required for '%s'.\n", cfg.Name)
-		fmt.Println("Stored securely in your Claude config.")
-		fmt.Println()
-
-		token, err := promptSecret("Enter Bearer token: ")
-		if err != nil {
-			return err
-		}
-		if token == "" {
-			return fmt.Errorf("no token provided")
-		}
-		cfg.Headers = append(cfg.Headers, "Authorization: Bearer "+token)
-	}
-
-	if cfg.PromptClientSecret {
-		fmt.Printf("\nOAuth client secret required for '%s'.\n", cfg.Name)
-		fmt.Println("Stored securely in your Claude config.")
-		fmt.Println()
-
-		secret, err := promptSecret("Enter OAuth client secret: ")
-		if err != nil {
-			return err
-		}
-		if secret == "" {
-			return fmt.Errorf("no client secret provided")
-		}
-		cfg.ClientSecret = secret
+	if err := cfg.promptCredentials(cfg.Name); err != nil {
+		return err
 	}
 
 	claudeArgs := buildRemoteClaudeArgs(cfg)
-
-	fmt.Printf("\nConnecting to remote MCP server '%s'...\n", cfg.Name)
-	fmt.Printf("  URL:       %s\n", cfg.McpURL)
-	fmt.Printf("  Transport: %s\n", cfg.Transport)
-	fmt.Printf("  Scope:     %s\n", cfg.Scope)
-	if cfg.UseOAuth || cfg.ClientID != "" {
-		fmt.Println("  Auth:      OAuth 2.0")
-	} else {
-		hasAuth := false
-		for _, h := range cfg.Headers {
-			if strings.HasPrefix(strings.ToLower(h), "authorization") {
-				hasAuth = true
-				break
-			}
-		}
-		if hasAuth {
-			fmt.Println("  Auth:      Bearer token")
-		} else {
-			fmt.Println("  Auth:      OAuth (via /mcp in session)")
-		}
-	}
-	fmt.Println()
+	printRemoteStatus(cfg)
 
 	exitCode, err := platform.RunSpawn("claude", claudeArgs...)
 	if err != nil {

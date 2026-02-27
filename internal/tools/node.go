@@ -149,29 +149,44 @@ func installNodeViaApt() error {
 	return platform.InstallSystemPackages(platform.PMApt, []string{"nodejs"})
 }
 
-// installNodeBinary downloads and installs a Node.js binary from nodejs.org.
-func installNodeBinary() error {
+// nodeArchiveURL returns the download URL and archive extension for the current platform.
+func nodeArchiveURL() (url, ext string) {
 	osName := runtime.GOOS
 	arch := runtime.GOARCH
-
-	// Map Go arch names to Node.js naming
 	switch arch {
 	case "amd64":
 		arch = "x64"
 	case "386":
 		arch = "x86"
 	}
-
-	// Linux uses .tar.xz, macOS uses .tar.gz
-	ext := "tar.gz"
+	ext = "tar.gz"
 	if osName == "linux" {
 		ext = "tar.xz"
 	}
-
-	url := fmt.Sprintf("https://nodejs.org/dist/v%s/node-v%s-%s-%s.%s",
+	url = fmt.Sprintf("https://nodejs.org/dist/v%s/node-v%s-%s-%s.%s",
 		NodeLTSVersion, NodeLTSVersion, osName, arch, ext)
+	return url, ext
+}
 
-	// Download to temp directory
+// symlinkNodeBinaries creates symlinks for node, npm, npx in localBin.
+func symlinkNodeBinaries(nodeBinDir, localBin string) error {
+	for _, bin := range []string{"node", "npm", "npx"} {
+		src := filepath.Join(nodeBinDir, bin)
+		dst := filepath.Join(localBin, bin)
+		if platform.FileExists(src) {
+			os.Remove(dst)
+			if err := os.Symlink(src, dst); err != nil {
+				return fmt.Errorf("symlinking %s: %w", bin, err)
+			}
+		}
+	}
+	return nil
+}
+
+// installNodeBinary downloads and installs a Node.js binary from nodejs.org.
+func installNodeBinary() error {
+	dlURL, ext := nodeArchiveURL()
+
 	tmpDir, err := os.MkdirTemp("", "node-install-*")
 	if err != nil {
 		return fmt.Errorf("creating temp dir: %w", err)
@@ -179,11 +194,10 @@ func installNodeBinary() error {
 	defer os.RemoveAll(tmpDir)
 
 	archivePath := filepath.Join(tmpDir, "node."+ext)
-	if err := downloadFile(url, archivePath); err != nil {
+	if err := downloadFile(dlURL, archivePath); err != nil {
 		return fmt.Errorf("downloading Node.js: %w", err)
 	}
 
-	// Install to ~/.local/lib/nodejs
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("getting home dir: %w", err)
@@ -194,45 +208,49 @@ func installNodeBinary() error {
 		return fmt.Errorf("creating nodejs dir: %w", err)
 	}
 
-	// Extract archive
-	prefix := fmt.Sprintf("node-v%s-%s-%s", NodeLTSVersion, osName, arch)
+	prefix := fmt.Sprintf("node-v%s-%s-%s", NodeLTSVersion, runtime.GOOS, nodeArch())
 	if err := extractNodeArchive(archivePath, nodeDir, prefix); err != nil {
 		return fmt.Errorf("extracting Node.js: %w", err)
 	}
 
-	// Create symlinks in ~/.local/bin
 	localBin := filepath.Join(home, ".local", "bin")
 	if err := os.MkdirAll(localBin, 0755); err != nil {
 		return fmt.Errorf("creating local bin dir: %w", err)
 	}
 
-	nodeBinDir := filepath.Join(nodeDir, "bin")
-	for _, bin := range []string{"node", "npm", "npx"} {
-		src := filepath.Join(nodeBinDir, bin)
-		dst := filepath.Join(localBin, bin)
-		if platform.FileExists(src) {
-			os.Remove(dst) // remove existing symlink if any
-			if err := os.Symlink(src, dst); err != nil {
-				return fmt.Errorf("symlinking %s: %w", bin, err)
-			}
-		}
+	if err := symlinkNodeBinaries(filepath.Join(nodeDir, "bin"), localBin); err != nil {
+		return err
 	}
 
-	// Update PATH for current process
+	configureNodePath(home, localBin)
+	return nil
+}
+
+// nodeArch returns the Node.js architecture name for the current platform.
+func nodeArch() string {
+	switch runtime.GOARCH {
+	case "amd64":
+		return "x64"
+	case "386":
+		return "x86"
+	default:
+		return runtime.GOARCH
+	}
+}
+
+// configureNodePath updates PATH for the current process and shell RC.
+func configureNodePath(home, localBin string) {
 	currentPath := os.Getenv("PATH")
 	if !strings.Contains(currentPath, localBin) {
 		os.Setenv("PATH", localBin+":"+currentPath)
 	}
 
-	// Configure shell RC for persistence
 	rcPath, shellName := platform.DetectShellRC(home)
 	if modified, err := platform.AppendPathToRC(home, shellName, rcPath); err != nil {
 		fmt.Printf("  Warning: could not auto-configure PATH: %v\n", err)
 	} else if modified {
 		fmt.Printf("  Added ~/.local/bin to PATH in %s\n", filepath.Base(rcPath))
 	}
-
-	return nil
 }
 
 // downloadFile downloads a URL to a local file path.
@@ -261,26 +279,23 @@ func downloadFile(url, dest string) error {
 // extractNodeArchive extracts bin/ contents from a Node.js tar.gz archive into destDir.
 // The prefix is the top-level directory name inside the archive (e.g., "node-v24.13.1-darwin-arm64").
 func extractNodeArchive(archive, destDir, prefix string) error {
+	if !strings.HasSuffix(archive, ".tar.gz") {
+		return extractNodeArchiveXZ(archive, destDir, prefix)
+	}
+
 	f, err := os.Open(archive)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	var reader io.Reader
-	if strings.HasSuffix(archive, ".tar.gz") {
-		gz, err := gzip.NewReader(f)
-		if err != nil {
-			return err
-		}
-		defer gz.Close()
-		reader = gz
-	} else {
-		// .tar.xz — use external xz command
-		return extractNodeArchiveXZ(archive, destDir, prefix)
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return err
 	}
+	defer gz.Close()
 
-	tr := tar.NewReader(reader)
+	tr := tar.NewReader(gz)
 	binPrefix := prefix + "/bin/"
 
 	for {
@@ -292,7 +307,6 @@ func extractNodeArchive(archive, destDir, prefix string) error {
 			return err
 		}
 
-		// Only extract files from bin/ directory
 		if !strings.HasPrefix(header.Name, binPrefix) {
 			continue
 		}
@@ -303,36 +317,39 @@ func extractNodeArchive(archive, destDir, prefix string) error {
 		}
 
 		destPath := filepath.Join(destDir, "bin", relPath)
-
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if err := os.MkdirAll(destPath, 0755); err != nil {
-				return err
-			}
-		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-				return err
-			}
-			outFile, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
-			if err != nil {
-				return err
-			}
-			if _, err := io.Copy(outFile, tr); err != nil {
-				outFile.Close()
-				return err
-			}
-			outFile.Close()
-		case tar.TypeSymlink:
-			if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-				return err
-			}
-			os.Remove(destPath)
-			if err := os.Symlink(header.Linkname, destPath); err != nil {
-				return err
-			}
+		if err := extractTarEntry(tr, header, destPath); err != nil {
+			return err
 		}
 	}
 
+	return nil
+}
+
+// extractTarEntry writes a single tar entry (dir, file, or symlink) to destPath.
+func extractTarEntry(tr *tar.Reader, header *tar.Header, destPath string) error {
+	switch header.Typeflag {
+	case tar.TypeDir:
+		return os.MkdirAll(destPath, 0755)
+	case tar.TypeReg:
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return err
+		}
+		outFile, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(outFile, tr); err != nil {
+			outFile.Close()
+			return err
+		}
+		return outFile.Close()
+	case tar.TypeSymlink:
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return err
+		}
+		os.Remove(destPath)
+		return os.Symlink(header.Linkname, destPath)
+	}
 	return nil
 }
 

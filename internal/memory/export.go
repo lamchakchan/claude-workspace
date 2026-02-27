@@ -3,6 +3,7 @@ package memory
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -66,63 +67,19 @@ func export(outputPath string) error {
 		Layers:     ExportLayers{},
 	}
 
-	for _, l := range layers {
+	for i := range layers {
+		l := &layers[i]
 		switch l.Name {
 		case LayerUserClaudeMD:
-			ef := &ExportFile{Path: l.Path}
-			if l.Exists {
-				content := readFileContent(l.Path)
-				ef.Content = &content
-			}
-			data.Layers.UserClaudeMD = ef
-
+			data.Layers.UserClaudeMD = exportFileLayer(l, "")
 		case LayerProjectClaudeMD:
-			ef := &ExportFile{Path: l.Path, Project: cwd}
-			if l.Exists {
-				content := readFileContent(l.Path)
-				ef.Content = &content
-			}
-			data.Layers.ProjectClaudeMD = ef
-
+			data.Layers.ProjectClaudeMD = exportFileLayer(l, cwd)
 		case LayerLocalMD:
-			ef := &ExportFile{Path: l.Path}
-			if l.Exists {
-				content := readFileContent(l.Path)
-				ef.Content = &content
-			}
-			data.Layers.LocalMD = ef
-
+			data.Layers.LocalMD = exportFileLayer(l, "")
 		case LayerAutoMemory:
-			am := &ExportAutoMem{
-				BasePath: l.Path,
-				Files:    l.Files,
-			}
-			data.Layers.AutoMemory = am
-
+			data.Layers.AutoMemory = &ExportAutoMem{BasePath: l.Path, Files: l.Files}
 		case LayerMemoryMCP:
-			em := &ExportMCP{Provider: l.Provider}
-			switch l.Provider {
-			case providerEngram:
-				if platform.Exists(providerEngram) {
-					raw := exportEngram()
-					if raw != nil {
-						em.Data = raw
-					}
-				}
-			case providerLibsql:
-				if !platform.Exists("claude") {
-					fmt.Fprintln(os.Stderr, "  Warning: claude CLI not available — cannot export mcp-memory-libsql data.")
-					fmt.Fprintln(os.Stderr, "  To back up memories, use Claude with: mcp__mcp-memory-libsql__read_graph")
-				} else {
-					raw, err := exportLibsqlViaClaude()
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "  Warning: mcp-memory-libsql export via Claude failed: %v\n", err)
-					} else if raw != nil {
-						em.Data = raw
-					}
-				}
-			}
-			data.Layers.MemoryMCP = em
+			data.Layers.MemoryMCP = exportMCPLayer(l)
 		}
 	}
 
@@ -138,6 +95,44 @@ func export(outputPath string) error {
 	}
 
 	return os.WriteFile(outputPath, jsonData, 0644)
+}
+
+// exportFileLayer builds an ExportFile from a discovered file layer.
+// If project is non-empty, it is set on the returned ExportFile.
+func exportFileLayer(l *Layer, project string) *ExportFile {
+	ef := &ExportFile{Path: l.Path, Project: project}
+	if l.Exists {
+		content := readFileContent(l.Path)
+		ef.Content = &content
+	}
+	return ef
+}
+
+// exportMCPLayer builds an ExportMCP from a discovered MCP layer,
+// fetching data from the appropriate provider.
+func exportMCPLayer(l *Layer) *ExportMCP {
+	em := &ExportMCP{Provider: l.Provider}
+	switch l.Provider {
+	case "engram":
+		if platform.Exists("engram") {
+			if raw := exportEngram(); raw != nil {
+				em.Data = raw
+			}
+		}
+	case "mcp-memory-libsql":
+		if !platform.Exists("claude") {
+			fmt.Fprintln(os.Stderr, "  Warning: claude CLI not available — cannot export mcp-memory-libsql data.")
+			fmt.Fprintln(os.Stderr, "  To back up memories, use Claude with: mcp__mcp-memory-libsql__read_graph")
+		} else {
+			raw, err := exportLibsqlViaClaude()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "  Warning: mcp-memory-libsql export via Claude failed: %v\n", err)
+			} else if raw != nil {
+				em.Data = raw
+			}
+		}
+	}
+	return em
 }
 
 // importMemory restores layers from a previously exported JSON file.
@@ -158,30 +153,8 @@ func importMemory(filePath string, scope map[LayerName]bool, confirm bool) error
 
 	w := os.Stdout
 
-	// Show what will be restored
 	platform.PrintBanner(w, "Memory Import Preview")
-	count := 0
-
-	if scope[LayerUserClaudeMD] && data.Layers.UserClaudeMD != nil && data.Layers.UserClaudeMD.Content != nil {
-		fmt.Fprintf(w, "  Will write: %s (%d lines)\n", data.Layers.UserClaudeMD.Path, countLines(*data.Layers.UserClaudeMD.Content))
-		count++
-	}
-	if scope[LayerProjectClaudeMD] && data.Layers.ProjectClaudeMD != nil && data.Layers.ProjectClaudeMD.Content != nil {
-		fmt.Fprintf(w, "  Will write: %s (%d lines)\n", data.Layers.ProjectClaudeMD.Path, countLines(*data.Layers.ProjectClaudeMD.Content))
-		count++
-	}
-	if scope[LayerLocalMD] && data.Layers.LocalMD != nil && data.Layers.LocalMD.Content != nil {
-		fmt.Fprintf(w, "  Will write: %s (%d lines)\n", data.Layers.LocalMD.Path, countLines(*data.Layers.LocalMD.Content))
-		count++
-	}
-	if scope[LayerAutoMemory] && data.Layers.AutoMemory != nil && len(data.Layers.AutoMemory.Files) > 0 {
-		fmt.Fprintf(w, "  Will write: %d file(s) to %s\n", len(data.Layers.AutoMemory.Files), data.Layers.AutoMemory.BasePath)
-		count++
-	}
-	if scope[LayerMemoryMCP] && data.Layers.MemoryMCP != nil && data.Layers.MemoryMCP.Data != nil {
-		fmt.Fprintf(w, "  Will import: Memory MCP data via %s\n", data.Layers.MemoryMCP.Provider)
-		count++
-	}
+	count := previewImport(w, &data, scope)
 
 	if count == 0 {
 		fmt.Fprintln(w, "  Nothing to import for the selected scope.")
@@ -196,97 +169,133 @@ func importMemory(filePath string, scope map[LayerName]bool, confirm bool) error
 	fmt.Fprintln(w)
 
 	// Apply changes
-	if scope[LayerUserClaudeMD] && data.Layers.UserClaudeMD != nil && data.Layers.UserClaudeMD.Content != nil {
-		if err := writeFileContent(data.Layers.UserClaudeMD.Path, *data.Layers.UserClaudeMD.Content); err != nil {
-			platform.PrintFail(w, fmt.Sprintf("User CLAUDE.md: %v", err))
-		} else {
-			platform.PrintOK(w, "User CLAUDE.md restored")
-		}
-	}
-
-	if scope[LayerProjectClaudeMD] && data.Layers.ProjectClaudeMD != nil && data.Layers.ProjectClaudeMD.Content != nil {
-		if err := writeFileContent(data.Layers.ProjectClaudeMD.Path, *data.Layers.ProjectClaudeMD.Content); err != nil {
-			platform.PrintFail(w, fmt.Sprintf("Project CLAUDE.md: %v", err))
-		} else {
-			platform.PrintOK(w, "Project CLAUDE.md restored")
-		}
-	}
-
-	if scope[LayerLocalMD] && data.Layers.LocalMD != nil && data.Layers.LocalMD.Content != nil {
-		if err := writeFileContent(data.Layers.LocalMD.Path, *data.Layers.LocalMD.Content); err != nil {
-			platform.PrintFail(w, fmt.Sprintf("CLAUDE.local.md: %v", err))
-		} else {
-			platform.PrintOK(w, "CLAUDE.local.md restored")
-		}
-	}
-
-	if scope[LayerAutoMemory] && data.Layers.AutoMemory != nil && len(data.Layers.AutoMemory.Files) > 0 {
-		basePath := data.Layers.AutoMemory.BasePath
-		if err := os.MkdirAll(basePath, 0755); err != nil {
-			platform.PrintFail(w, fmt.Sprintf("Auto-memory dir: %v", err))
-		} else {
-			for name, content := range data.Layers.AutoMemory.Files {
-				path := filepath.Join(basePath, name)
-				if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-					platform.PrintFail(w, fmt.Sprintf("Auto-memory %s: %v", name, err))
-				}
-			}
-			platform.PrintOK(w, fmt.Sprintf("Auto-memory: %d file(s) restored", len(data.Layers.AutoMemory.Files)))
-		}
-	}
-
-	if scope[LayerMemoryMCP] && data.Layers.MemoryMCP != nil && data.Layers.MemoryMCP.Data != nil {
-		switch data.Layers.MemoryMCP.Provider {
-		case providerEngram:
-			if platform.Exists(providerEngram) {
-				tmpFile, err := os.CreateTemp("", "memory-import-*.json")
-				if err != nil {
-					platform.PrintFail(w, fmt.Sprintf("Memory MCP temp file: %v", err))
-				} else {
-					if _, err := tmpFile.Write(*data.Layers.MemoryMCP.Data); err != nil {
-						tmpFile.Close()
-						platform.PrintFail(w, fmt.Sprintf("Memory MCP temp file write: %v", err))
-					} else {
-						tmpFile.Close()
-						defer os.Remove(tmpFile.Name())
-
-						if err := platform.Run(providerEngram, "import", tmpFile.Name()); err != nil {
-							platform.PrintFail(w, fmt.Sprintf("Memory MCP import: %v", err))
-						} else {
-							platform.PrintOK(w, "Memory MCP data imported via engram")
-						}
-					}
-				}
-			} else {
-				platform.PrintWarn(w, "Cannot import Memory MCP: engram not available")
-			}
-		case providerLibsql:
-			if !platform.Exists("claude") {
-				platform.PrintWarn(w, "Cannot import Memory MCP: claude CLI not available.")
-				fmt.Fprintln(w, "  Use mcp__mcp-memory-libsql__create_entities in Claude directly to restore memories.")
-			} else {
-				dataJSON := string(*data.Layers.MemoryMCP.Data)
-				prompt := fmt.Sprintf(
-					"Use mcp__mcp-memory-libsql__create_entities and mcp__mcp-memory-libsql__create_relations to import this memory data, preserving all entities and their observations exactly:\n\n%s",
-					dataJSON,
-				)
-				if err := platform.RunWithSpinner(
-					"Importing memories via Claude...",
-					"claude", "-p", prompt,
-					"--allowedTools", "mcp__mcp-memory-libsql__create_entities,mcp__mcp-memory-libsql__create_relations",
-				); err != nil {
-					platform.PrintFail(w, fmt.Sprintf("Memory MCP import via Claude: %v", err))
-				} else {
-					platform.PrintOK(w, "Memory MCP data imported via Claude + mcp-memory-libsql")
-				}
-			}
-		default:
-			platform.PrintWarn(w, fmt.Sprintf("Cannot import Memory MCP: provider %q not available", data.Layers.MemoryMCP.Provider))
-		}
-	}
+	importFileLayer(w, scope, LayerUserClaudeMD, data.Layers.UserClaudeMD, "User CLAUDE.md")
+	importFileLayer(w, scope, LayerProjectClaudeMD, data.Layers.ProjectClaudeMD, "Project CLAUDE.md")
+	importFileLayer(w, scope, LayerLocalMD, data.Layers.LocalMD, "CLAUDE.local.md")
+	importAutoMemory(w, scope, data.Layers.AutoMemory)
+	importMemoryMCP(w, scope, data.Layers.MemoryMCP)
 
 	fmt.Fprintln(w)
 	return nil
+}
+
+// previewImport prints a preview of what will be imported and returns the count of items.
+func previewImport(w io.Writer, data *ExportData, scope map[LayerName]bool) int {
+	count := 0
+	count += previewFileImport(w, scope, LayerUserClaudeMD, data.Layers.UserClaudeMD)
+	count += previewFileImport(w, scope, LayerProjectClaudeMD, data.Layers.ProjectClaudeMD)
+	count += previewFileImport(w, scope, LayerLocalMD, data.Layers.LocalMD)
+	if scope[LayerAutoMemory] && data.Layers.AutoMemory != nil && len(data.Layers.AutoMemory.Files) > 0 {
+		fmt.Fprintf(w, "  Will write: %d file(s) to %s\n", len(data.Layers.AutoMemory.Files), data.Layers.AutoMemory.BasePath)
+		count++
+	}
+	if scope[LayerMemoryMCP] && data.Layers.MemoryMCP != nil && data.Layers.MemoryMCP.Data != nil {
+		fmt.Fprintf(w, "  Will import: Memory MCP data via %s\n", data.Layers.MemoryMCP.Provider)
+		count++
+	}
+	return count
+}
+
+// previewFileImport previews a single file layer import. Returns 1 if the layer will be imported, 0 otherwise.
+func previewFileImport(w io.Writer, scope map[LayerName]bool, name LayerName, ef *ExportFile) int {
+	if !scope[name] || ef == nil || ef.Content == nil {
+		return 0
+	}
+	fmt.Fprintf(w, "  Will write: %s (%d lines)\n", ef.Path, countLines(*ef.Content))
+	return 1
+}
+
+// importFileLayer restores a single file-based layer if it is in scope and has content.
+func importFileLayer(w io.Writer, scope map[LayerName]bool, name LayerName, ef *ExportFile, label string) {
+	if !scope[name] || ef == nil || ef.Content == nil {
+		return
+	}
+	if err := writeFileContent(ef.Path, *ef.Content); err != nil {
+		platform.PrintFail(w, fmt.Sprintf("%s: %v", label, err))
+	} else {
+		platform.PrintOK(w, label+" restored")
+	}
+}
+
+// importAutoMemory restores the auto-memory directory files if in scope.
+func importAutoMemory(w io.Writer, scope map[LayerName]bool, am *ExportAutoMem) {
+	if !scope[LayerAutoMemory] || am == nil || len(am.Files) == 0 {
+		return
+	}
+	if err := os.MkdirAll(am.BasePath, 0755); err != nil {
+		platform.PrintFail(w, fmt.Sprintf("Auto-memory dir: %v", err))
+		return
+	}
+	for name, content := range am.Files {
+		path := filepath.Join(am.BasePath, name)
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			platform.PrintFail(w, fmt.Sprintf("Auto-memory %s: %v", name, err))
+		}
+	}
+	platform.PrintOK(w, fmt.Sprintf("Auto-memory: %d file(s) restored", len(am.Files)))
+}
+
+// importMemoryMCP restores the memory MCP data if in scope, dispatching to the appropriate provider.
+func importMemoryMCP(w io.Writer, scope map[LayerName]bool, mcp *ExportMCP) {
+	if !scope[LayerMemoryMCP] || mcp == nil || mcp.Data == nil {
+		return
+	}
+	switch mcp.Provider {
+	case "engram":
+		importViaEngram(w, mcp.Data)
+	case "mcp-memory-libsql":
+		importViaLibsql(w, mcp.Data)
+	default:
+		platform.PrintWarn(w, fmt.Sprintf("Cannot import Memory MCP: provider %q not available", mcp.Provider))
+	}
+}
+
+// importViaEngram imports MCP memory data using the engram CLI.
+func importViaEngram(w io.Writer, data *json.RawMessage) {
+	if !platform.Exists("engram") {
+		platform.PrintWarn(w, "Cannot import Memory MCP: engram not available")
+		return
+	}
+	tmpFile, err := os.CreateTemp("", "memory-import-*.json")
+	if err != nil {
+		platform.PrintFail(w, fmt.Sprintf("Memory MCP temp file: %v", err))
+		return
+	}
+	if _, err := tmpFile.Write(*data); err != nil {
+		platform.PrintFail(w, fmt.Sprintf("Memory MCP write: %v", err))
+		return
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	if err := platform.Run("engram", "import", tmpFile.Name()); err != nil {
+		platform.PrintFail(w, fmt.Sprintf("Memory MCP import: %v", err))
+	} else {
+		platform.PrintOK(w, "Memory MCP data imported via engram")
+	}
+}
+
+// importViaLibsql imports MCP memory data using the claude CLI and mcp-memory-libsql tools.
+func importViaLibsql(w io.Writer, data *json.RawMessage) {
+	if !platform.Exists("claude") {
+		platform.PrintWarn(w, "Cannot import Memory MCP: claude CLI not available.")
+		fmt.Fprintln(w, "  Use mcp__mcp-memory-libsql__create_entities in Claude directly to restore memories.")
+		return
+	}
+	dataJSON := string(*data)
+	prompt := fmt.Sprintf(
+		"Use mcp__mcp-memory-libsql__create_entities and mcp__mcp-memory-libsql__create_relations to import this memory data, preserving all entities and their observations exactly:\n\n%s",
+		dataJSON,
+	)
+	if err := platform.RunWithSpinner(
+		"Importing memories via Claude...",
+		"claude", "-p", prompt,
+		"--allowedTools", "mcp__mcp-memory-libsql__create_entities,mcp__mcp-memory-libsql__create_relations",
+	); err != nil {
+		platform.PrintFail(w, fmt.Sprintf("Memory MCP import via Claude: %v", err))
+	} else {
+		platform.PrintOK(w, "Memory MCP data imported via Claude + mcp-memory-libsql")
+	}
 }
 
 func readFileContent(path string) string {
@@ -343,7 +352,7 @@ func extractJSON(s string) string {
 }
 
 func exportEngram() *json.RawMessage {
-	out, err := platform.Output(providerEngram, "export")
+	out, err := platform.Output("engram", "export")
 	if err != nil || out == "" {
 		return nil
 	}

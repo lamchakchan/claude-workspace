@@ -56,53 +56,20 @@ func Run(projectPath, branchName string) error {
 		return nil
 	}
 
-	// Check if branch already exists
-	branchExists := platform.RunQuietDir(projectDir, "git", "rev-parse", "--verify", branchName) == nil
-
 	// Create the worktree
 	platform.PrintStep(os.Stdout, 1, 4, "Creating git worktree...")
-	if branchExists {
-		if err := platform.RunDir(projectDir, "git", "worktree", "add", worktreeDir, branchName); err != nil {
-			return fmt.Errorf("creating worktree: %w", err)
-		}
-	} else {
-		if err := platform.RunDir(projectDir, "git", "worktree", "add", "-b", branchName, worktreeDir); err != nil {
-			return fmt.Errorf("creating worktree: %w", err)
-		}
+	if err := createWorktree(projectDir, worktreeDir, branchName); err != nil {
+		return err
 	}
 	fmt.Printf("  Worktree created at: %s\n", worktreeDir)
 
 	// Copy .claude configuration to worktree if it exists in main project
 	platform.PrintStep(os.Stdout, 2, 4, "Setting up Claude configuration...")
-	claudeDir := filepath.Join(projectDir, ".claude")
-	if platform.FileExists(claudeDir) {
-		worktreeClaudeDir := filepath.Join(worktreeDir, ".claude")
-		_ = os.MkdirAll(worktreeClaudeDir, 0755)
-
-		localSettings := filepath.Join(claudeDir, "settings.local.json")
-		if platform.FileExists(localSettings) {
-			if err := platform.CopyFile(localSettings, filepath.Join(worktreeClaudeDir, "settings.local.json")); err == nil {
-				platform.PrintSuccess(os.Stdout, "Copied local settings to worktree")
-			}
-		}
-
-		localClaudeMd := filepath.Join(claudeDir, "CLAUDE.local.md")
-		if platform.FileExists(localClaudeMd) {
-			if err := platform.CopyFile(localClaudeMd, filepath.Join(worktreeClaudeDir, "CLAUDE.local.md")); err == nil {
-				platform.PrintSuccess(os.Stdout, "Copied local CLAUDE.md to worktree")
-			}
-		}
-	}
+	copyClaudeConfig(projectDir, worktreeDir)
 
 	// Copy .mcp.json if not tracked by git
 	platform.PrintStep(os.Stdout, 3, 4, "Setting up MCP configuration...")
-	mcpJSON := filepath.Join(projectDir, ".mcp.json")
-	worktreeMcp := filepath.Join(worktreeDir, ".mcp.json")
-	if platform.FileExists(mcpJSON) && !platform.FileExists(worktreeMcp) {
-		if err := platform.CopyFile(mcpJSON, worktreeMcp); err == nil {
-			platform.PrintSuccess(os.Stdout, "Copied .mcp.json to worktree")
-		}
-	}
+	copyMCPConfig(projectDir, worktreeDir)
 
 	// Install dependencies if needed
 	platform.PrintStep(os.Stdout, 4, 4, "Setting up dependencies...")
@@ -121,6 +88,53 @@ func Run(projectPath, branchName string) error {
 	fmt.Println()
 
 	return nil
+}
+
+func createWorktree(projectDir, worktreeDir, branchName string) error {
+	branchExists := platform.RunQuietDir(projectDir, "git", "rev-parse", "--verify", branchName) == nil
+	if branchExists {
+		if err := platform.RunDir(projectDir, "git", "worktree", "add", worktreeDir, branchName); err != nil {
+			return fmt.Errorf("creating worktree: %w", err)
+		}
+	} else {
+		if err := platform.RunDir(projectDir, "git", "worktree", "add", "-b", branchName, worktreeDir); err != nil {
+			return fmt.Errorf("creating worktree: %w", err)
+		}
+	}
+	return nil
+}
+
+func copyClaudeConfig(projectDir, worktreeDir string) {
+	claudeDir := filepath.Join(projectDir, ".claude")
+	if !platform.FileExists(claudeDir) {
+		return
+	}
+	worktreeClaudeDir := filepath.Join(worktreeDir, ".claude")
+	_ = os.MkdirAll(worktreeClaudeDir, 0755)
+
+	localSettings := filepath.Join(claudeDir, "settings.local.json")
+	if platform.FileExists(localSettings) {
+		if err := platform.CopyFile(localSettings, filepath.Join(worktreeClaudeDir, "settings.local.json")); err == nil {
+			platform.PrintSuccess(os.Stdout, "Copied local settings to worktree")
+		}
+	}
+
+	localClaudeMd := filepath.Join(claudeDir, "CLAUDE.local.md")
+	if platform.FileExists(localClaudeMd) {
+		if err := platform.CopyFile(localClaudeMd, filepath.Join(worktreeClaudeDir, "CLAUDE.local.md")); err == nil {
+			platform.PrintSuccess(os.Stdout, "Copied local CLAUDE.md to worktree")
+		}
+	}
+}
+
+func copyMCPConfig(projectDir, worktreeDir string) {
+	mcpJSON := filepath.Join(projectDir, ".mcp.json")
+	worktreeMcp := filepath.Join(worktreeDir, ".mcp.json")
+	if platform.FileExists(mcpJSON) && !platform.FileExists(worktreeMcp) {
+		if err := platform.CopyFile(mcpJSON, worktreeMcp); err == nil {
+			platform.PrintSuccess(os.Stdout, "Copied .mcp.json to worktree")
+		}
+	}
 }
 
 func installWorktreeDeps(worktreeDir string) {

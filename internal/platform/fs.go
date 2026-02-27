@@ -79,39 +79,54 @@ func EnsureGitignoreEntries(gitignorePath string, requiredEntries string) (modif
 		return false, err
 	}
 
-	// Build set of existing non-empty, non-comment lines
-	have := make(map[string]bool)
-	for _, line := range strings.Split(string(existing), "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
-			have[trimmed] = true
-		}
-	}
-
-	// Collect missing entries
-	var missing []string
-	for _, line := range strings.Split(requiredEntries, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-		if !have[trimmed] {
-			missing = append(missing, trimmed)
-		}
-	}
+	have := parseGitignoreEntries(string(existing))
+	missing := findMissingEntries(have, requiredEntries)
 
 	if len(missing) == 0 {
 		return false, nil
 	}
 
-	// Ensure parent directory exists
 	if err := os.MkdirAll(filepath.Dir(gitignorePath), 0755); err != nil {
 		return false, err
 	}
 
-	// Build append block
+	content := appendGitignoreBlock(existing, missing)
+	if err := os.WriteFile(gitignorePath, content, 0644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// parseGitignoreEntries parses gitignore content into a set of non-empty, non-comment lines.
+func parseGitignoreEntries(content string) map[string]bool {
+	have := make(map[string]bool)
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
+			have[trimmed] = true
+		}
+	}
+	return have
+}
+
+// findMissingEntries returns required entries that are not present in the existing set.
+func findMissingEntries(existing map[string]bool, required string) []string {
+	var missing []string
+	for _, line := range strings.Split(required, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if !existing[trimmed] {
+			missing = append(missing, trimmed)
+		}
+	}
+	return missing
+}
+
+// appendGitignoreBlock appends missing entries under a header to the existing file content.
+func appendGitignoreBlock(existing []byte, missing []string) []byte {
 	var buf strings.Builder
-	// Ensure we start on a new line if file has content
 	if len(existing) > 0 && !strings.HasSuffix(string(existing), "\n") {
 		buf.WriteString("\n")
 	}
@@ -119,11 +134,7 @@ func EnsureGitignoreEntries(gitignorePath string, requiredEntries string) (modif
 	for _, entry := range missing {
 		buf.WriteString(entry + "\n")
 	}
-
-	if err := os.WriteFile(gitignorePath, append(existing, []byte(buf.String())...), 0644); err != nil {
-		return false, err
-	}
-	return true, nil
+	return append(existing, []byte(buf.String())...)
 }
 
 // IsExecutable checks if a file has any execute permission bit set.
