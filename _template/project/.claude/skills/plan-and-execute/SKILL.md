@@ -31,10 +31,15 @@ Before starting a new plan, check if an existing plan covers this work:
      ```
    - Include: steps, affected files, risks, test strategy, documentation updates
    - Include Mermaid diagrams for complex subjects (architecture, state machines, data flows, sequences) — the planner agent has detailed guidance on when and how to add them
-4. **Present the plan** - Show the user what you'll do and ask for approval
-5. **Create a todo list** - Use TodoWrite to create trackable items from the plan
-6. **Name the session** - Suggest `/rename <plan-description>` so the session is easy to find with `claude --resume`
-7. **Log the plan path** - Tell the user: "Plan saved to `./plans/<filename>`. You can resume this in a future session with `/plan-resume`"
+4. **Quality checkpoint** - Verify the plan addresses:
+   - Whether existing utilities/functions can be reused (search before building)
+   - Algorithmic approach and its complexity
+   - Resource lifecycle (what is created, who closes it)
+   - Whether benchmarks are needed for performance-sensitive changes
+5. **Present the plan** - Show the user what you'll do and ask for approval
+6. **Create a todo list** - Use TodoWrite to create trackable items from the plan
+7. **Name the session** - Suggest `/rename <plan-description>` so the session is easy to find with `claude --resume`
+8. **Log the plan path** - Tell the user: "Plan saved to `./plans/<filename>`. You can resume this in a future session with `/plan-resume`"
 
 ## Phase 2: Execution
 
@@ -50,9 +55,13 @@ Before starting a new plan, check if an existing plan covers this work:
 
 1. **Run tests** - Use the test-runner subagent
 2. **Review changes** - Use the code-reviewer subagent
-3. **Verify documentation** - Use the documentation-writer subagent to verify all affected docs are consistent with the changes
-4. **Summarize** - Report what was done and any remaining items
-5. **Update plan status** - Set the plan file's `Status:` to `Complete` and `Last Updated:` to today's date
+3. **Performance validation** (when applicable) - If the plan identified performance-sensitive changes:
+   - Use the test-runner subagent in benchmark mode
+   - Compare with baseline if available
+   - Include results in the verification summary
+4. **Verify documentation** - Use the documentation-writer subagent to verify all affected docs are consistent with the changes
+5. **Summarize** - Report what was done and any remaining items
+6. **Update plan status** - Set the plan file's `Status:` to `Complete` and `Last Updated:` to today's date
 
 ## Status Values
 

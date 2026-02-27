@@ -25,6 +25,7 @@ NC='\033[0m'
 # ---------- flags ----------
 INSTALL_GO=false
 INSTALL_CUE=false
+INSTALL_GOLANGCI_LINT=false
 CHECK_ONLY=false
 
 if [[ $# -eq 0 ]]; then
@@ -33,8 +34,9 @@ if [[ $# -eq 0 ]]; then
 else
     for arg in "$@"; do
         case "$arg" in
-            --go)    INSTALL_GO=true ;;
-            --cue)   INSTALL_CUE=true ;;
+            --go)              INSTALL_GO=true ;;
+            --cue)             INSTALL_CUE=true ;;
+            --golangci-lint)   INSTALL_GOLANGCI_LINT=true ;;
             --check) CHECK_ONLY=true; INSTALL_GO=true; INSTALL_CUE=true ;;
             *)       echo -e "${RED}Unknown flag: $arg${NC}"; exit 1 ;;
         esac
@@ -324,6 +326,59 @@ install_cue() {
     return 1
 }
 
+# ---------- golangci-lint ----------
+check_golangci_lint() {
+    command -v golangci-lint &>/dev/null
+}
+
+install_golangci_lint_go() {
+    if ! command -v go &>/dev/null; then
+        return 1
+    fi
+    echo -e "  Installing via ${BOLD}go install${NC}..."
+    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+    # Ensure GOPATH/bin is accessible — symlink into /usr/local/bin if needed
+    local gobin
+    gobin="$(go env GOPATH)/bin"
+    if [[ -x "$gobin/golangci-lint" ]] && ! command -v golangci-lint &>/dev/null; then
+        run_privileged ln -sf "$gobin/golangci-lint" /usr/local/bin/golangci-lint
+    fi
+}
+
+install_golangci_lint_brew() {
+    if ! has_brew; then
+        return 1
+    fi
+    echo -e "  Installing via ${BOLD}Homebrew${NC}..."
+    brew install golangci-lint
+}
+
+install_golangci_lint() {
+    echo -e "${BOLD}golangci-lint:${NC} installing..."
+
+    # Try Homebrew first on macOS (recommended by golangci-lint docs)
+    if install_golangci_lint_brew 2>/dev/null; then
+        hash -r 2>/dev/null || true
+        if check_golangci_lint; then
+            echo -e "  ${GREEN}golangci-lint installed successfully${NC}"
+            return 0
+        fi
+    fi
+
+    # Try go install
+    if install_golangci_lint_go 2>/dev/null; then
+        hash -r 2>/dev/null || true
+        if check_golangci_lint; then
+            echo -e "  ${GREEN}golangci-lint installed successfully${NC}"
+            return 0
+        fi
+    fi
+
+    echo -e "  ${RED}Failed to install golangci-lint${NC}"
+    return 1
+}
+
 # ---------- main ----------
 if [[ "$INSTALL_GO" == true ]]; then
     if check_go; then
@@ -346,5 +401,17 @@ if [[ "$INSTALL_CUE" == true ]]; then
         exit 1
     else
         install_cue
+    fi
+fi
+
+if [[ "$INSTALL_GOLANGCI_LINT" == true ]]; then
+    if check_golangci_lint; then
+        current="$(golangci-lint --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "unknown")"
+        echo -e "${GREEN}golangci-lint:${NC} v${current} ${GREEN}OK${NC}"
+    elif [[ "$CHECK_ONLY" == true ]]; then
+        echo -e "${RED}golangci-lint:${NC} missing"
+        exit 1
+    else
+        install_golangci_lint
     fi
 fi

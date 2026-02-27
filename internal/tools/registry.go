@@ -4,7 +4,9 @@ package tools
 func Required() []Tool { return []Tool{Claude(), Node()} }
 
 // Optional returns tools that are useful but not required.
-func Optional() []Tool { return []Tool{Engram(), Shellcheck(), JQ(), Prettier(), Tmux()} }
+func Optional() []Tool {
+	return []Tool{Engram(), Shellcheck(), JQ(), Prettier(), Tmux(), GolangciLint()}
+}
 
 // All returns every registered tool.
 func All() []Tool { return append(Required(), Optional()...) }

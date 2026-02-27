@@ -7,16 +7,19 @@ GO_SOURCES := $(shell find . -name '*.go' -not -path './bin/*' -not -path './.gi
               $(wildcard go.mod go.sum) \
               $(shell find ./_template -type f 2>/dev/null)
 
-.PHONY: build install test clean build-all vet lint smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast check doc dev-docker dev-vm deploy-docker deploy-vm shell-docker shell-vm destroy-docker destroy-vm dep ensure-go ensure-cue
+.PHONY: build install test clean build-all vet lint golint bench smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast check doc dev-docker dev-vm deploy-docker deploy-vm shell-docker shell-vm destroy-docker destroy-vm dep ensure-go ensure-cue ensure-golangci-lint
 
 # ---------- dependency targets ----------
-dep: ensure-go ensure-cue
+dep: ensure-go ensure-cue ensure-golangci-lint
 
 ensure-go:
 	@bash scripts/install-deps.sh --go
 
 ensure-cue:
 	@bash scripts/install-deps.sh --cue
+
+ensure-golangci-lint:
+	@bash scripts/install-deps.sh --golangci-lint
 
 # ---------- build / test / lint ----------
 build: build-all
@@ -83,6 +86,12 @@ smoke-test-docker:
 
 smoke-test-docker-fast:
 	bash scripts/smoke-test.sh --docker --skip-claude-cli
+
+golint: ensure-golangci-lint
+	golangci-lint run ./...
+
+bench: ensure-go
+	go test -bench=. -benchmem ./...
 
 # Pre-push validation (vet + test + lint + build)
 check: vet test lint build

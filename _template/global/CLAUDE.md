@@ -11,6 +11,53 @@ Follow the platform conventions, use subagents for delegation, and plan before i
 - Run tests after making changes
 - Never commit secrets or credentials
 
+## Code Quality Standards
+
+### Universal Principles
+- **Algorithmic complexity**: Choose optimal O() for the use case; prefer hash-based lookups over linear scans; avoid nested loops that can be flattened with better data structures
+- **DRY**: Search for existing implementations before writing new code; extract shared logic when the same pattern appears 3+ times across files
+- **Style consistency**: Match the existing codebase exactly — naming, structure, idioms, patterns; new code should read as if the same person wrote it
+- **Resource management**: Prefer long-lived, shared, pooled resources (connections, clients, buffers); create once at a high level, pass down; never create per-request when a pool exists
+- **Memory efficiency**: Avoid unnecessary allocations; pre-allocate when size is known; reuse buffers for repeated operations
+- **Caching**: Compute/encode/decode at the highest level and pass results down; don't re-derive data that can be passed as a parameter; cache expensive computations when results are reused within scope
+- **Proportionality**: Match optimization effort to the code's actual performance sensitivity; don't over-optimize cold paths
+
+### Language-Specific Patterns
+
+**Go:**
+- `strings.Builder` over `+` concatenation; pre-allocate slices with `make([]T, 0, cap)`; pointer receivers for large structs
+- Error wrapping: `%w` for chain-unwrapping, `%v` for opaque; `defer` for cleanup; check `Close()` errors on writers
+- Lint: `golangci-lint run` if available, else `go vet`
+
+**TypeScript/JavaScript:**
+- `Map`/`Set` for lookups over object/array; `for...of` over `.forEach()` for early-exit
+- Memoize with `useMemo`/`useCallback` only when deps actually change; avoid closures capturing loop vars
+- Lint: `eslint` or `biome`; type-check with `tsc --noEmit`
+
+**Python:**
+- `dict`/`set` for O(1) lookups; generators over list comprehensions for large data; `__slots__` for many-instance classes
+- Context managers (`with`) for cleanup; `functools.lru_cache` for pure function memoization
+- Lint: `ruff` or `pylint`; type-check with `mypy`
+
+**Java:**
+- Use `HashMap`/`HashSet` for lookups; `StringBuilder` over `+` concatenation; streams for declarative collection processing
+- Try-with-resources for all `AutoCloseable`; prefer `Optional` over null checks; immutable collections where possible
+- Lint: `errorprone` or `spotbugs`; `checkstyle` for style
+
+**.NET/C#:**
+- `Dictionary`/`HashSet` for lookups; `StringBuilder` for string building; `Span<T>` for zero-allocation slicing
+- `using`/`IDisposable` for resource cleanup; `async/await` over `.Result`; immutable records where appropriate
+- Lint: Roslyn analyzers, `dotnet format`
+
+**Erlang/Elixir:**
+- Pattern matching over conditional chains; ETS tables for shared mutable state; avoid list operations on large datasets (use streams)
+- OTP supervision trees for fault tolerance; prefer message passing over shared state
+- Lint: `dialyzer` for type checking, `credo` (Elixir)
+
+**Shell/Bash:**
+- Quote all variables; `set -euo pipefail`; parameter expansion over external commands
+- Cache command outputs in variables; avoid calling the same command twice
+
 ## Git Conventions
 - Work on feature branches, never main/master
 - Commit messages: imperative mood, explain "why"

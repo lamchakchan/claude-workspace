@@ -44,6 +44,14 @@ Lint: `go vet ./...` and `make lint` (CUE-based template validation)
 - Scripts share common functions via `lib.sh`, `lib-phases.sh`, and `lib-provision.sh` in `scripts/`
 - `make dep` auto-installs Go and CUE if missing; individual targets (test, vet, lint, build) also ensure their deps before running
 
+## Quality Standards
+- `internal/platform/` is the shared utility layer — always check there before creating new helpers
+- Pre-allocate slices with `make([]T, 0, cap)` when size is known or estimable
+- Wrap errors with `%w` at boundaries; return errors to caller, print at `main()` only
+- Run `go vet ./...` before declaring changes complete; use `golangci-lint run` if available
+- Include `Benchmark*` functions for code that processes data in loops, handles I/O, or does serialization
+- Run benchmarks with `go test -bench=. -benchmem` to measure allocations
+
 ## Important Files
 - `main.go` - CLI entry point, command routing, embedded FS wiring
 - `assets.go` - `//go:embed` directive that bundles `_template/` into the binary
