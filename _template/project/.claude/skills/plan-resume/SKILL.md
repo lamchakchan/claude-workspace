@@ -27,11 +27,11 @@ Use this skill to resume a previously created plan from `./plans/`.
 
 ## Step 3: Assess Progress
 
-Read the selected plan fully. For each Implementation Step or requirement checkbox:
+Read the selected plan fully, then:
 
-1. Check if the referenced files exist and have the described changes
-2. Mark items as likely done vs. remaining
-3. Summarize: "X of Y steps appear complete"
+1. Count `- [x]` (done) vs `- [ ]` (remaining) checkboxes in the Implementation Steps
+2. Fall back to checking referenced files exist if the plan predates checkbox tracking
+3. Summarize: "X of Y steps complete"
 
 ## Step 4: Update the Plan File
 
@@ -54,6 +54,15 @@ Generate todos from remaining incomplete items using TaskCreate/TaskUpdate:
 ## Step 6: Session Hygiene
 
 Suggest the user run `/rename <plan-description>` so this session is easy to find later with `claude --resume`.
+
+## Status Values
+
+| Status | Meaning |
+|--------|---------|
+| `Draft` | Plan written, not yet reviewed by the user |
+| `Approved` | User has reviewed and approved; ready to execute |
+| `In Progress` | Actively being worked on (set this on resume) |
+| `Complete` | All steps done and verified |
 
 ## Rules
 

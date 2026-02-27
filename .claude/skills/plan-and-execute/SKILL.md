@@ -23,6 +23,12 @@ Before starting a new plan, check if an existing plan covers this work:
 3. **Write a plan** - Create a detailed plan file in `./plans/` directory:
    - Use the planner subagent for complex tasks
    - Name: `plan-YYYY-MM-DD-<description>.md`
+   - Header: immediately after the title line, include:
+     ```
+     Date: YYYY-MM-DD
+     Status: Draft
+     Last Updated: YYYY-MM-DD
+     ```
    - Include: steps, affected files, risks, test strategy
 4. **Present the plan** - Show the user what you'll do and ask for approval
 5. **Create a todo list** - Use TodoWrite to create trackable items from the plan
@@ -32,7 +38,9 @@ Before starting a new plan, check if an existing plan covers this work:
 ## Phase 2: Execution
 
 1. **Work step by step** - Follow the plan in order
-2. **Update progress** - Mark todos as in_progress/completed as you go
+2. **Update progress** - As each step completes:
+   - Check it off in the plan file (`- [ ]` → `- [x]`)
+   - Mark the corresponding todo as completed
 3. **Validate each step** - Run tests or verify after each change
 4. **Handle deviations** - If the plan needs to change, update it and inform the user
 
@@ -42,6 +50,15 @@ Before starting a new plan, check if an existing plan covers this work:
 2. **Review changes** - Use the code-reviewer subagent
 3. **Summarize** - Report what was done and any remaining items
 4. **Update plan status** - Set the plan file's `Status:` to `Complete` and `Last Updated:` to today's date
+
+## Status Values
+
+| Status | When to use |
+|--------|-------------|
+| `Draft` | Plan written, not yet reviewed by the user |
+| `Approved` | User has reviewed and approved; ready to execute |
+| `In Progress` | Actively being worked on |
+| `Complete` | All steps done and verified |
 
 ## Rules
 

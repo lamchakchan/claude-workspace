@@ -54,12 +54,12 @@ Last Updated: [YYYY-MM-DD]
 ## Implementation Steps
 
 ### Phase 1: [Name]
-1. Step 1 - [file:line reference]
-2. Step 2 - [file:line reference]
+- [ ] Step 1 - [file:line reference]
+- [ ] Step 2 - [file:line reference]
 
 ### Phase 2: [Name]
-1. Step 1
-2. Step 2
+- [ ] Step 1
+- [ ] Step 2
 
 ## Files to Modify
 | File | Change Type | Description |
