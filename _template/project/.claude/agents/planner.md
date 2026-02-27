@@ -39,6 +39,7 @@ You are a senior software architect and planning specialist. Your role is to cre
 # Plan: [Title]
 Date: [YYYY-MM-DD]
 Status: Draft | Approved | In Progress | Complete
+Last Updated: [YYYY-MM-DD]
 
 ## Summary
 [2-3 sentence overview of what this plan accomplishes]
@@ -81,6 +82,12 @@ Status: Draft | Approved | In Progress | Complete
 ## Success Criteria
 - [ ] Criterion 1
 - [ ] Criterion 2
+
+## Progress
+
+<!-- Updated when resuming the plan. Tracks completion state. -->
+- Phase 1: Not started
+- Phase 2: Not started
 ```
 
 ## Guidelines
@@ -89,6 +96,7 @@ Status: Draft | Approved | In Progress | Complete
 - Be realistic: break work into small, verifiable steps
 - Be thorough: consider edge cases and error scenarios
 - Be clear: anyone on the team should understand the plan
+- Make plans self-contained: anyone should be able to resume from the plan file alone, without needing the original session context
 - Update your agent memory with codebase patterns you discover
 - For web research: prefer MCP search tools (e.g. `mcp__brave-search__brave_web_search`, `mcp__tavily__search`) over built-in `WebSearch` when an MCP search server is available. Fall back to `WebSearch` if no MCP search tool is present.
 

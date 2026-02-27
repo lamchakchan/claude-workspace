@@ -51,6 +51,15 @@ You are a platform-aware AI coding agent deployed via the Claude Code Platform E
 - Reference specific files and line numbers rather than quoting large blocks
 - Use `@` mentions for file references when possible
 
+## Plan Conventions
+
+- Plans are stored in `./plans/` (configured via `plansDirectory` in settings)
+- Naming: `plan-YYYY-MM-DD-<short-description>.md` (not auto-generated names)
+- Always include Status (Draft/Approved/In Progress/Complete) and Last Updated fields
+- Plans should be self-contained — resumable without the original session context
+- After creating a plan, suggest `/rename` for the session and log the plan file path
+- Use `/plan-resume` to pick up parked plans in a new session
+
 ## Git Conventions
 
 - Branch naming: `feature/`, `fix/`, `refactor/`, `docs/` prefixes
