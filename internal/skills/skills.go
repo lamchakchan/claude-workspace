@@ -45,7 +45,7 @@ func list() error {
 	if err == nil {
 		skillsDir := filepath.Join(cwd, ".claude", "skills")
 		if platform.FileExists(skillsDir) {
-			projectSkills := discoverSkills(skillsDir)
+			projectSkills := DiscoverSkills(skillsDir)
 			if len(projectSkills) > 0 {
 				anyFound = true
 				platform.PrintSection(os.Stdout, "Project Skills (.claude/skills/)")
@@ -59,7 +59,7 @@ func list() error {
 	if err == nil {
 		commandsDir := filepath.Join(home, ".claude", "commands")
 		if platform.FileExists(commandsDir) {
-			commands := discoverCommands(commandsDir)
+			commands := DiscoverCommands(commandsDir)
 			if len(commands) > 0 {
 				anyFound = true
 				platform.PrintSection(os.Stdout, "Personal Commands (~/.claude/commands/)")
@@ -70,7 +70,7 @@ func list() error {
 
 	// 3. Platform built-in skills (from embedded FS)
 	if platform.FS != nil {
-		builtins := discoverEmbeddedSkills(platform.FS, ".claude/skills")
+		builtins := DiscoverEmbeddedSkills(platform.FS, ".claude/skills")
 		if len(builtins) > 0 {
 			anyFound = true
 			platform.PrintSection(os.Stdout, "Platform Built-in Skills")
@@ -99,8 +99,8 @@ func list() error {
 	return nil
 }
 
-// discoverSkills walks a directory for SKILL.md files and parses their frontmatter.
-func discoverSkills(root string) []Skill {
+// DiscoverSkills walks a directory for SKILL.md files and parses their frontmatter.
+func DiscoverSkills(root string) []Skill {
 	var skills []Skill
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -119,8 +119,8 @@ func discoverSkills(root string) []Skill {
 	return skills
 }
 
-// discoverCommands walks a directory for .md files and uses filename + first line as description.
-func discoverCommands(root string) []Skill {
+// DiscoverCommands walks a directory for .md files and uses filename + first line as description.
+func DiscoverCommands(root string) []Skill {
 	var commands []Skill
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -140,8 +140,8 @@ func discoverCommands(root string) []Skill {
 	return commands
 }
 
-// discoverEmbeddedSkills walks the embedded FS for SKILL.md files.
-func discoverEmbeddedSkills(efs fs.FS, root string) []Skill {
+// DiscoverEmbeddedSkills walks the embedded FS for SKILL.md files.
+func DiscoverEmbeddedSkills(efs fs.FS, root string) []Skill {
 	var skills []Skill
 	_ = fs.WalkDir(efs, root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {

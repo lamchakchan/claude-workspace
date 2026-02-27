@@ -17,7 +17,7 @@ type EnrichModel struct {
 // NewEnrich creates a new enrich form screen.
 func NewEnrich(theme *Theme) *EnrichModel {
 	fields := []FormField{
-		{Label: "Project path", Placeholder: "leave blank for current directory"},
+		{Label: "Project path", Placeholder: "leave blank for current directory", IsPath: true},
 	}
 
 	return &EnrichModel{

@@ -141,7 +141,7 @@ func TestDiscoverSkills(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			root := t.TempDir()
 			tt.setup(t, root)
-			got := discoverSkills(root)
+			got := DiscoverSkills(root)
 			assertSkills(t, got, tt.want)
 		})
 	}
@@ -195,7 +195,7 @@ func TestDiscoverCommands(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			root := t.TempDir()
 			tt.setup(t, root)
-			got := discoverCommands(root)
+			got := DiscoverCommands(root)
 			assertSkills(t, got, tt.want)
 		})
 	}

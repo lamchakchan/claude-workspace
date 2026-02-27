@@ -25,6 +25,18 @@ func Run(args []string) error {
 	return platform.Run(runtime, cmdArgs...)
 }
 
+// RunCapture runs ccusage and returns the output as a string.
+func RunCapture(args []string) (string, error) {
+	runtime, prefix := detectRuntime()
+	if runtime == "" {
+		return "", fmt.Errorf("bun or npx not found; install Node.js (https://nodejs.org) or Bun (https://bun.sh)")
+	}
+	cmdArgs := make([]string, 0, len(prefix)+len(args))
+	cmdArgs = append(cmdArgs, prefix...)
+	cmdArgs = append(cmdArgs, args...)
+	return platform.Output(runtime, cmdArgs...)
+}
+
 func detectRuntime() (string, []string) {
 	if platform.Exists("bun") {
 		return "bun", []string{"x", "ccusage"}
