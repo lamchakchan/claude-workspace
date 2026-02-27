@@ -30,6 +30,7 @@ Before starting a new plan, check if an existing plan covers this work:
      Last Updated: YYYY-MM-DD
      ```
    - Include: steps, affected files, risks, test strategy, documentation updates
+   - Include Mermaid diagrams for complex subjects (architecture, state machines, data flows, sequences) — the planner agent has detailed guidance on when and how to add them
 4. **Present the plan** - Show the user what you'll do and ask for approval
 5. **Create a todo list** - Use TodoWrite to create trackable items from the plan
 6. **Name the session** - Suggest `/rename <plan-description>` so the session is easy to find with `claude --resume`

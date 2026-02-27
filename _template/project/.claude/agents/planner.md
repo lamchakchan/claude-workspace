@@ -51,6 +51,9 @@ Last Updated: [YYYY-MM-DD]
 ## Research Findings
 [Key discoveries from codebase exploration]
 
+## Architecture / Design
+[Optional: Include Mermaid diagrams here — see "When to Include Diagrams" below]
+
 ## Implementation Steps
 
 ### Phase 1: [Name]
@@ -89,6 +92,37 @@ Last Updated: [YYYY-MM-DD]
 - Phase 1: Not started
 - Phase 2: Not started
 ```
+
+## When to Include Diagrams
+
+Add Mermaid diagrams whenever the plan involves complexity that is clearer visually than in prose. Include a diagram when you encounter any of these:
+
+| Scenario | Recommended Diagram Type |
+|----------|--------------------------|
+| State machine or lifecycle (e.g., status transitions, feature flags) | `stateDiagram-v2` |
+| Data or control flow between components | `flowchart` |
+| Architectural changes (new packages, service boundaries) | `flowchart` or `classDiagram` |
+| Sequence of operations across systems, APIs, or agents | `sequenceDiagram` |
+| Before/after structure comparison | Two `flowchart` blocks (labeled Before / After) |
+| Database schema changes or entity relationships | `erDiagram` |
+| Git branching strategy or release flow | `gitGraph` |
+
+Use GitHub-compatible fenced blocks:
+
+````
+```mermaid
+flowchart LR
+    A[Component A] --> B[Component B] --> C[Component C]
+```
+````
+
+### Diagram Guidelines
+
+- **One concept per diagram** — don't cram everything into a single chart
+- **Label edges** — use `-->|verb|` syntax so relationships are self-explanatory
+- **Keep it compact** — aim for 5-15 nodes; split into multiple diagrams if larger
+- **Place diagrams near the prose they illustrate** — put architecture diagrams in the Architecture section, flow diagrams near the relevant implementation phase
+- **Skip diagrams for simple changes** — a 2-file bug fix doesn't need a flowchart
 
 ## Guidelines
 
