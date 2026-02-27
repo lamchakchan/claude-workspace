@@ -37,7 +37,7 @@ func TestNewForm(t *testing.T) {
 		{Label: "Name", Required: true},
 		{Label: "Value"},
 	}
-	form := NewForm("Test Form", fields, theme)
+	form := NewForm("Test Form", fields, &theme)
 	if form.Title != "Test Form" {
 		t.Errorf("form title = %q, want %q", form.Title, "Test Form")
 	}
@@ -48,7 +48,7 @@ func TestNewForm(t *testing.T) {
 
 func TestNewConfirm(t *testing.T) {
 	theme := DefaultTheme()
-	c := NewConfirm("Delete?", "This action is irreversible.", true, theme)
+	c := NewConfirm("Delete?", "This action is irreversible.", true, &theme)
 	if c.Title != "Delete?" {
 		t.Errorf("confirm title = %q, want %q", c.Title, "Delete?")
 	}
@@ -60,7 +60,7 @@ func TestNewConfirm(t *testing.T) {
 func TestNewStepper(t *testing.T) {
 	theme := DefaultTheme()
 	labels := []string{"Step 1", "Step 2", "Step 3"}
-	s := NewStepper(labels, theme)
+	s := NewStepper(labels, &theme)
 	if len(s.Steps) != 3 {
 		t.Errorf("stepper steps = %d, want 3", len(s.Steps))
 	}
@@ -73,7 +73,7 @@ func TestNewStepper(t *testing.T) {
 
 func TestStepperView(t *testing.T) {
 	theme := DefaultTheme()
-	s := NewStepper([]string{"Install", "Configure", "Verify"}, theme)
+	s := NewStepper([]string{"Install", "Configure", "Verify"}, &theme)
 	s.Steps[0].Status = StepDone
 	s.Steps[1].Status = StepRunning
 	view := s.View()
@@ -85,7 +85,7 @@ func TestStepperView(t *testing.T) {
 func TestFormValues(t *testing.T) {
 	theme := DefaultTheme()
 	fields := []FormField{{Label: "A"}, {Label: "B"}}
-	form := NewForm("F", fields, theme)
+	form := NewForm("F", fields, &theme)
 	vals := form.Values()
 	if len(vals) != 2 {
 		t.Errorf("Values() len = %d, want 2", len(vals))
@@ -94,7 +94,7 @@ func TestFormValues(t *testing.T) {
 
 func TestNewMcpAdd(t *testing.T) {
 	theme := DefaultTheme()
-	m := NewMcpAdd(theme)
+	m := NewMcpAdd(&theme)
 	if len(m.form.Fields) != 3 {
 		t.Errorf("McpAdd fields = %d, want 3", len(m.form.Fields))
 	}
@@ -102,7 +102,7 @@ func TestNewMcpAdd(t *testing.T) {
 
 func TestNewAttach(t *testing.T) {
 	theme := DefaultTheme()
-	m := NewAttach(theme)
+	m := NewAttach(&theme)
 	if len(m.form.Fields) != 1 {
 		t.Errorf("Attach fields = %d, want 1", len(m.form.Fields))
 	}
@@ -110,13 +110,13 @@ func TestNewAttach(t *testing.T) {
 
 func TestNewSandbox(t *testing.T) {
 	theme := DefaultTheme()
-	m := NewSandbox(theme)
+	m := NewSandbox(&theme)
 	if len(m.form.Fields) != 2 {
 		t.Errorf("Sandbox fields = %d, want 2", len(m.form.Fields))
 	}
 }
 
-func TestIsAccessible(t *testing.T) {
+func TestIsAccessible(_ *testing.T) {
 	// Just verify it doesn't panic.
 	_ = IsAccessible()
 }

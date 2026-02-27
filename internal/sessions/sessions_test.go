@@ -178,11 +178,11 @@ func writeTestSession(t *testing.T, dir, id string, messages []record) string {
 	defer f.Close()
 
 	// Write a file-history-snapshot first (as real sessions do)
-	f.WriteString(`{"type":"file-history-snapshot","messageId":"snap-1"}` + "\n")
+	_, _ = f.WriteString(`{"type":"file-history-snapshot","messageId":"snap-1"}` + "\n")
 
 	enc := json.NewEncoder(f)
-	for _, msg := range messages {
-		if err := enc.Encode(msg); err != nil {
+	for i := range messages {
+		if err := enc.Encode(&messages[i]); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -364,7 +364,7 @@ func TestScanProjectSessions_IgnoresSubdirectories(t *testing.T) {
 
 	// Create a subdirectory (subagent dir) — should be ignored
 	subDir := filepath.Join(dir, "main-session")
-	os.MkdirAll(filepath.Join(subDir, "subagents"), 0755)
+	_ = os.MkdirAll(filepath.Join(subDir, "subagents"), 0755)
 
 	sessions, err := scanProjectSessions(dir, "test-project")
 	if err != nil {

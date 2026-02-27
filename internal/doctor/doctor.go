@@ -81,7 +81,8 @@ func Run() error {
 	// 4. Check Node.js
 	platform.PrintSectionLabel(os.Stdout, "Node.js")
 	nodeTool := tools.Node()
-	if nodeTool.IsInstalled() {
+	switch {
+	case nodeTool.IsInstalled():
 		if ver, err := platform.Output("node", "--version"); err == nil {
 			pass("Node.js: " + ver)
 		} else {
@@ -93,13 +94,13 @@ func Run() error {
 			warn("npx not found (required for MCP servers)")
 			warnings++
 		}
-	} else if platform.Exists("node") {
+	case platform.Exists("node"):
 		// node exists but doesn't meet minimum version
 		ver, _ := platform.Output("node", "--version")
 		warn(fmt.Sprintf("Node.js %s is below minimum version (v%d+)", ver, tools.NodeMinMajor))
 		fmt.Println("    Upgrade Node.js: https://nodejs.org")
 		warnings++
-	} else {
+	default:
 		fail("Node.js not found (required for MCP servers)")
 		fmt.Println("    Install: https://nodejs.org or run: claude-workspace setup")
 		issues++
@@ -161,12 +162,13 @@ func Run() error {
 
 	for _, check := range checks {
 		fullPath := filepath.Join(cwd, check.path)
-		if platform.FileExists(fullPath) {
+		switch {
+		case platform.FileExists(fullPath):
 			pass(check.label + ": " + check.path)
-		} else if check.required {
+		case check.required:
 			fail(check.label + " not found: " + check.path)
 			issues++
-		} else {
+		default:
 			warn(check.label + " not found: " + check.path)
 			warnings++
 		}
@@ -174,7 +176,7 @@ func Run() error {
 
 	// 6. Check Agents
 	platform.PrintSectionLabel(os.Stdout, "Agents")
-	agentsDir := filepath.Join(cwd, ".claude/agents")
+	agentsDir := filepath.Join(cwd, ".claude", "agents")
 	if platform.FileExists(agentsDir) {
 		entries, err := os.ReadDir(agentsDir)
 		if err == nil {
@@ -195,10 +197,10 @@ func Run() error {
 
 	// 7. Check Skills
 	platform.PrintSectionLabel(os.Stdout, "Skills")
-	skillsDir := filepath.Join(cwd, ".claude/skills")
+	skillsDir := filepath.Join(cwd, ".claude", "skills")
 	if platform.FileExists(skillsDir) {
 		var skills []string
-		filepath.WalkDir(skillsDir, func(path string, d os.DirEntry, err error) error {
+		_ = filepath.WalkDir(skillsDir, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				return nil
 			}
@@ -218,7 +220,7 @@ func Run() error {
 
 	// 8. Check Hooks
 	platform.PrintSectionLabel(os.Stdout, "Hooks")
-	hooksDir := filepath.Join(cwd, ".claude/hooks")
+	hooksDir := filepath.Join(cwd, ".claude", "hooks")
 	if platform.FileExists(hooksDir) {
 		entries, err := os.ReadDir(hooksDir)
 		if err == nil {
@@ -238,7 +240,7 @@ func Run() error {
 
 	// 9. Check settings.json hooks reference valid scripts
 	platform.PrintSectionLabel(os.Stdout, "Hook Configuration")
-	settingsPath := filepath.Join(cwd, ".claude/settings.json")
+	settingsPath := filepath.Join(cwd, ".claude", "settings.json")
 	if platform.FileExists(settingsPath) {
 		var settings map[string]json.RawMessage
 		if err := platform.ReadJSONFile(settingsPath, &settings); err == nil {

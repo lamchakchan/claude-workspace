@@ -27,15 +27,16 @@ func DetectJSTechStack(pkg map[string]json.RawMessage) string {
 
 	var stack []string
 
-	if allDeps["next"] {
+	switch {
+	case allDeps["next"]:
 		stack = append(stack, "Next.js")
-	} else if allDeps["react"] {
+	case allDeps["react"]:
 		stack = append(stack, "React")
-	} else if allDeps["vue"] {
+	case allDeps["vue"]:
 		stack = append(stack, "Vue")
-	} else if allDeps["@angular/core"] {
+	case allDeps["@angular/core"]:
 		stack = append(stack, "Angular")
-	} else if allDeps["svelte"] {
+	case allDeps["svelte"]:
 		stack = append(stack, "Svelte")
 	}
 
@@ -80,7 +81,7 @@ func GenerateClaudeMdScaffold(projectDir string) string {
 			techStack = DetectJSTechStack(pkg)
 			var scripts map[string]string
 			if raw, ok := pkg["scripts"]; ok {
-				json.Unmarshal(raw, &scripts)
+				_ = json.Unmarshal(raw, &scripts)
 			}
 			if _, ok := scripts["build"]; ok {
 				buildCmd = "npm run build"
@@ -114,13 +115,13 @@ func GenerateClaudeMdScaffold(projectDir string) string {
 	var sb strings.Builder
 	sb.WriteString("# Project Instructions\n\n")
 	sb.WriteString("## Project\n")
-	sb.WriteString(fmt.Sprintf("Name: %s\n", projectName))
-	sb.WriteString(fmt.Sprintf("Tech Stack: %s\n", techStack))
+	fmt.Fprintf(&sb, "Name: %s\n", projectName)
+	fmt.Fprintf(&sb, "Tech Stack: %s\n", techStack)
 	if buildCmd != "" {
-		sb.WriteString(fmt.Sprintf("Build: `%s`\n", buildCmd))
+		fmt.Fprintf(&sb, "Build: `%s`\n", buildCmd)
 	}
 	if testCmd != "" {
-		sb.WriteString(fmt.Sprintf("Test: `%s`\n", testCmd))
+		fmt.Fprintf(&sb, "Test: `%s`\n", testCmd)
 	}
 	sb.WriteString(`
 ## Conventions

@@ -47,13 +47,13 @@ func initGitRepo(t *testing.T, dir string) {
 func TestRun_CreatesWorktree(t *testing.T) {
 	parent := t.TempDir()
 	projectDir := filepath.Join(parent, "myproject")
-	os.MkdirAll(projectDir, 0755)
+	_ = os.MkdirAll(projectDir, 0755)
 
 	initGitRepo(t, projectDir)
 
 	worktreeDir := filepath.Join(parent, "myproject-worktrees", "test-branch")
 	t.Cleanup(func() {
-		exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
+		_ = exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
 	})
 
 	err := Run(projectDir, "test-branch")
@@ -78,13 +78,13 @@ func TestRun_CreatesWorktree(t *testing.T) {
 func TestRun_ExistingWorktreeReturnsEarly(t *testing.T) {
 	parent := t.TempDir()
 	projectDir := filepath.Join(parent, "myproject")
-	os.MkdirAll(projectDir, 0755)
+	_ = os.MkdirAll(projectDir, 0755)
 
 	initGitRepo(t, projectDir)
 
 	worktreeDir := filepath.Join(parent, "myproject-worktrees", "test-branch")
 	t.Cleanup(func() {
-		exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
+		_ = exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
 	})
 
 	// First run creates the worktree
@@ -101,19 +101,19 @@ func TestRun_ExistingWorktreeReturnsEarly(t *testing.T) {
 func TestRun_CopiesClaudeConfig(t *testing.T) {
 	parent := t.TempDir()
 	projectDir := filepath.Join(parent, "myproject")
-	os.MkdirAll(projectDir, 0755)
+	_ = os.MkdirAll(projectDir, 0755)
 
 	initGitRepo(t, projectDir)
 
 	// Create .claude config files in the project
 	claudeDir := filepath.Join(projectDir, ".claude")
-	os.MkdirAll(claudeDir, 0755)
-	os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(`{"key":"value"}`), 0644)
-	os.WriteFile(filepath.Join(claudeDir, "CLAUDE.local.md"), []byte("# Local instructions"), 0644)
+	_ = os.MkdirAll(claudeDir, 0755)
+	_ = os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(`{"key":"value"}`), 0644)
+	_ = os.WriteFile(filepath.Join(claudeDir, "CLAUDE.local.md"), []byte("# Local instructions"), 0644)
 
 	worktreeDir := filepath.Join(parent, "myproject-worktrees", "config-branch")
 	t.Cleanup(func() {
-		exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
+		_ = exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
 	})
 
 	if err := Run(projectDir, "config-branch"); err != nil {
@@ -139,17 +139,17 @@ func TestRun_CopiesClaudeConfig(t *testing.T) {
 func TestRun_CopiesMcpJson(t *testing.T) {
 	parent := t.TempDir()
 	projectDir := filepath.Join(parent, "myproject")
-	os.MkdirAll(projectDir, 0755)
+	_ = os.MkdirAll(projectDir, 0755)
 
 	initGitRepo(t, projectDir)
 
 	// Create .mcp.json
 	mcpContent := `{"mcpServers":{}}`
-	os.WriteFile(filepath.Join(projectDir, ".mcp.json"), []byte(mcpContent), 0644)
+	_ = os.WriteFile(filepath.Join(projectDir, ".mcp.json"), []byte(mcpContent), 0644)
 
 	worktreeDir := filepath.Join(parent, "myproject-worktrees", "mcp-branch")
 	t.Cleanup(func() {
-		exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
+		_ = exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
 	})
 
 	if err := Run(projectDir, "mcp-branch"); err != nil {
@@ -168,13 +168,13 @@ func TestRun_CopiesMcpJson(t *testing.T) {
 func TestRun_RelativePath(t *testing.T) {
 	parent := t.TempDir()
 	projectDir := filepath.Join(parent, "myproject")
-	os.MkdirAll(projectDir, 0755)
+	_ = os.MkdirAll(projectDir, 0755)
 
 	initGitRepo(t, projectDir)
 
 	worktreeDir := filepath.Join(parent, "myproject-worktrees", "rel-branch")
 	t.Cleanup(func() {
-		exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
+		_ = exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
 	})
 
 	// Run with the absolute path (simulating that filepath.Abs resolves it)

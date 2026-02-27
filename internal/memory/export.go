@@ -102,14 +102,14 @@ func export(outputPath string) error {
 		case LayerMemoryMCP:
 			em := &ExportMCP{Provider: l.Provider}
 			switch l.Provider {
-			case "engram":
-				if platform.Exists("engram") {
+			case providerEngram:
+				if platform.Exists(providerEngram) {
 					raw := exportEngram()
 					if raw != nil {
 						em.Data = raw
 					}
 				}
-			case "mcp-memory-libsql":
+			case providerLibsql:
 				if !platform.Exists("claude") {
 					fmt.Fprintln(os.Stderr, "  Warning: claude CLI not available — cannot export mcp-memory-libsql data.")
 					fmt.Fprintln(os.Stderr, "  To back up memories, use Claude with: mcp__mcp-memory-libsql__read_graph")
@@ -237,26 +237,30 @@ func importMemory(filePath string, scope map[LayerName]bool, confirm bool) error
 
 	if scope[LayerMemoryMCP] && data.Layers.MemoryMCP != nil && data.Layers.MemoryMCP.Data != nil {
 		switch data.Layers.MemoryMCP.Provider {
-		case "engram":
-			if platform.Exists("engram") {
+		case providerEngram:
+			if platform.Exists(providerEngram) {
 				tmpFile, err := os.CreateTemp("", "memory-import-*.json")
 				if err != nil {
 					platform.PrintFail(w, fmt.Sprintf("Memory MCP temp file: %v", err))
 				} else {
-					tmpFile.Write([]byte(*data.Layers.MemoryMCP.Data))
-					tmpFile.Close()
-					defer os.Remove(tmpFile.Name())
-
-					if err := platform.Run("engram", "import", tmpFile.Name()); err != nil {
-						platform.PrintFail(w, fmt.Sprintf("Memory MCP import: %v", err))
+					if _, err := tmpFile.Write(*data.Layers.MemoryMCP.Data); err != nil {
+						tmpFile.Close()
+						platform.PrintFail(w, fmt.Sprintf("Memory MCP temp file write: %v", err))
 					} else {
-						platform.PrintOK(w, "Memory MCP data imported via engram")
+						tmpFile.Close()
+						defer os.Remove(tmpFile.Name())
+
+						if err := platform.Run(providerEngram, "import", tmpFile.Name()); err != nil {
+							platform.PrintFail(w, fmt.Sprintf("Memory MCP import: %v", err))
+						} else {
+							platform.PrintOK(w, "Memory MCP data imported via engram")
+						}
 					}
 				}
 			} else {
 				platform.PrintWarn(w, "Cannot import Memory MCP: engram not available")
 			}
-		case "mcp-memory-libsql":
+		case providerLibsql:
 			if !platform.Exists("claude") {
 				platform.PrintWarn(w, "Cannot import Memory MCP: claude CLI not available.")
 				fmt.Fprintln(w, "  Use mcp__mcp-memory-libsql__create_entities in Claude directly to restore memories.")
@@ -339,7 +343,7 @@ func extractJSON(s string) string {
 }
 
 func exportEngram() *json.RawMessage {
-	out, err := platform.Output("engram", "export")
+	out, err := platform.Output(providerEngram, "export")
 	if err != nil || out == "" {
 		return nil
 	}

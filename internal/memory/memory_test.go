@@ -142,7 +142,7 @@ func TestDiscoverFileLayer(t *testing.T) {
 	// Test with existing file
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.md")
-	os.WriteFile(path, []byte("line1\nline2\nline3\n"), 0644)
+	_ = os.WriteFile(path, []byte("line1\nline2\nline3\n"), 0644)
 
 	l = discoverFileLayer(LayerLocalMD, "Test MD", path)
 	if !l.Exists {
@@ -162,8 +162,8 @@ func TestDiscoverAutoMemory(t *testing.T) {
 
 	// Test with existing directory containing files
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "MEMORY.md"), []byte("# Memory\nSome notes\n"), 0644)
-	os.WriteFile(filepath.Join(dir, "debugging.md"), []byte("# Debug\n"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "MEMORY.md"), []byte("# Memory\nSome notes\n"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "debugging.md"), []byte("# Debug\n"), 0644)
 
 	l = discoverAutoMemory(dir)
 	if !l.Exists {
@@ -196,7 +196,7 @@ func TestExportImportRoundtrip(t *testing.T) {
 				},
 			},
 			MemoryMCP: &ExportMCP{
-				Provider: "engram",
+				Provider: providerEngram,
 				Data:     nil,
 			},
 		},
@@ -234,17 +234,17 @@ func TestProviderSuffix(t *testing.T) {
 	}{
 		{
 			name:       "non-MCP layer returns empty",
-			layer:      Layer{Name: LayerAutoMemory, Provider: "engram"},
+			layer:      Layer{Name: LayerAutoMemory, Provider: providerEngram},
 			wantSuffix: "",
 		},
 		{
 			name:       "MCP layer with real provider returns suffix",
-			layer:      Layer{Name: LayerMemoryMCP, Provider: "engram"},
+			layer:      Layer{Name: LayerMemoryMCP, Provider: providerEngram},
 			wantSuffix: " — engram",
 		},
 		{
 			name:       "MCP layer with provider=none returns empty",
-			layer:      Layer{Name: LayerMemoryMCP, Provider: "none"},
+			layer:      Layer{Name: LayerMemoryMCP, Provider: providerNone},
 			wantSuffix: "",
 		},
 		{
@@ -256,7 +256,7 @@ func TestProviderSuffix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := providerSuffix(tt.layer)
+			got := providerSuffix(&tt.layer)
 			if got != tt.wantSuffix {
 				t.Errorf("providerSuffix(%+v) = %q, want %q", tt.layer, got, tt.wantSuffix)
 			}
@@ -268,24 +268,24 @@ func TestDetectProvider(t *testing.T) {
 	// Test with no config and no engram data
 	dir := t.TempDir()
 	provider, _ := detectProvider(dir)
-	if provider != "none" {
+	if provider != providerNone {
 		t.Errorf("expected provider 'none', got %q", provider)
 	}
 
 	// Test with engram in claude.json
 	config := map[string]interface{}{
 		"mcpServers": map[string]interface{}{
-			"engram": map[string]interface{}{
-				"command": "engram",
+			providerEngram: map[string]interface{}{
+				"command": providerEngram,
 				"args":    []string{"mcp"},
 			},
 		},
 	}
 	configData, _ := json.Marshal(config)
-	os.WriteFile(filepath.Join(dir, ".claude.json"), configData, 0644)
+	_ = os.WriteFile(filepath.Join(dir, ".claude.json"), configData, 0644)
 
 	provider, dataPath := detectProvider(dir)
-	if provider != "engram" {
+	if provider != providerEngram {
 		t.Errorf("expected provider 'engram', got %q", provider)
 	}
 	if dataPath == "" {
@@ -299,18 +299,18 @@ func TestDetectProviderMcpMemoryLibsql(t *testing.T) {
 
 	config := map[string]interface{}{
 		"mcpServers": map[string]interface{}{
-			"mcp-memory-libsql": map[string]interface{}{
+			providerLibsql: map[string]interface{}{
 				"command": "npx",
-				"args":    []string{"-y", "mcp-memory-libsql"},
+				"args":    []string{"-y", providerLibsql},
 				"env":     map[string]interface{}{"LIBSQL_URL": "file:" + dbPath},
 			},
 		},
 	}
 	configData, _ := json.Marshal(config)
-	os.WriteFile(filepath.Join(dir, ".claude.json"), configData, 0644)
+	_ = os.WriteFile(filepath.Join(dir, ".claude.json"), configData, 0644)
 
 	provider, gotPath := detectProvider(dir)
-	if provider != "mcp-memory-libsql" {
+	if provider != providerLibsql {
 		t.Errorf("expected provider 'mcp-memory-libsql', got %q", provider)
 	}
 	if gotPath != dbPath {
@@ -323,22 +323,22 @@ func TestDetectProviderPriority(t *testing.T) {
 	dir := t.TempDir()
 	config := map[string]interface{}{
 		"mcpServers": map[string]interface{}{
-			"mcp-memory-libsql": map[string]interface{}{
+			providerLibsql: map[string]interface{}{
 				"command": "npx",
-				"args":    []string{"-y", "mcp-memory-libsql"},
+				"args":    []string{"-y", providerLibsql},
 				"env":     map[string]interface{}{"LIBSQL_URL": "file:/tmp/memory.db"},
 			},
-			"engram": map[string]interface{}{
-				"command": "engram",
+			providerEngram: map[string]interface{}{
+				"command": providerEngram,
 				"args":    []string{"mcp"},
 			},
 		},
 	}
 	configData, _ := json.Marshal(config)
-	os.WriteFile(filepath.Join(dir, ".claude.json"), configData, 0644)
+	_ = os.WriteFile(filepath.Join(dir, ".claude.json"), configData, 0644)
 
 	provider, _ := detectProvider(dir)
-	if provider != "mcp-memory-libsql" {
+	if provider != providerLibsql {
 		t.Errorf("expected mcp-memory-libsql to take priority, got %q", provider)
 	}
 }
@@ -349,18 +349,18 @@ func TestDiscoverMemoryMCPStats(t *testing.T) {
 
 	config := map[string]interface{}{
 		"mcpServers": map[string]interface{}{
-			"mcp-memory-libsql": map[string]interface{}{
+			providerLibsql: map[string]interface{}{
 				"command": "npx",
-				"args":    []string{"-y", "mcp-memory-libsql"},
+				"args":    []string{"-y", providerLibsql},
 				"env":     map[string]interface{}{"LIBSQL_URL": "file:" + dbPath},
 			},
 		},
 	}
 	configData, _ := json.Marshal(config)
-	os.WriteFile(filepath.Join(dir, ".claude.json"), configData, 0644)
+	_ = os.WriteFile(filepath.Join(dir, ".claude.json"), configData, 0644)
 
 	l := discoverMemoryMCP(dir)
-	if l.Provider != "mcp-memory-libsql" {
+	if l.Provider != providerLibsql {
 		t.Errorf("expected provider 'mcp-memory-libsql', got %q", l.Provider)
 	}
 	if !strings.Contains(l.Stats, "mcp__mcp-memory-libsql__read_graph") {
@@ -376,7 +376,7 @@ func TestExportWithLibsqlProvider(t *testing.T) {
 		Platform:   "claude-workspace",
 		Layers: ExportLayers{
 			MemoryMCP: &ExportMCP{
-				Provider: "mcp-memory-libsql",
+				Provider: providerLibsql,
 				Data:     nil,
 			},
 		},
@@ -395,7 +395,7 @@ func TestExportWithLibsqlProvider(t *testing.T) {
 	if parsed.Layers.MemoryMCP == nil {
 		t.Fatal("expected MemoryMCP to be present")
 	}
-	if parsed.Layers.MemoryMCP.Provider != "mcp-memory-libsql" {
+	if parsed.Layers.MemoryMCP.Provider != providerLibsql {
 		t.Errorf("provider = %q, want 'mcp-memory-libsql'", parsed.Layers.MemoryMCP.Provider)
 	}
 	if parsed.Layers.MemoryMCP.Data != nil {
@@ -426,7 +426,7 @@ func TestReadFileContent(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.md")
 	content := "# Memory\nSome notes\n"
-	os.WriteFile(path, []byte(content), 0644)
+	_ = os.WriteFile(path, []byte(content), 0644)
 
 	got = readFileContent(path)
 	if got != content {
@@ -467,7 +467,7 @@ func TestImportMemoryUnsupportedVersion(t *testing.T) {
 
 	data := ExportData{Version: 99, Platform: "test", Layers: ExportLayers{}}
 	raw, _ := json.Marshal(data)
-	os.WriteFile(path, raw, 0644)
+	_ = os.WriteFile(path, raw, 0644)
 
 	err := importMemory(path, ParseScope("all"), false)
 	if err == nil {
@@ -494,7 +494,7 @@ func TestImportMemoryDryRun(t *testing.T) {
 		},
 	}
 	raw, _ := json.MarshalIndent(data, "", "  ")
-	os.WriteFile(exportPath, raw, 0644)
+	_ = os.WriteFile(exportPath, raw, 0644)
 
 	// confirm=false: preview only, no files should be written.
 	if err := importMemory(exportPath, ParseScope("auto"), false); err != nil {
@@ -525,7 +525,7 @@ func TestImportMemoryAutoMemoryRestore(t *testing.T) {
 		},
 	}
 	raw, _ := json.MarshalIndent(data, "", "  ")
-	os.WriteFile(exportPath, raw, 0644)
+	_ = os.WriteFile(exportPath, raw, 0644)
 
 	if err := importMemory(exportPath, ParseScope("auto"), true); err != nil {
 		t.Fatalf("importMemory: %v", err)
@@ -564,7 +564,7 @@ func TestImportMemoryScopeFiltering(t *testing.T) {
 		},
 	}
 	raw, _ := json.MarshalIndent(data, "", "  ")
-	os.WriteFile(exportPath, raw, 0644)
+	_ = os.WriteFile(exportPath, raw, 0644)
 
 	// Only restore auto scope — user CLAUDE.md should not be written.
 	if err := importMemory(exportPath, ParseScope("auto"), true); err != nil {

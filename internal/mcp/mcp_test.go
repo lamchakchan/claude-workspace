@@ -4,6 +4,10 @@ import (
 	"testing"
 )
 
+const (
+	scopeProject = "project"
+)
+
 func TestParseAddArgs(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -23,8 +27,8 @@ func TestParseAddArgs(t *testing.T) {
 				if cfg.Name != "my-server" {
 					t.Errorf("Name = %q, want %q", cfg.Name, "my-server")
 				}
-				if cfg.Transport != "stdio" {
-					t.Errorf("Transport = %q, want %q", cfg.Transport, "stdio")
+				if cfg.Transport != transportStdio {
+					t.Errorf("Transport = %q, want %q", cfg.Transport, transportStdio)
 				}
 				if len(cfg.CommandArgs) != 3 || cfg.CommandArgs[0] != "npx" {
 					t.Errorf("CommandArgs = %v, want [npx -y @modelcontextprotocol/server]", cfg.CommandArgs)
@@ -38,8 +42,8 @@ func TestParseAddArgs(t *testing.T) {
 				if cfg.Name != "github" {
 					t.Errorf("Name = %q, want %q", cfg.Name, "github")
 				}
-				if cfg.Transport != "http" {
-					t.Errorf("Transport = %q, want %q", cfg.Transport, "http")
+				if cfg.Transport != transportHTTP {
+					t.Errorf("Transport = %q, want %q", cfg.Transport, transportHTTP)
 				}
 				if cfg.McpURL != "https://api.githubcopilot.com/mcp/" {
 					t.Errorf("McpURL = %q, want %q", cfg.McpURL, "https://api.githubcopilot.com/mcp/")
@@ -48,10 +52,10 @@ func TestParseAddArgs(t *testing.T) {
 		},
 		{
 			name: "scope flag",
-			args: []string{"srv", "--scope", "project", "--", "cmd"},
+			args: []string{"srv", "--scope", scopeProject, "--", "cmd"},
 			check: func(t *testing.T, cfg *addConfig) {
-				if cfg.Scope != "project" {
-					t.Errorf("Scope = %q, want %q", cfg.Scope, "project")
+				if cfg.Scope != scopeProject {
+					t.Errorf("Scope = %q, want %q", cfg.Scope, scopeProject)
 				}
 			},
 		},
@@ -59,8 +63,8 @@ func TestParseAddArgs(t *testing.T) {
 			name: "transport flag",
 			args: []string{"srv", "--transport", "sse", "https://example.com/sse"},
 			check: func(t *testing.T, cfg *addConfig) {
-				if cfg.Transport != "sse" {
-					t.Errorf("Transport = %q, want %q", cfg.Transport, "sse")
+				if cfg.Transport != transportSSE {
+					t.Errorf("Transport = %q, want %q", cfg.Transport, transportSSE)
 				}
 			},
 		},
@@ -98,8 +102,8 @@ func TestParseAddArgs(t *testing.T) {
 			name: "client-id flag",
 			args: []string{"srv", "--client-id", "my-id", "https://example.com/mcp"},
 			check: func(t *testing.T, cfg *addConfig) {
-				if cfg.ClientId != "my-id" {
-					t.Errorf("ClientId = %q, want %q", cfg.ClientId, "my-id")
+				if cfg.ClientID != "my-id" {
+					t.Errorf("ClientID = %q, want %q", cfg.ClientID, "my-id")
 				}
 			},
 		},
@@ -125,8 +129,8 @@ func TestParseAddArgs(t *testing.T) {
 			name: "api-key flag",
 			args: []string{"srv", "--api-key", "MY_KEY", "--", "cmd"},
 			check: func(t *testing.T, cfg *addConfig) {
-				if cfg.ApiKeyEnvVar != "MY_KEY" {
-					t.Errorf("ApiKeyEnvVar = %q, want %q", cfg.ApiKeyEnvVar, "MY_KEY")
+				if cfg.APIKeyEnvVar != "MY_KEY" {
+					t.Errorf("APIKeyEnvVar = %q, want %q", cfg.APIKeyEnvVar, "MY_KEY")
 				}
 			},
 		},
@@ -134,8 +138,8 @@ func TestParseAddArgs(t *testing.T) {
 			name: "command args without double dash",
 			args: []string{"srv", "npx", "-y", "some-pkg"},
 			check: func(t *testing.T, cfg *addConfig) {
-				if cfg.Transport != "stdio" {
-					t.Errorf("Transport = %q, want %q", cfg.Transport, "stdio")
+				if cfg.Transport != transportStdio {
+					t.Errorf("Transport = %q, want %q", cfg.Transport, transportStdio)
 				}
 				if len(cfg.CommandArgs) != 3 || cfg.CommandArgs[0] != "npx" {
 					t.Errorf("CommandArgs = %v, want [npx -y some-pkg]", cfg.CommandArgs)
@@ -192,8 +196,8 @@ func TestParseRemoteArgs(t *testing.T) {
 				if cfg.Name != "sentry-dev" {
 					t.Errorf("Name = %q, want %q", cfg.Name, "sentry-dev")
 				}
-				if cfg.Transport != "http" {
-					t.Errorf("Transport = %q, want %q", cfg.Transport, "http")
+				if cfg.Transport != transportHTTP {
+					t.Errorf("Transport = %q, want %q", cfg.Transport, transportHTTP)
 				}
 			},
 		},
@@ -210,10 +214,10 @@ func TestParseRemoteArgs(t *testing.T) {
 		{
 			name:      "scope flag",
 			mcpURL:    "https://example.com/mcp",
-			extraArgs: []string{"--scope", "project"},
+			extraArgs: []string{"--scope", scopeProject},
 			check: func(t *testing.T, cfg *remoteConfig) {
-				if cfg.Scope != "project" {
-					t.Errorf("Scope = %q, want %q", cfg.Scope, "project")
+				if cfg.Scope != scopeProject {
+					t.Errorf("Scope = %q, want %q", cfg.Scope, scopeProject)
 				}
 			},
 		},
@@ -252,8 +256,8 @@ func TestParseRemoteArgs(t *testing.T) {
 			mcpURL:    "https://example.com/mcp",
 			extraArgs: []string{"--client-id", "my-id", "--client-secret"},
 			check: func(t *testing.T, cfg *remoteConfig) {
-				if cfg.ClientId != "my-id" {
-					t.Errorf("ClientId = %q, want %q", cfg.ClientId, "my-id")
+				if cfg.ClientID != "my-id" {
+					t.Errorf("ClientID = %q, want %q", cfg.ClientID, "my-id")
 				}
 				if !cfg.PromptClientSecret {
 					t.Error("PromptClientSecret = false, want true")
@@ -264,8 +268,8 @@ func TestParseRemoteArgs(t *testing.T) {
 			name:   "sse transport detection",
 			mcpURL: "https://example.com/sse",
 			check: func(t *testing.T, cfg *remoteConfig) {
-				if cfg.Transport != "sse" {
-					t.Errorf("Transport = %q, want %q", cfg.Transport, "sse")
+				if cfg.Transport != transportSSE {
+					t.Errorf("Transport = %q, want %q", cfg.Transport, transportSSE)
 				}
 			},
 		},
@@ -273,8 +277,8 @@ func TestParseRemoteArgs(t *testing.T) {
 			name:   "http transport for non-sse URL",
 			mcpURL: "https://example.com/mcp",
 			check: func(t *testing.T, cfg *remoteConfig) {
-				if cfg.Transport != "http" {
-					t.Errorf("Transport = %q, want %q", cfg.Transport, "http")
+				if cfg.Transport != transportHTTP {
+					t.Errorf("Transport = %q, want %q", cfg.Transport, transportHTTP)
 				}
 			},
 		},
@@ -368,7 +372,7 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 			cfg: &addConfig{
 				Name:        "my-server",
 				Scope:       "local",
-				Transport:   "stdio",
+				Transport:   transportStdio,
 				EnvVars:     map[string]string{},
 				CommandArgs: []string{"npx", "-y", "some-pkg"},
 			},
@@ -382,7 +386,7 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 			cfg: &addConfig{
 				Name:      "github",
 				Scope:     "user",
-				Transport: "http",
+				Transport: transportHTTP,
 				EnvVars:   map[string]string{},
 				McpURL:    "https://api.githubcopilot.com/mcp/",
 			},
@@ -396,7 +400,7 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 			cfg: &addConfig{
 				Name:      "broken",
 				Scope:     "local",
-				Transport: "http",
+				Transport: transportHTTP,
 				EnvVars:   map[string]string{},
 			},
 			wantErr: true,
@@ -406,7 +410,7 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 			cfg: &addConfig{
 				Name:      "broken",
 				Scope:     "local",
-				Transport: "sse",
+				Transport: transportSSE,
 				EnvVars:   map[string]string{},
 			},
 			wantErr: true,
@@ -416,7 +420,7 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 			cfg: &addConfig{
 				Name:        "srv",
 				Scope:       "local",
-				Transport:   "stdio",
+				Transport:   transportStdio,
 				EnvVars:     map[string]string{"KEY": "val"},
 				CommandArgs: []string{"npx", "-y", "pkg"},
 			},
@@ -443,7 +447,7 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 			cfg: &addConfig{
 				Name:      "srv",
 				Scope:     "local",
-				Transport: "http",
+				Transport: transportHTTP,
 				EnvVars:   map[string]string{},
 				Headers:   []string{"X-Custom: value"},
 				McpURL:    "https://example.com",
@@ -467,9 +471,9 @@ func TestBuildAddClaudeArgs(t *testing.T) {
 			cfg: &addConfig{
 				Name:         "srv",
 				Scope:        "local",
-				Transport:    "http",
+				Transport:    transportHTTP,
 				EnvVars:      map[string]string{},
-				ClientId:     "my-id",
+				ClientID:     "my-id",
 				ClientSecret: "tok",
 				McpURL:       "https://example.com",
 			},
@@ -513,7 +517,7 @@ func TestBuildRemoteClaudeArgs(t *testing.T) {
 				Name:      "sentry",
 				McpURL:    "https://mcp.sentry.dev/mcp",
 				Scope:     "user",
-				Transport: "http",
+				Transport: transportHTTP,
 			},
 			check: func(t *testing.T, args []string) {
 				want := []string{"mcp", "add", "--transport", "http", "--scope", "user", "sentry", "https://mcp.sentry.dev/mcp"}
@@ -526,7 +530,7 @@ func TestBuildRemoteClaudeArgs(t *testing.T) {
 				Name:      "srv",
 				McpURL:    "https://example.com/mcp",
 				Scope:     "user",
-				Transport: "http",
+				Transport: transportHTTP,
 				Headers:   []string{"Authorization: Bearer token123"},
 			},
 			check: func(t *testing.T, args []string) {
@@ -549,8 +553,8 @@ func TestBuildRemoteClaudeArgs(t *testing.T) {
 				Name:         "srv",
 				McpURL:       "https://example.com/mcp",
 				Scope:        "user",
-				Transport:    "http",
-				ClientId:     "my-id",
+				Transport:    transportHTTP,
+				ClientID:     "my-id",
 				ClientSecret: "tok",
 			},
 			check: func(t *testing.T, args []string) {

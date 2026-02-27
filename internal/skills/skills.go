@@ -102,7 +102,7 @@ func list() error {
 // discoverSkills walks a directory for SKILL.md files and parses their frontmatter.
 func discoverSkills(root string) []Skill {
 	var skills []Skill
-	filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -122,7 +122,7 @@ func discoverSkills(root string) []Skill {
 // discoverCommands walks a directory for .md files and uses filename + first line as description.
 func discoverCommands(root string) []Skill {
 	var commands []Skill
-	filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -143,7 +143,7 @@ func discoverCommands(root string) []Skill {
 // discoverEmbeddedSkills walks the embedded FS for SKILL.md files.
 func discoverEmbeddedSkills(efs fs.FS, root string) []Skill {
 	var skills []Skill
-	fs.WalkDir(efs, root, func(path string, d fs.DirEntry, err error) error {
+	_ = fs.WalkDir(efs, root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}

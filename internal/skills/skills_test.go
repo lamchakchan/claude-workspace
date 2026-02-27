@@ -111,25 +111,25 @@ func TestDiscoverSkills(t *testing.T) {
 		},
 		{
 			name:  "empty directory",
-			setup: func(t *testing.T, root string) {},
+			setup: func(_ *testing.T, _ string) {},
 			want:  nil,
 		},
 		{
 			name: "non-SKILL.md files ignored",
-			setup: func(t *testing.T, root string) {
+			setup: func(_ *testing.T, root string) {
 				dir := filepath.Join(root, "my-skill")
-				os.MkdirAll(dir, 0755)
-				os.WriteFile(filepath.Join(dir, "README.md"), []byte("not a skill"), 0644)
-				os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("just notes"), 0644)
+				_ = os.MkdirAll(dir, 0755)
+				_ = os.WriteFile(filepath.Join(dir, "README.md"), []byte("not a skill"), 0644)
+				_ = os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("just notes"), 0644)
 			},
 			want: nil,
 		},
 		{
 			name: "fallback to directory name when no name in frontmatter",
-			setup: func(t *testing.T, root string) {
+			setup: func(_ *testing.T, root string) {
 				dir := filepath.Join(root, "dir-name")
-				os.MkdirAll(dir, 0755)
-				os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Just content\n"), 0644)
+				_ = os.MkdirAll(dir, 0755)
+				_ = os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Just content\n"), 0644)
 			},
 			want: []Skill{
 				{Name: "dir-name", Description: ""},
@@ -141,26 +141,8 @@ func TestDiscoverSkills(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			root := t.TempDir()
 			tt.setup(t, root)
-
 			got := discoverSkills(root)
-			if len(got) != len(tt.want) {
-				t.Fatalf("got %d skills, want %d", len(got), len(tt.want))
-			}
-			// Build a map for order-independent comparison
-			wantMap := make(map[string]string, len(tt.want))
-			for _, s := range tt.want {
-				wantMap[s.Name] = s.Description
-			}
-			for _, s := range got {
-				wantDesc, ok := wantMap[s.Name]
-				if !ok {
-					t.Errorf("unexpected skill: %q", s.Name)
-					continue
-				}
-				if s.Description != wantDesc {
-					t.Errorf("skill %q description = %q, want %q", s.Name, s.Description, wantDesc)
-				}
-			}
+			assertSkills(t, got, tt.want)
 		})
 	}
 }
@@ -173,9 +155,9 @@ func TestDiscoverCommands(t *testing.T) {
 	}{
 		{
 			name: "md files discovered",
-			setup: func(t *testing.T, root string) {
-				os.WriteFile(filepath.Join(root, "deploy.md"), []byte("Deploy to production\nMore details"), 0644)
-				os.WriteFile(filepath.Join(root, "review.md"), []byte("Review the PR changes"), 0644)
+			setup: func(_ *testing.T, root string) {
+				_ = os.WriteFile(filepath.Join(root, "deploy.md"), []byte("Deploy to production\nMore details"), 0644)
+				_ = os.WriteFile(filepath.Join(root, "review.md"), []byte("Review the PR changes"), 0644)
 			},
 			want: []Skill{
 				{Name: "deploy", Description: "Deploy to production"},
@@ -184,15 +166,15 @@ func TestDiscoverCommands(t *testing.T) {
 		},
 		{
 			name:  "empty directory",
-			setup: func(t *testing.T, root string) {},
+			setup: func(_ *testing.T, _ string) {},
 			want:  nil,
 		},
 		{
 			name: "non-md files ignored",
-			setup: func(t *testing.T, root string) {
-				os.WriteFile(filepath.Join(root, "script.sh"), []byte("#!/bin/bash"), 0644)
-				os.WriteFile(filepath.Join(root, "notes.txt"), []byte("some notes"), 0644)
-				os.WriteFile(filepath.Join(root, "valid.md"), []byte("A valid command"), 0644)
+			setup: func(_ *testing.T, root string) {
+				_ = os.WriteFile(filepath.Join(root, "script.sh"), []byte("#!/bin/bash"), 0644)
+				_ = os.WriteFile(filepath.Join(root, "notes.txt"), []byte("some notes"), 0644)
+				_ = os.WriteFile(filepath.Join(root, "valid.md"), []byte("A valid command"), 0644)
 			},
 			want: []Skill{
 				{Name: "valid", Description: "A valid command"},
@@ -200,8 +182,8 @@ func TestDiscoverCommands(t *testing.T) {
 		},
 		{
 			name: "file with leading blank lines",
-			setup: func(t *testing.T, root string) {
-				os.WriteFile(filepath.Join(root, "blank.md"), []byte("\n\n  \nActual content"), 0644)
+			setup: func(_ *testing.T, root string) {
+				_ = os.WriteFile(filepath.Join(root, "blank.md"), []byte("\n\n  \nActual content"), 0644)
 			},
 			want: []Skill{
 				{Name: "blank", Description: "Actual content"},
@@ -213,26 +195,31 @@ func TestDiscoverCommands(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			root := t.TempDir()
 			tt.setup(t, root)
-
 			got := discoverCommands(root)
-			if len(got) != len(tt.want) {
-				t.Fatalf("got %d commands, want %d", len(got), len(tt.want))
-			}
-			wantMap := make(map[string]string, len(tt.want))
-			for _, s := range tt.want {
-				wantMap[s.Name] = s.Description
-			}
-			for _, s := range got {
-				wantDesc, ok := wantMap[s.Name]
-				if !ok {
-					t.Errorf("unexpected command: %q", s.Name)
-					continue
-				}
-				if s.Description != wantDesc {
-					t.Errorf("command %q description = %q, want %q", s.Name, s.Description, wantDesc)
-				}
-			}
+			assertSkills(t, got, tt.want)
 		})
+	}
+}
+
+// assertSkills compares two Skill slices in an order-independent manner.
+func assertSkills(t *testing.T, got, want []Skill) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("got %d items, want %d", len(got), len(want))
+	}
+	wantMap := make(map[string]string, len(want))
+	for _, s := range want {
+		wantMap[s.Name] = s.Description
+	}
+	for _, s := range got {
+		wantDesc, ok := wantMap[s.Name]
+		if !ok {
+			t.Errorf("unexpected item: %q", s.Name)
+			continue
+		}
+		if s.Description != wantDesc {
+			t.Errorf("item %q description = %q, want %q", s.Name, s.Description, wantDesc)
+		}
 	}
 }
 

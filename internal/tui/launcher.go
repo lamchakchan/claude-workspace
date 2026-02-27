@@ -30,12 +30,12 @@ type launcherModel struct {
 	total    int // total number of items
 	width    int
 	height   int
-	theme    Theme
+	theme    *Theme
 	version  string
 	quitting bool
 }
 
-func newLauncher(version string, theme Theme) launcherModel {
+func newLauncher(version string, theme *Theme) *launcherModel {
 	groups := []commandGroup{
 		{
 			title: "Getting Started",
@@ -77,7 +77,7 @@ func newLauncher(version string, theme Theme) launcherModel {
 		total += len(g.items)
 	}
 
-	return launcherModel{
+	return &launcherModel{
 		groups:  groups,
 		total:   total,
 		theme:   theme,
@@ -86,7 +86,7 @@ func newLauncher(version string, theme Theme) launcherModel {
 }
 
 // selectedItem returns the currently selected command item.
-func (m launcherModel) selectedItem() commandItem {
+func (m *launcherModel) selectedItem() commandItem {
 	idx := 0
 	for _, g := range m.groups {
 		for _, item := range g.items {
@@ -99,11 +99,11 @@ func (m launcherModel) selectedItem() commandItem {
 	return commandItem{}
 }
 
-func (m launcherModel) Init() tea.Cmd {
+func (m *launcherModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m launcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *launcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -125,9 +125,10 @@ func (m launcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor < m.total-1 {
 				m.cursor++
 			}
-		case "enter":
+		case keyEnter:
 			item := m.selectedItem()
-			return m, m.activate(item)
+			cmd := m.activate(&item)
+			return m, cmd
 		case "?":
 			return m, pushView(NewHelp(m.theme))
 		}
@@ -138,7 +139,7 @@ func (m launcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // activate returns the appropriate command for the selected item.
 // Commands with dedicated TUI views push them; data-display commands run
 // inline so users return to the launcher; others exit the TUI to run.
-func (m launcherModel) activate(item commandItem) tea.Cmd {
+func (m *launcherModel) activate(item *commandItem) tea.Cmd {
 	switch item.command {
 	// TUI form screens
 	case "attach":
@@ -166,7 +167,7 @@ func (m launcherModel) activate(item commandItem) tea.Cmd {
 	}
 }
 
-func (m launcherModel) View() tea.View {
+func (m *launcherModel) View() tea.View {
 	if m.quitting {
 		return tea.NewView("")
 	}
@@ -200,7 +201,7 @@ func (m launcherModel) View() tea.View {
 				icon = lipgloss.NewStyle().Foreground(m.theme.Primary).Render(item.icon)
 			}
 
-			b.WriteString(fmt.Sprintf("%s%s %s  %s\n", cursor, icon, name, desc))
+			fmt.Fprintf(&b, "%s%s %s  %s\n", cursor, icon, name, desc)
 			flatIdx++
 		}
 	}
@@ -210,7 +211,7 @@ func (m launcherModel) View() tea.View {
 	help := fmt.Sprintf(
 		"%s navigate  %s select  %s help  %s quit",
 		m.theme.HelpKey.Render("↑/↓"),
-		m.theme.HelpKey.Render("enter"),
+		m.theme.HelpKey.Render(keyEnter),
 		m.theme.HelpKey.Render("?"),
 		m.theme.HelpKey.Render("q"),
 	)

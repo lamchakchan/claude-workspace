@@ -9,6 +9,8 @@ import (
 	"testing"
 )
 
+const testHelloWorld = "hello world\n"
+
 //go:embed testdata
 var testFS embed.FS
 
@@ -24,8 +26,8 @@ func TestExtractTo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading hello.txt: %v", err)
 	}
-	if string(content) != "hello world\n" {
-		t.Errorf("hello.txt = %q, want %q", content, "hello world\n")
+	if string(content) != testHelloWorld {
+		t.Errorf("hello.txt = %q, want %q", content, testHelloWorld)
 	}
 
 	content, err = os.ReadFile(filepath.Join(dir, "subdir", "nested.txt"))
@@ -47,7 +49,7 @@ func TestExtractTo(t *testing.T) {
 
 func TestExtractTo_ShFilePermissions(t *testing.T) {
 	dir := t.TempDir()
-	ExtractTo(testFS, "testdata", dir, false)
+	_ = ExtractTo(testFS, "testdata", dir, false)
 
 	info, err := os.Stat(filepath.Join(dir, "script.sh"))
 	if err != nil {
@@ -68,13 +70,13 @@ func TestExtractTo_ShFilePermissions(t *testing.T) {
 
 func TestExtractTo_NoForceSkipsExisting(t *testing.T) {
 	dir := t.TempDir()
-	ExtractTo(testFS, "testdata", dir, false)
+	_ = ExtractTo(testFS, "testdata", dir, false)
 
 	// Modify a file
-	os.WriteFile(filepath.Join(dir, "hello.txt"), []byte("modified"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "hello.txt"), []byte("modified"), 0644)
 
 	// Re-extract without force
-	ExtractTo(testFS, "testdata", dir, false)
+	_ = ExtractTo(testFS, "testdata", dir, false)
 
 	content, _ := os.ReadFile(filepath.Join(dir, "hello.txt"))
 	if string(content) != "modified" {
@@ -84,14 +86,14 @@ func TestExtractTo_NoForceSkipsExisting(t *testing.T) {
 
 func TestExtractTo_ForceOverwrites(t *testing.T) {
 	dir := t.TempDir()
-	ExtractTo(testFS, "testdata", dir, false)
+	_ = ExtractTo(testFS, "testdata", dir, false)
 
-	os.WriteFile(filepath.Join(dir, "hello.txt"), []byte("modified"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "hello.txt"), []byte("modified"), 0644)
 
-	ExtractTo(testFS, "testdata", dir, true)
+	_ = ExtractTo(testFS, "testdata", dir, true)
 
 	content, _ := os.ReadFile(filepath.Join(dir, "hello.txt"))
-	if string(content) != "hello world\n" {
+	if string(content) != testHelloWorld {
 		t.Errorf("ExtractTo(force=true) should overwrite, got %q", content)
 	}
 }
@@ -119,8 +121,8 @@ func TestReadAsset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadAsset() error = %v", err)
 	}
-	if string(data) != "hello world\n" {
-		t.Errorf("ReadAsset() = %q, want %q", data, "hello world\n")
+	if string(data) != testHelloWorld {
+		t.Errorf("ReadAsset() = %q, want %q", data, testHelloWorld)
 	}
 }
 
@@ -141,7 +143,7 @@ func TestWalkAssets(t *testing.T) {
 	defer func() { FS = oldFS }()
 
 	var paths []string
-	err := WalkAssets("testdata", func(path string, d fs.DirEntry) error {
+	err := WalkAssets("testdata", func(path string, _ fs.DirEntry) error {
 		paths = append(paths, path)
 		return nil
 	})
@@ -176,7 +178,7 @@ func TestWalkAssets_SkipsRoot(t *testing.T) {
 	defer func() { FS = oldFS }()
 
 	var paths []string
-	WalkAssets("testdata", func(path string, d fs.DirEntry) error {
+	_ = WalkAssets("testdata", func(path string, _ fs.DirEntry) error {
 		paths = append(paths, path)
 		return nil
 	})

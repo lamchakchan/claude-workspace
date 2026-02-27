@@ -16,6 +16,8 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
 
+const roleUser = "user"
+
 // record represents a single line in a Claude Code session JSONL file.
 type record struct {
 	Type       string  `json:"type"`
@@ -309,11 +311,11 @@ func parseSessionMeta(path, id, project string) (session, error) {
 		}
 
 		// Use cwd from first user record as the canonical project path
-		if rec.Type == "user" && rec.CWD != "" && s.Project == project {
+		if rec.Type == roleUser && rec.CWD != "" && s.Project == project {
 			s.Project = rec.CWD
 		}
 
-		if rec.Type != "user" || rec.IsMeta {
+		if rec.Type != roleUser || rec.IsMeta {
 			continue
 		}
 
@@ -358,7 +360,7 @@ func parseSessionPrompts(path string) ([]prompt, string, error) {
 			slug = rec.Slug
 		}
 
-		if rec.Type != "user" || rec.IsMeta {
+		if rec.Type != roleUser || rec.IsMeta {
 			continue
 		}
 

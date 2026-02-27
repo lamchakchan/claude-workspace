@@ -14,7 +14,7 @@ import (
 )
 
 // knownMemoryProviders is the set of memory MCP server keys this platform manages.
-var knownMemoryProviders = []string{"mcp-memory-libsql", "engram", "memory"}
+var knownMemoryProviders = []string{providerLibsql, providerEngram, "memory"}
 
 // Run is the entry point for the memory command.
 func Run(args []string) error {
@@ -74,7 +74,8 @@ func overview() error {
 	w := os.Stdout
 	platform.PrintBanner(w, "Memory Layers")
 
-	for _, l := range layers {
+	for i := range layers {
+		l := &layers[i]
 		fmt.Fprintln(w)
 		platform.PrintSectionLabel(w, l.Label+providerSuffix(l))
 
@@ -104,7 +105,8 @@ func show(scope map[LayerName]bool) error {
 	w := os.Stdout
 	first := true
 
-	for _, l := range layers {
+	for i := range layers {
+		l := &layers[i]
 		if !scope[l.Name] {
 			continue
 		}
@@ -137,13 +139,13 @@ func show(scope map[LayerName]bool) error {
 
 		case LayerMemoryMCP:
 			switch l.Provider {
-			case "engram":
-				if platform.Exists("engram") {
+			case providerEngram:
+				if platform.Exists(providerEngram) {
 					fmt.Fprintln(w)
 					if l.Stats != "" {
 						fmt.Fprintln(w, l.Stats)
 					}
-					out, err := platform.Output("engram", "search", "*")
+					out, err := platform.Output(providerEngram, "search", "*")
 					if err == nil && out != "" {
 						platform.PrintSection(w, "Recent observations")
 						fmt.Fprintln(w, out)
@@ -151,7 +153,7 @@ func show(scope map[LayerName]bool) error {
 				} else {
 					platform.PrintWarn(w, fmt.Sprintf("Provider %q CLI not available", l.Provider))
 				}
-			case "mcp-memory-libsql":
+			case providerLibsql:
 				fmt.Fprintf(w, "  DB: %s\n", shortenHome(l.Path))
 				if !platform.Exists("claude") {
 					fmt.Fprintf(w, "  Search requires Claude: %s\n", platform.Bold("mcp__mcp-memory-libsql__search_nodes"))
@@ -167,7 +169,7 @@ func show(scope map[LayerName]bool) error {
 						platform.PrintWarn(w, fmt.Sprintf("claude error: %v", err))
 					}
 				}
-			case "none":
+			case providerNone:
 				platform.PrintWarn(w, "No memory MCP server configured")
 			default:
 				platform.PrintWarn(w, fmt.Sprintf("Provider %q CLI not available", l.Provider))
@@ -178,14 +180,14 @@ func show(scope map[LayerName]bool) error {
 	return nil
 }
 
-func providerSuffix(l Layer) string {
-	if l.Name == LayerMemoryMCP && l.Provider != "" && l.Provider != "none" {
+func providerSuffix(l *Layer) string {
+	if l.Name == LayerMemoryMCP && l.Provider != "" && l.Provider != providerNone {
 		return " — " + l.Provider
 	}
 	return ""
 }
 
-func printFileLayer(w *os.File, l Layer) {
+func printFileLayer(w *os.File, l *Layer) {
 	if l.Exists {
 		platform.PrintOK(w, fmt.Sprintf("%s  (%d lines)", shortenHome(l.Path), l.Lines))
 	} else {
@@ -193,7 +195,7 @@ func printFileLayer(w *os.File, l Layer) {
 	}
 }
 
-func printAutoMemoryLayer(w *os.File, l Layer) {
+func printAutoMemoryLayer(w *os.File, l *Layer) {
 	if !l.Exists {
 		platform.PrintWarn(w, fmt.Sprintf("%s  (not found)", shortenHome(l.Path)))
 		return
@@ -214,14 +216,14 @@ func printAutoMemoryLayer(w *os.File, l Layer) {
 	}
 }
 
-func printMCPLayer(w *os.File, l Layer) {
-	if l.Provider == "none" {
+func printMCPLayer(w *os.File, l *Layer) {
+	if l.Provider == providerNone {
 		platform.PrintWarn(w, "No memory MCP server configured")
 		fmt.Fprintf(w, "  Run %s to configure\n", platform.Bold("claude-workspace memory configure"))
 		return
 	}
 	if l.Exists {
-		platform.PrintOK(w, fmt.Sprintf("%s", shortenHome(l.Path)))
+		platform.PrintOK(w, shortenHome(l.Path))
 		if l.Stats != "" {
 			for _, line := range strings.Split(l.Stats, "\n") {
 				if line != "" {
@@ -230,16 +232,16 @@ func printMCPLayer(w *os.File, l Layer) {
 			}
 		}
 		switch l.Provider {
-		case "engram":
+		case providerEngram:
 			fmt.Fprintf(w, "  Run %s for interactive browsing\n", platform.Bold("engram tui"))
 			fmt.Fprintf(w, "  Run %s to export as JSON\n", platform.Bold("engram export"))
-		case "mcp-memory-libsql":
+		case providerLibsql:
 			fmt.Fprintf(w, "  Search in Claude: %s\n", platform.Bold("mcp__mcp-memory-libsql__search_nodes"))
 			fmt.Fprintf(w, "  Read all in Claude: %s\n", platform.Bold("mcp__mcp-memory-libsql__read_graph"))
 		}
 	} else {
 		platform.PrintWarn(w, fmt.Sprintf("%s  (no data yet)", shortenHome(l.Path)))
-		if l.Provider == "mcp-memory-libsql" {
+		if l.Provider == providerLibsql {
 			fmt.Fprintf(w, "  DB will be created on first use\n")
 		}
 	}
@@ -289,7 +291,7 @@ func runConfigure(args []string) error {
 	w := os.Stdout
 	platform.PrintBanner(w, "Memory Configure")
 
-	if currentProvider != "none" {
+	if currentProvider != providerNone {
 		fmt.Fprintf(w, "  Current provider: %s\n", currentProvider)
 		if currentPath != "" {
 			fmt.Fprintf(w, "  Current DB path:  %s\n", shortenHome(currentPath))
@@ -312,12 +314,12 @@ func runConfigure(args []string) error {
 		line, _ := reader.ReadString('\n')
 		line = strings.TrimSpace(line)
 		switch line {
-		case "", "1", "mcp-memory-libsql":
-			provider = "mcp-memory-libsql"
-		case "2", "engram":
-			provider = "engram"
-		case "3", "none":
-			provider = "none"
+		case "", "1", providerLibsql:
+			provider = providerLibsql
+		case "2", providerEngram:
+			provider = providerEngram
+		case "3", providerNone:
+			provider = providerNone
 		default:
 			return fmt.Errorf("unknown provider choice %q; expected 1, 2, or 3", line)
 		}
@@ -325,7 +327,7 @@ func runConfigure(args []string) error {
 
 	// For mcp-memory-libsql, prompt for DB path
 	dbPath := flagDBPath
-	if provider == "mcp-memory-libsql" && dbPath == "" && !autoYes {
+	if provider == providerLibsql && dbPath == "" && !autoYes {
 		defaultDB := filepath.Join(home, ".config", "claude-workspace", "memory.db")
 		platform.PrintPrompt(w, fmt.Sprintf("  DB file path [%s]: ", shortenHome(defaultDB)))
 		line, _ := reader.ReadString('\n')
@@ -340,7 +342,7 @@ func runConfigure(args []string) error {
 				dbPath = line
 			}
 		}
-	} else if provider == "mcp-memory-libsql" && dbPath == "" {
+	} else if provider == providerLibsql && dbPath == "" {
 		dbPath = filepath.Join(home, ".config", "claude-workspace", "memory.db")
 	}
 
@@ -350,18 +352,18 @@ func runConfigure(args []string) error {
 	// Add the new provider (unless "none")
 	var newEntry map[string]interface{}
 	switch provider {
-	case "mcp-memory-libsql":
+	case providerLibsql:
 		newEntry = map[string]interface{}{
 			"command": "npx",
-			"args":    []string{"-y", "mcp-memory-libsql"},
+			"args":    []string{"-y", providerLibsql},
 			"env":     map[string]interface{}{"LIBSQL_URL": "file:" + dbPath},
 		}
-	case "engram":
+	case providerEngram:
 		newEntry = map[string]interface{}{
-			"command": "engram",
+			"command": providerEngram,
 			"args":    []string{"mcp"},
 		}
-	case "none":
+	case providerNone:
 		// nothing to add
 	}
 
@@ -379,7 +381,7 @@ func runConfigure(args []string) error {
 	}
 
 	// Create DB parent directory for mcp-memory-libsql
-	if provider == "mcp-memory-libsql" {
+	if provider == providerLibsql {
 		if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 			platform.PrintWarningLine(w, fmt.Sprintf("could not create DB directory: %v", err))
 		}
@@ -387,22 +389,22 @@ func runConfigure(args []string) error {
 
 	// Print confirmation
 	fmt.Fprintln(w)
-	if currentProvider != "none" && currentProvider != provider {
+	if currentProvider != providerNone && currentProvider != provider {
 		platform.PrintOK(w, fmt.Sprintf("Removed: %s", currentProvider))
 	}
 	switch provider {
-	case "mcp-memory-libsql":
+	case providerLibsql:
 		platform.PrintOK(w, fmt.Sprintf("Configured: mcp-memory-libsql  (DB: %s)", shortenHome(dbPath)))
 		fmt.Fprintln(w, "  Tools to use in Claude:")
 		fmt.Fprintf(w, "    %s\n", platform.Bold("mcp__mcp-memory-libsql__search_nodes"))
 		fmt.Fprintf(w, "    %s\n", platform.Bold("mcp__mcp-memory-libsql__create_entities"))
 		fmt.Fprintf(w, "    %s\n", platform.Bold("mcp__mcp-memory-libsql__read_graph"))
-	case "engram":
+	case providerEngram:
 		platform.PrintOK(w, "Configured: engram")
 		fmt.Fprintln(w, "  Tools to use in Claude:")
 		fmt.Fprintf(w, "    %s\n", platform.Bold("mcp__engram__mem_search"))
 		fmt.Fprintf(w, "    %s\n", platform.Bold("mcp__engram__mem_save"))
-	case "none":
+	case providerNone:
 		platform.PrintOK(w, "All memory MCP providers removed")
 	}
 	fmt.Fprintln(w)

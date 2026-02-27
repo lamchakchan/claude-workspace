@@ -20,7 +20,7 @@ func TestRun_ScaffoldOnly(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create a go.mod so scaffold detects Go
-	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test"), 0644)
 
 	err := Run(dir, []string{"--scaffold-only"})
 	if err != nil {
@@ -43,11 +43,11 @@ func TestRun_ScaffoldOnly(t *testing.T) {
 func TestRun_ScaffoldOnlyExistingFile(t *testing.T) {
 	dir := t.TempDir()
 	claudeDir := filepath.Join(dir, ".claude")
-	os.MkdirAll(claudeDir, 0755)
+	_ = os.MkdirAll(claudeDir, 0755)
 
 	// Write an existing CLAUDE.md
 	existing := "# Existing content"
-	os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte(existing), 0644)
+	_ = os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte(existing), 0644)
 
 	err := Run(dir, []string{"--scaffold-only"})
 	if err != nil {
@@ -70,7 +70,7 @@ func TestRun_DefaultsToCwd(t *testing.T) {
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { os.Chdir(orig) })
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 
 	err = Run("", []string{"--scaffold-only"})
 	if err != nil {

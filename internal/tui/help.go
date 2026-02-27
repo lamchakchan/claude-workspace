@@ -9,17 +9,17 @@ import (
 
 // HelpModel shows a keybinding reference overlay.
 type HelpModel struct {
-	theme Theme
+	theme *Theme
 }
 
 // NewHelp creates a new help overlay.
-func NewHelp(theme Theme) HelpModel {
-	return HelpModel{theme: theme}
+func NewHelp(theme *Theme) *HelpModel {
+	return &HelpModel{theme: theme}
 }
 
-func (m HelpModel) Init() tea.Cmd { return nil }
+func (m *HelpModel) Init() tea.Cmd { return nil }
 
-func (m HelpModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *HelpModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyPressMsg); ok {
 		if IsQuit(msg) || IsBack(msg) || msg.String() == "?" {
 			return m, func() tea.Msg { return PopViewMsg{} }
@@ -28,7 +28,7 @@ func (m HelpModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m HelpModel) View() tea.View {
+func (m *HelpModel) View() tea.View {
 	var b strings.Builder
 
 	b.WriteString(m.theme.SectionBanner("Keyboard Shortcuts"))
@@ -46,7 +46,7 @@ func (m HelpModel) View() tea.View {
 			binds: [][2]string{
 				{"↑ / k", "Move up"},
 				{"↓ / j", "Move down"},
-				{"enter", "Select / confirm"},
+				{keyEnter, "Select / confirm"},
 				{"esc", "Go back"},
 				{"q / ctrl+c", "Quit"},
 			},
@@ -56,7 +56,7 @@ func (m HelpModel) View() tea.View {
 			binds: [][2]string{
 				{"tab / ↓", "Next field"},
 				{"shift+tab / ↑", "Previous field"},
-				{"enter", "Next field / submit"},
+				{keyEnter, "Next field / submit"},
 				{"esc", "Cancel"},
 			},
 		},
@@ -66,7 +66,7 @@ func (m HelpModel) View() tea.View {
 				{"y / Y", "Confirm yes"},
 				{"n / N", "Confirm no"},
 				{"← / → / tab", "Switch selection"},
-				{"enter", "Confirm selection"},
+				{keyEnter, "Confirm selection"},
 			},
 		},
 		{

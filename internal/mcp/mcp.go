@@ -16,6 +16,15 @@ import (
 	"golang.org/x/term"
 )
 
+const (
+	flagHeader    = "--header"
+	flagClientSec = "--client-secret"
+
+	transportStdio = "stdio"
+	transportHTTP  = "http"
+	transportSSE   = "sse"
+)
+
 type addConfig struct {
 	Name               string
 	Scope              string
@@ -24,10 +33,10 @@ type addConfig struct {
 	Headers            []string
 	CommandArgs        []string
 	McpURL             string
-	ApiKeyEnvVar       string
+	APIKeyEnvVar       string
 	PromptBearer       bool
 	UseOAuth           bool
-	ClientId           string
+	ClientID           string
 	PromptClientSecret bool
 	ClientSecret       string
 }
@@ -39,7 +48,7 @@ type remoteConfig struct {
 	Headers            []string
 	PromptBearer       bool
 	UseOAuth           bool
-	ClientId           string
+	ClientID           string
 	PromptClientSecret bool
 	ClientSecret       string
 	Transport          string
@@ -59,7 +68,7 @@ func promptSecret(prompt string) (string, error) {
 		}
 		return strings.TrimSpace(string(password)), nil
 	}
-	defer term.Restore(fd, oldState)
+	defer func() { _ = term.Restore(fd, oldState) }()
 
 	var buf []byte
 	b := make([]byte, 1)
@@ -106,11 +115,8 @@ func parseAddArgs(args []string) (*addConfig, error) {
 	}
 
 	i := 1
-	seenDoubleDash := false
-
 	for i < len(args) {
-		if args[i] == "--" && !seenDoubleDash {
-			seenDoubleDash = true
+		if args[i] == "--" {
 			cfg.CommandArgs = args[i+1:]
 			break
 		}
@@ -138,9 +144,9 @@ func parseAddArgs(args []string) (*addConfig, error) {
 		case "--api-key":
 			i++
 			if i < len(args) {
-				cfg.ApiKeyEnvVar = args[i]
+				cfg.APIKeyEnvVar = args[i]
 			}
-		case "--header":
+		case flagHeader:
 			i++
 			if i < len(args) {
 				cfg.Headers = append(cfg.Headers, args[i])
@@ -152,9 +158,9 @@ func parseAddArgs(args []string) (*addConfig, error) {
 		case "--client-id":
 			i++
 			if i < len(args) {
-				cfg.ClientId = args[i]
+				cfg.ClientID = args[i]
 			}
-		case "--client-secret":
+		case flagClientSec:
 			cfg.PromptClientSecret = true
 		default:
 			if strings.HasPrefix(args[i], "http://") || strings.HasPrefix(args[i], "https://") {
@@ -171,9 +177,9 @@ func parseAddArgs(args []string) (*addConfig, error) {
 	// Determine transport
 	if cfg.Transport == "" {
 		if cfg.McpURL != "" {
-			cfg.Transport = "http"
+			cfg.Transport = transportHTTP
 		} else {
-			cfg.Transport = "stdio"
+			cfg.Transport = transportStdio
 		}
 	}
 
@@ -203,7 +209,7 @@ func parseRemoteArgs(mcpURL string, extraArgs []string) (*remoteConfig, error) {
 			if i < len(extraArgs) {
 				cfg.Scope = extraArgs[i]
 			}
-		case "--header":
+		case flagHeader:
 			i++
 			if i < len(extraArgs) {
 				cfg.Headers = append(cfg.Headers, extraArgs[i])
@@ -215,9 +221,9 @@ func parseRemoteArgs(mcpURL string, extraArgs []string) (*remoteConfig, error) {
 		case "--client-id":
 			i++
 			if i < len(extraArgs) {
-				cfg.ClientId = extraArgs[i]
+				cfg.ClientID = extraArgs[i]
 			}
-		case "--client-secret":
+		case flagClientSec:
 			cfg.PromptClientSecret = true
 		}
 	}
@@ -226,9 +232,9 @@ func parseRemoteArgs(mcpURL string, extraArgs []string) (*remoteConfig, error) {
 		cfg.Name = deriveServerName(mcpURL)
 	}
 
-	cfg.Transport = "http"
+	cfg.Transport = transportHTTP
 	if strings.HasSuffix(mcpURL, "/sse") {
-		cfg.Transport = "sse"
+		cfg.Transport = transportSSE
 	}
 
 	return cfg, nil
@@ -257,11 +263,11 @@ func deriveServerName(mcpURL string) string {
 func buildAddClaudeArgs(cfg *addConfig) ([]string, error) {
 	claudeArgs := []string{"mcp", "add", "--transport", cfg.Transport, "--scope", cfg.Scope}
 
-	if cfg.ClientId != "" {
-		claudeArgs = append(claudeArgs, "--client-id", cfg.ClientId)
+	if cfg.ClientID != "" {
+		claudeArgs = append(claudeArgs, "--client-id", cfg.ClientID)
 	}
 	if cfg.ClientSecret != "" {
-		claudeArgs = append(claudeArgs, "--client-secret", cfg.ClientSecret)
+		claudeArgs = append(claudeArgs, flagClientSec, cfg.ClientSecret)
 	}
 
 	claudeArgs = append(claudeArgs, cfg.Name)
@@ -272,7 +278,7 @@ func buildAddClaudeArgs(cfg *addConfig) ([]string, error) {
 		claudeArgs = append(claudeArgs, "-e", key+"="+value)
 	}
 
-	if cfg.Transport == "http" || cfg.Transport == "sse" {
+	if cfg.Transport == transportHTTP || cfg.Transport == transportSSE {
 		if cfg.McpURL == "" {
 			return nil, fmt.Errorf("URL required for http/sse transport")
 		}
@@ -285,7 +291,7 @@ func buildAddClaudeArgs(cfg *addConfig) ([]string, error) {
 	// --header is variadic in the Claude CLI and must come after positional args
 	// to prevent it from consuming <name> and <url> as header values.
 	for _, header := range cfg.Headers {
-		claudeArgs = append(claudeArgs, "--header", header)
+		claudeArgs = append(claudeArgs, flagHeader, header)
 	}
 
 	return claudeArgs, nil
@@ -294,11 +300,11 @@ func buildAddClaudeArgs(cfg *addConfig) ([]string, error) {
 func buildRemoteClaudeArgs(cfg *remoteConfig) []string {
 	claudeArgs := []string{"mcp", "add", "--transport", cfg.Transport, "--scope", cfg.Scope}
 
-	if cfg.ClientId != "" {
-		claudeArgs = append(claudeArgs, "--client-id", cfg.ClientId)
+	if cfg.ClientID != "" {
+		claudeArgs = append(claudeArgs, "--client-id", cfg.ClientID)
 	}
 	if cfg.ClientSecret != "" {
-		claudeArgs = append(claudeArgs, "--client-secret", cfg.ClientSecret)
+		claudeArgs = append(claudeArgs, flagClientSec, cfg.ClientSecret)
 	}
 
 	claudeArgs = append(claudeArgs, cfg.Name, cfg.McpURL)
@@ -306,7 +312,7 @@ func buildRemoteClaudeArgs(cfg *remoteConfig) []string {
 	// --header is variadic in the Claude CLI and must come after positional args
 	// to prevent it from consuming <name> and <url> as header values.
 	for _, header := range cfg.Headers {
-		claudeArgs = append(claudeArgs, "--header", header)
+		claudeArgs = append(claudeArgs, flagHeader, header)
 	}
 
 	return claudeArgs
@@ -322,11 +328,11 @@ func maskSensitiveArgs(args []string) []string {
 				safeArgs[idx] = arg[:eqIdx] + "=****"
 				continue
 			}
-			if prev == "--header" && strings.Contains(strings.ToLower(arg), "bearer") {
+			if prev == flagHeader && strings.Contains(strings.ToLower(arg), "bearer") {
 				safeArgs[idx] = "Authorization: Bearer ****"
 				continue
 			}
-			if prev == "--client-secret" {
+			if prev == flagClientSec {
 				safeArgs[idx] = "****"
 				continue
 			}
@@ -344,20 +350,20 @@ func Add(args []string) error {
 	}
 
 	// Secure API key prompting
-	if cfg.ApiKeyEnvVar != "" {
+	if cfg.APIKeyEnvVar != "" {
 		fmt.Printf("\nAPI key required for '%s' server.\n", cfg.Name)
-		fmt.Printf("The key will be stored as env var: %s\n", cfg.ApiKeyEnvVar)
+		fmt.Printf("The key will be stored as env var: %s\n", cfg.APIKeyEnvVar)
 		fmt.Println("Stored in your Claude config (~/.claude.json), NOT in project files.")
 		fmt.Println()
 
-		keyValue, err := promptSecret(fmt.Sprintf("Enter %s: ", cfg.ApiKeyEnvVar))
+		keyValue, err := promptSecret(fmt.Sprintf("Enter %s: ", cfg.APIKeyEnvVar))
 		if err != nil {
 			return err
 		}
 		if keyValue == "" {
 			return fmt.Errorf("no API key provided")
 		}
-		cfg.EnvVars[cfg.ApiKeyEnvVar] = keyValue
+		cfg.EnvVars[cfg.APIKeyEnvVar] = keyValue
 	}
 
 	if cfg.PromptBearer {
@@ -472,7 +478,7 @@ func Remote(mcpURL string, extraArgs []string) error {
 	fmt.Printf("  URL:       %s\n", cfg.McpURL)
 	fmt.Printf("  Transport: %s\n", cfg.Transport)
 	fmt.Printf("  Scope:     %s\n", cfg.Scope)
-	if cfg.UseOAuth || cfg.ClientId != "" {
+	if cfg.UseOAuth || cfg.ClientID != "" {
 		fmt.Println("  Auth:      OAuth 2.0")
 	} else {
 		hasAuth := false
@@ -497,7 +503,7 @@ func Remote(mcpURL string, extraArgs []string) error {
 
 	if exitCode == 0 {
 		fmt.Fprintf(os.Stdout, "\n%s\n", platform.Green(fmt.Sprintf("Remote MCP server '%s' connected.", cfg.Name)))
-		if cfg.UseOAuth || cfg.ClientId != "" || !cfg.PromptBearer {
+		if cfg.UseOAuth || cfg.ClientID != "" || !cfg.PromptBearer {
 			fmt.Printf("Next: Run '/mcp' in Claude Code → select '%s' → Authenticate\n", cfg.Name)
 		}
 	} else {
@@ -512,15 +518,15 @@ func List() error {
 	platform.PrintBanner(os.Stdout, "Configured MCP Servers")
 	fmt.Println()
 
-	platform.RunSpawn("claude", "mcp", "list")
+	_, _ = platform.RunSpawn("claude", "mcp", "list")
 
-	mcpJsonPath := filepath.Join(".", ".mcp.json")
-	if platform.FileExists(mcpJsonPath) {
+	mcpJSONPath := filepath.Join(".", ".mcp.json")
+	if platform.FileExists(mcpJSONPath) {
 		platform.PrintSection(os.Stdout, "Project .mcp.json")
 		var mcpConfig struct {
 			MCPServers map[string]json.RawMessage `json:"mcpServers"`
 		}
-		if err := platform.ReadJSONFile(mcpJsonPath, &mcpConfig); err == nil {
+		if err := platform.ReadJSONFile(mcpJSONPath, &mcpConfig); err == nil {
 			for name, raw := range mcpConfig.MCPServers {
 				var cfg struct {
 					Type    string            `json:"type"`
@@ -544,7 +550,7 @@ func List() error {
 					envNote = fmt.Sprintf(" (env: %s)", strings.Join(envKeys, ", "))
 				}
 
-				if cfg.Type == "http" || cfg.URL != "" {
+				if cfg.Type == transportHTTP || cfg.URL != "" {
 					urlOrType := cfg.URL
 					if urlOrType == "" {
 						urlOrType = cfg.Type

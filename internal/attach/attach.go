@@ -47,13 +47,13 @@ func Run(targetPath string, allArgs []string) error {
 		filepath.Join(claudeDir, "hooks"),
 		filepath.Join(projectDir, "plans"),
 	} {
-		os.MkdirAll(dir, 0755)
+		_ = os.MkdirAll(dir, 0755)
 	}
 
 	// Create plans/.gitkeep to keep directory tracked while contents are gitignored
 	gitkeepPath := filepath.Join(projectDir, "plans", ".gitkeep")
 	if !platform.FileExists(gitkeepPath) {
-		os.WriteFile(gitkeepPath, []byte{}, 0644)
+		_ = os.WriteFile(gitkeepPath, []byte{}, 0644)
 	}
 
 	// For symlink mode, extract assets first
@@ -131,7 +131,7 @@ func Run(targetPath string, allArgs []string) error {
 }
 
 // copyFromEmbed copies files from the embedded FS to disk.
-func copyFromEmbed(srcDir, destDir string, force bool, projectDir string) {
+func copyFromEmbed(srcDir, destDir string, force bool, _ string) {
 	cwd, _ := os.Getwd()
 
 	err := fs.WalkDir(platform.FS, srcDir, func(path string, d fs.DirEntry, err error) error {
@@ -159,7 +159,7 @@ func copyFromEmbed(srcDir, destDir string, force bool, projectDir string) {
 			return err
 		}
 
-		os.MkdirAll(filepath.Dir(destFile), 0755)
+		_ = os.MkdirAll(filepath.Dir(destFile), 0755)
 
 		perm := os.FileMode(0644)
 		if filepath.Ext(path) == ".sh" {
@@ -180,7 +180,7 @@ func copyFromEmbed(srcDir, destDir string, force bool, projectDir string) {
 }
 
 // copyOrLinkFromDisk copies or symlinks files from a disk directory.
-func copyOrLinkFromDisk(src, dest string, symlink, force bool, projectDir string) {
+func copyOrLinkFromDisk(src, dest string, symlink, force bool, _ string) {
 	if !platform.FileExists(src) {
 		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Skipping: %s does not exist", src))
 		return
@@ -188,7 +188,7 @@ func copyOrLinkFromDisk(src, dest string, symlink, force bool, projectDir string
 
 	cwd, _ := os.Getwd()
 
-	platform.WalkFiles(src, func(relPath string) error {
+	_ = platform.WalkFiles(src, func(relPath string) error {
 		srcFile := filepath.Join(src, relPath)
 		destFile := filepath.Join(dest, relPath)
 
@@ -246,7 +246,7 @@ func setupProjectSettings(claudeDir string, force bool) {
 	if exampleData, err := platform.ReadAsset(".claude/settings.local.json.example"); err == nil {
 		destExample := filepath.Join(claudeDir, "settings.local.json.example")
 		if !platform.FileExists(destExample) || force {
-			os.WriteFile(destExample, exampleData, 0644)
+			_ = os.WriteFile(destExample, exampleData, 0644)
 			platform.PrintSuccess(os.Stdout, "Created .claude/settings.local.json.example")
 		}
 	}
@@ -293,7 +293,7 @@ func setupProjectClaudeMd(projectDir, claudeDir string, force bool) {
 	if exampleData, err := platform.ReadAsset(".claude/CLAUDE.local.md.example"); err == nil {
 		destExample := filepath.Join(claudeDir, "CLAUDE.local.md.example")
 		if !platform.FileExists(destExample) || force {
-			os.WriteFile(destExample, exampleData, 0644)
+			_ = os.WriteFile(destExample, exampleData, 0644)
 			platform.PrintSuccess(os.Stdout, "Created .claude/CLAUDE.local.md.example")
 		}
 	}

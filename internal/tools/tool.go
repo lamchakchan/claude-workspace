@@ -22,7 +22,7 @@ type Tool struct {
 }
 
 // IsInstalled reports whether the tool is available.
-func (t Tool) IsInstalled() bool {
+func (t *Tool) IsInstalled() bool {
 	if t.CheckFn != nil {
 		return t.CheckFn()
 	}
@@ -30,7 +30,7 @@ func (t Tool) IsInstalled() bool {
 }
 
 // Install runs the tool's install function.
-func (t Tool) Install() error {
+func (t *Tool) Install() error {
 	if t.InstallFn != nil {
 		return t.InstallFn()
 	}
@@ -38,7 +38,7 @@ func (t Tool) Install() error {
 }
 
 // Version returns the tool's version string.
-func (t Tool) Version() (string, error) {
+func (t *Tool) Version() (string, error) {
 	if t.VersionFn != nil {
 		return t.VersionFn()
 	}
@@ -46,7 +46,7 @@ func (t Tool) Version() (string, error) {
 }
 
 // InstallHint returns the manual install command for this tool.
-func (t Tool) InstallHint() string {
+func (t *Tool) InstallHint() string {
 	if t.InstallCmd != "" {
 		return t.InstallCmd
 	}

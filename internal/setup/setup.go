@@ -82,7 +82,7 @@ func Run(args []string) error {
 
 	// Step 2: API Key provisioning
 	platform.PrintStep(os.Stdout, 2, 9, "API Key provisioning...")
-	if err := provisionApiKey(); err != nil {
+	if err := provisionAPIKey(); err != nil {
 		return err
 	}
 
@@ -145,7 +145,7 @@ func Run(args []string) error {
 	return nil
 }
 
-func provisionApiKey() error {
+func provisionAPIKey() error {
 	if platform.FileExists(claudeConfig) {
 		var config map[string]json.RawMessage
 		if err := platform.ReadJSONFile(claudeConfig, &config); err == nil {
@@ -534,9 +534,9 @@ func installBinaryToPath() {
 			return
 		}
 		// Make executable
-		platform.RunQuiet("sudo", "chmod", "+x", destPath)
+		_ = platform.RunQuiet("sudo", "chmod", "+x", destPath)
 	} else {
-		os.Chmod(destPath, 0755)
+		_ = os.Chmod(destPath, 0755)
 	}
 	fmt.Println("  Installed: claude-workspace is now available globally.")
 }

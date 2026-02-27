@@ -20,7 +20,7 @@ type releaseInfo struct {
 
 // UpgradeModel is the interactive upgrade confirmation screen.
 type UpgradeModel struct {
-	theme   Theme
+	theme   *Theme
 	version string
 	release *upgrade.Release
 	loading bool
@@ -29,15 +29,15 @@ type UpgradeModel struct {
 }
 
 // NewUpgrade creates a new upgrade screen. It starts loading release info on Init.
-func NewUpgrade(version string, theme Theme) UpgradeModel {
-	return UpgradeModel{
+func NewUpgrade(version string, theme *Theme) *UpgradeModel {
+	return &UpgradeModel{
 		theme:   theme,
 		version: version,
 		loading: true,
 	}
 }
 
-func (m UpgradeModel) Init() tea.Cmd {
+func (m *UpgradeModel) Init() tea.Cmd {
 	return fetchRelease
 }
 
@@ -47,7 +47,7 @@ func fetchRelease() tea.Msg {
 	return releaseInfo{release: r, err: err}
 }
 
-func (m UpgradeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *UpgradeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case releaseInfo:
 		m.loading = false
@@ -57,13 +57,13 @@ func (m UpgradeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.release = msg.release
 		body := m.buildConfirmBody()
-		confirm := NewConfirm("Upgrade claude-workspace?", body, true, m.theme)
-		m.confirm = &confirm
+		m.confirm = NewConfirm("Upgrade claude-workspace?", body, true, m.theme)
 		return m, nil
 
 	case ConfirmResult:
 		if msg.Confirmed {
-			return m, m.runUpgrade()
+			cmd := m.runUpgrade()
+			return m, cmd
 		}
 		return m, func() tea.Msg { return PopViewMsg{} }
 
@@ -75,14 +75,14 @@ func (m UpgradeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.confirm != nil {
 		updated, cmd := m.confirm.Update(msg)
-		m.confirm = &updated
+		m.confirm = updated
 		return m, cmd
 	}
 
 	return m, nil
 }
 
-func (m UpgradeModel) buildConfirmBody() string {
+func (m *UpgradeModel) buildConfirmBody() string {
 	var b strings.Builder
 
 	current := m.version
@@ -115,18 +115,18 @@ func (m UpgradeModel) buildConfirmBody() string {
 	return b.String()
 }
 
-func (m UpgradeModel) runUpgrade() tea.Cmd {
+func (m *UpgradeModel) runUpgrade() tea.Cmd {
 	exe, _ := os.Executable()
 	cmd := exec.Command(exe, "upgrade", "--yes")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+	return tea.ExecProcess(cmd, func(_ error) tea.Msg {
 		return PopViewMsg{}
 	})
 }
 
-func (m UpgradeModel) View() tea.View {
+func (m *UpgradeModel) View() tea.View {
 	var b strings.Builder
 
 	b.WriteString(m.theme.SectionBanner("Upgrade"))

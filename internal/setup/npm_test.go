@@ -8,8 +8,13 @@ import (
 	"testing"
 )
 
+const (
+	osWindows      = "windows"
+	sourcePathHeur = "path-heuristic"
+)
+
 func TestDetectNpmClaude_PathHeuristic(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -34,7 +39,7 @@ func TestDetectNpmClaude_PathHeuristic(t *testing.T) {
 	if !info.Detected {
 		t.Fatal("expected Detected=true for node_modules path")
 	}
-	if info.Source != "path-heuristic" {
+	if info.Source != sourcePathHeur {
 		t.Fatalf("expected Source='path-heuristic', got %q", info.Source)
 	}
 	if info.Path != fakeClaude {
@@ -43,7 +48,7 @@ func TestDetectNpmClaude_PathHeuristic(t *testing.T) {
 }
 
 func TestDetectNpmClaude_PathHeuristicGlobalNpm(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -67,13 +72,13 @@ func TestDetectNpmClaude_PathHeuristicGlobalNpm(t *testing.T) {
 	if !info.Detected {
 		t.Fatal("expected Detected=true for global npm node_modules path")
 	}
-	if info.Source != "path-heuristic" {
+	if info.Source != sourcePathHeur {
 		t.Fatalf("expected Source='path-heuristic', got %q", info.Source)
 	}
 }
 
 func TestDetectNpmClaude_NoClaude(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -96,7 +101,7 @@ func TestDetectNpmClaude_NoClaude(t *testing.T) {
 }
 
 func TestDetectNpmClaude_RegularPathNotDetected(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -125,7 +130,7 @@ func TestDetectNpmClaude_RegularPathNotDetected(t *testing.T) {
 }
 
 func TestDetectNpmClaude_AsdfShimWithoutNpm(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -158,7 +163,7 @@ func TestDetectNpmClaude_AsdfShimWithoutNpm(t *testing.T) {
 }
 
 func TestDetectNpmClaude_NpmExistsButPackageNotInstalled(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -193,7 +198,7 @@ func TestDetectNpmClaude_NpmExistsButPackageNotInstalled(t *testing.T) {
 }
 
 func TestDetectNpmClaude_NpmListConfirmsInstalled(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -236,7 +241,7 @@ exit 0
 }
 
 func TestDetectNpmClaude_PathHeuristicTakesPrecedenceOverNpmList(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -267,13 +272,13 @@ func TestDetectNpmClaude_PathHeuristicTakesPrecedenceOverNpmList(t *testing.T) {
 	if !info.Detected {
 		t.Fatal("expected Detected=true")
 	}
-	if info.Source != "path-heuristic" {
+	if info.Source != sourcePathHeur {
 		t.Fatalf("expected Source='path-heuristic' (early return), got %q", info.Source)
 	}
 }
 
 func TestUninstallNpmClaude_NoNpm(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -290,7 +295,7 @@ func TestUninstallNpmClaude_NoNpm(t *testing.T) {
 }
 
 func TestUninstallNpmClaude_NpmFails(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -318,7 +323,7 @@ func TestUninstallNpmClaude_NpmFails(t *testing.T) {
 }
 
 func TestUninstallNpmClaude_NpmSucceeds(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -345,7 +350,7 @@ func TestUninstallNpmClaude_NpmSucceeds(t *testing.T) {
 }
 
 func TestUninstallNpmClaude_RunsAsdfReshim(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -385,7 +390,7 @@ func TestUninstallNpmClaude_RunsAsdfReshim(t *testing.T) {
 }
 
 func TestFindAsdfNodejsVersionsWithClaude_FindsVersion(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -424,7 +429,7 @@ func TestFindAsdfNodejsVersionsWithClaude_FindsVersion(t *testing.T) {
 }
 
 func TestFindAsdfNodejsVersionsWithClaude_SkipsNonNpmBinary(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -450,7 +455,7 @@ func TestFindAsdfNodejsVersionsWithClaude_SkipsNonNpmBinary(t *testing.T) {
 }
 
 func TestFindAsdfNodejsVersionsWithClaude_CustomASDF_DATA_DIR(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -526,7 +531,7 @@ func TestExtractAsdfNodeVersion(t *testing.T) {
 }
 
 func TestDetectNpmClaude_AsdfShimWithNodejsInstall(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 
@@ -584,7 +589,7 @@ func TestDetectNpmClaude_AsdfShimWithNodejsInstall(t *testing.T) {
 }
 
 func TestUninstallNpmClaude_SetsASDF_NODEJS_VERSION(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("skipping on Windows")
 	}
 

@@ -19,8 +19,10 @@ func Run(args []string) error {
 		fmt.Fprintln(os.Stderr, "  Install Bun:     https://bun.sh")
 		return fmt.Errorf("bun or npx not found")
 	}
-	ccusageArgs := append(prefix, args...)
-	return platform.Run(runtime, ccusageArgs...)
+	cmdArgs := make([]string, 0, len(prefix)+len(args))
+	cmdArgs = append(cmdArgs, prefix...)
+	cmdArgs = append(cmdArgs, args...)
+	return platform.Run(runtime, cmdArgs...)
 }
 
 func detectRuntime() (string, []string) {

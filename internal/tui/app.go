@@ -28,9 +28,9 @@ func Run(version string) error {
 	}
 
 	theme := DefaultTheme()
-	launcher := newLauncher(version, theme)
+	launcher := newLauncher(version, &theme)
 
-	app := appModel{
+	app := &appModel{
 		stack:   []tea.Model{launcher},
 		theme:   theme,
 		version: version,
@@ -43,21 +43,21 @@ func Run(version string) error {
 	}
 
 	// If a command was selected, execute it after the TUI exits
-	if m, ok := result.(appModel); ok && m.pendingCmd != "" {
+	if m, ok := result.(*appModel); ok && m.pendingCmd != "" {
 		return execCommand(m.pendingCmd, m.pendingArgs)
 	}
 
 	return nil
 }
 
-func (m appModel) Init() tea.Cmd {
+func (m *appModel) Init() tea.Cmd {
 	if len(m.stack) > 0 {
 		return m.stack[len(m.stack)-1].Init()
 	}
 	return nil
 }
 
-func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -93,7 +93,8 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ExecAndReturnMsg:
 		// Run the command inline; TUI resumes current view when done.
-		return m, m.execInline(msg.Command, msg.Args)
+		cmd := m.execInline(msg.Command, msg.Args)
+		return m, cmd
 
 	case commandMsg:
 		// User selected a plain CLI command — store it and quit TUI
@@ -113,7 +114,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m appModel) View() tea.View {
+func (m *appModel) View() tea.View {
 	var v tea.View
 	v.AltScreen = true
 
@@ -125,7 +126,7 @@ func (m appModel) View() tea.View {
 }
 
 // execInline runs a CLI subcommand inline via ExecProcess (TUI resumes after).
-func (m appModel) execInline(command string, args []string) tea.Cmd {
+func (m *appModel) execInline(command string, args []string) tea.Cmd {
 	exe, err := os.Executable()
 	if err != nil {
 		return nil
@@ -135,7 +136,7 @@ func (m appModel) execInline(command string, args []string) tea.Cmd {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+	return tea.ExecProcess(cmd, func(_ error) tea.Msg {
 		return nil // resume current view
 	})
 }

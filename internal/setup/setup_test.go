@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -9,6 +10,11 @@ import (
 	"testing"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
+)
+
+const (
+	valCustom  = "custom"
+	testAPIKey = "sk-test"
 )
 
 func TestMain(m *testing.M) {
@@ -63,14 +69,14 @@ func TestMergeSettings_ExistingEnvTakesPrecedence(t *testing.T) {
 	}
 	existing := map[string]interface{}{
 		"env": map[string]interface{}{
-			"KEY1": "custom",
+			"KEY1": valCustom,
 		},
 	}
 
 	merged := MergeSettings(existing, defaults)
 
 	env := merged["env"].(map[string]interface{})
-	if env["KEY1"] != "custom" {
+	if env["KEY1"] != valCustom {
 		t.Errorf("existing env should take precedence: got KEY1=%v", env["KEY1"])
 	}
 	if env["KEY2"] != "default" {
@@ -78,57 +84,45 @@ func TestMergeSettings_ExistingEnvTakesPrecedence(t *testing.T) {
 	}
 }
 
-func TestMergeSettings_DenyListUnion(t *testing.T) {
+// testMergeSettingsListUnion is a helper for testing permission list union merging.
+func testMergeSettingsListUnion(t *testing.T, key string, defaultList []string, existingList interface{}, want []string) {
+	t.Helper()
 	defaults := map[string]interface{}{
 		"permissions": map[string]interface{}{
-			"deny": []string{"rule-a", "rule-b", "rule-c"},
+			key: defaultList,
 		},
 	}
 	existing := map[string]interface{}{
 		"permissions": map[string]interface{}{
-			"deny": []string{"rule-b", "rule-d"},
+			key: existingList,
 		},
 	}
 
 	merged := MergeSettings(existing, defaults)
 
 	perms := merged["permissions"].(map[string]interface{})
-	deny := perms["deny"].([]string)
+	got := perms[key].([]string)
 
-	sort.Strings(deny)
-	want := []string{"rule-a", "rule-b", "rule-c", "rule-d"}
+	sort.Strings(got)
 	sort.Strings(want)
 
-	if !reflect.DeepEqual(deny, want) {
-		t.Errorf("deny list union: got %v, want %v", deny, want)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("%s list union: got %v, want %v", key, got, want)
 	}
 }
 
+func TestMergeSettings_DenyListUnion(t *testing.T) {
+	testMergeSettingsListUnion(t, "deny",
+		[]string{"rule-a", "rule-b", "rule-c"},
+		[]string{"rule-b", "rule-d"},
+		[]string{"rule-a", "rule-b", "rule-c", "rule-d"})
+}
+
 func TestMergeSettings_DenyListFromJSON(t *testing.T) {
-	// When loaded from JSON, deny is []interface{} not []string
-	defaults := map[string]interface{}{
-		"permissions": map[string]interface{}{
-			"deny": []string{"rule-a", "rule-b"},
-		},
-	}
-	existing := map[string]interface{}{
-		"permissions": map[string]interface{}{
-			"deny": []interface{}{"rule-b", "rule-c"},
-		},
-	}
-
-	merged := MergeSettings(existing, defaults)
-
-	perms := merged["permissions"].(map[string]interface{})
-	deny := perms["deny"].([]string)
-
-	sort.Strings(deny)
-	want := []string{"rule-a", "rule-b", "rule-c"}
-	sort.Strings(want)
-
-	if !reflect.DeepEqual(deny, want) {
-		t.Errorf("deny list union with []interface{}: got %v, want %v", deny, want)
-	}
+	testMergeSettingsListUnion(t, "deny",
+		[]string{"rule-a", "rule-b"},
+		[]interface{}{"rule-b", "rule-c"},
+		[]string{"rule-a", "rule-b", "rule-c"})
 }
 
 func TestMergeSettings_NoDenyInExisting(t *testing.T) {
@@ -310,56 +304,17 @@ func TestGetDefaultGlobalSettings_DenyReconciled(t *testing.T) {
 }
 
 func TestMergeSettings_AllowListUnion(t *testing.T) {
-	defaults := map[string]interface{}{
-		"permissions": map[string]interface{}{
-			"allow": []string{"Read", "Write", "Edit"},
-		},
-	}
-	existing := map[string]interface{}{
-		"permissions": map[string]interface{}{
-			"allow": []string{"Write", "Bash(go *)"},
-		},
-	}
-
-	merged := MergeSettings(existing, defaults)
-
-	perms := merged["permissions"].(map[string]interface{})
-	allow := perms["allow"].([]string)
-
-	sort.Strings(allow)
-	want := []string{"Bash(go *)", "Edit", "Read", "Write"}
-	sort.Strings(want)
-
-	if !reflect.DeepEqual(allow, want) {
-		t.Errorf("allow list union: got %v, want %v", allow, want)
-	}
+	testMergeSettingsListUnion(t, "allow",
+		[]string{"Read", "Write", "Edit"},
+		[]string{"Write", "Bash(go *)"},
+		[]string{"Bash(go *)", "Edit", "Read", "Write"})
 }
 
 func TestMergeSettings_AllowListFromJSON(t *testing.T) {
-	// When loaded from JSON, allow is []interface{} not []string
-	defaults := map[string]interface{}{
-		"permissions": map[string]interface{}{
-			"allow": []string{"Read", "Write"},
-		},
-	}
-	existing := map[string]interface{}{
-		"permissions": map[string]interface{}{
-			"allow": []interface{}{"Write", "Edit"},
-		},
-	}
-
-	merged := MergeSettings(existing, defaults)
-
-	perms := merged["permissions"].(map[string]interface{})
-	allow := perms["allow"].([]string)
-
-	sort.Strings(allow)
-	want := []string{"Edit", "Read", "Write"}
-	sort.Strings(want)
-
-	if !reflect.DeepEqual(allow, want) {
-		t.Errorf("allow list union with []interface{}: got %v, want %v", allow, want)
-	}
+	testMergeSettingsListUnion(t, "allow",
+		[]string{"Read", "Write"},
+		[]interface{}{"Write", "Edit"},
+		[]string{"Edit", "Read", "Write"})
 }
 
 func TestMergeSettings_NoAllowInExisting(t *testing.T) {
@@ -398,7 +353,7 @@ func TestMergeSettings_ForcePermissionsReplace(t *testing.T) {
 			"additionalDirectories": []string{"/tmp"},
 		},
 		"env": map[string]interface{}{
-			"KEY1": "custom",
+			"KEY1": valCustom,
 			"KEY2": "user",
 		},
 		"customSetting": true,
@@ -423,7 +378,7 @@ func TestMergeSettings_ForcePermissionsReplace(t *testing.T) {
 
 	// Env should still be merged (existing takes precedence)
 	env := merged["env"].(map[string]interface{})
-	if env["KEY1"] != "custom" {
+	if env["KEY1"] != valCustom {
 		t.Errorf("env should preserve existing values: got KEY1=%v", env["KEY1"])
 	}
 	if env["KEY2"] != "user" {
@@ -458,7 +413,7 @@ func TestMergeUserMCPServers_AddsWhenAbsent(t *testing.T) {
 }
 
 func TestMergeUserMCPServers_DoesNotOverwriteExisting(t *testing.T) {
-	customCfg := map[string]interface{}{"command": "custom", "args": []string{"--custom"}}
+	customCfg := map[string]interface{}{"command": valCustom, "args": []string{"--custom"}}
 	config := map[string]interface{}{
 		"mcpServers": map[string]interface{}{
 			"memory": customCfg,
@@ -473,7 +428,7 @@ func TestMergeUserMCPServers_DoesNotOverwriteExisting(t *testing.T) {
 
 	mcp := merged["mcpServers"].(map[string]interface{})
 	memory := mcp["memory"].(map[string]interface{})
-	if memory["command"] != "custom" {
+	if memory["command"] != valCustom {
 		t.Errorf("existing memory server should not be overwritten, got command=%v", memory["command"])
 	}
 	if _, ok := mcp["git"]; !ok {
@@ -483,7 +438,7 @@ func TestMergeUserMCPServers_DoesNotOverwriteExisting(t *testing.T) {
 
 func TestMergeUserMCPServers_PreservesOtherConfigKeys(t *testing.T) {
 	config := map[string]interface{}{
-		"primaryApiKey": "sk-test",
+		"primaryApiKey": testAPIKey,
 		"mcpServers":    map[string]interface{}{},
 	}
 	servers := map[string]interface{}{
@@ -492,14 +447,14 @@ func TestMergeUserMCPServers_PreservesOtherConfigKeys(t *testing.T) {
 
 	merged := MergeUserMCPServers(config, servers)
 
-	if merged["primaryApiKey"] != "sk-test" {
+	if merged["primaryApiKey"] != testAPIKey {
 		t.Error("expected primaryApiKey to be preserved")
 	}
 }
 
 func TestMergeUserMCPServers_NilMcpServers(t *testing.T) {
 	config := map[string]interface{}{
-		"primaryApiKey": "sk-test",
+		"primaryApiKey": testAPIKey,
 		// no mcpServers key
 	}
 	servers := map[string]interface{}{
@@ -571,7 +526,7 @@ func TestEnsureLocalBinClaude_NoopWhenExists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != string(originalContent) {
+	if !bytes.Equal(got, originalContent) {
 		t.Errorf("existing file was modified; want %q, got %q", originalContent, got)
 	}
 }
@@ -641,7 +596,7 @@ func TestPlatformMCPServers_ContainsLibsql(t *testing.T) {
 
 func TestRemoveUserMCPServers(t *testing.T) {
 	config := map[string]interface{}{
-		"primaryApiKey": "sk-test",
+		"primaryApiKey": testAPIKey,
 		"mcpServers": map[string]interface{}{
 			"engram":            map[string]interface{}{"command": "engram"},
 			"mcp-memory-libsql": map[string]interface{}{"command": "npx"},
@@ -664,15 +619,15 @@ func TestRemoveUserMCPServers(t *testing.T) {
 	if _, found := mcp["other"]; !found {
 		t.Error("other server should have been preserved")
 	}
-	if result["primaryApiKey"] != "sk-test" {
+	if result["primaryApiKey"] != testAPIKey {
 		t.Error("other config keys should be preserved")
 	}
 }
 
 func TestRemoveUserMCPServers_NoMcpServers(t *testing.T) {
-	config := map[string]interface{}{"primaryApiKey": "sk-test"}
+	config := map[string]interface{}{"primaryApiKey": testAPIKey}
 	result := RemoveUserMCPServers(config, []string{"engram"})
-	if result["primaryApiKey"] != "sk-test" {
+	if result["primaryApiKey"] != testAPIKey {
 		t.Error("config keys should be preserved when mcpServers is absent")
 	}
 }
