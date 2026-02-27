@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -279,5 +280,110 @@ func TestIsExecutable(t *testing.T) {
 				t.Errorf("IsExecutable(%q) = %v, want %v", tt.path, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestEnsureGitignoreEntries_CreatesNewFile(t *testing.T) {
+	dir := t.TempDir()
+	gitignorePath := filepath.Join(dir, ".gitignore")
+
+	required := "*.log\n# comment\nnode_modules/\n"
+	modified, err := EnsureGitignoreEntries(gitignorePath, required)
+	if err != nil {
+		t.Fatalf("EnsureGitignoreEntries() error = %v", err)
+	}
+	if !modified {
+		t.Error("EnsureGitignoreEntries() should return modified=true for new file")
+	}
+
+	content, _ := os.ReadFile(gitignorePath)
+	for _, entry := range []string{"*.log", "node_modules/"} {
+		if !strings.Contains(string(content), entry) {
+			t.Errorf("file should contain %q", entry)
+		}
+	}
+	if !strings.Contains(string(content), "# Added by claude-workspace") {
+		t.Error("file should contain header comment")
+	}
+}
+
+func TestEnsureGitignoreEntries_AppendsMissing(t *testing.T) {
+	dir := t.TempDir()
+	gitignorePath := filepath.Join(dir, ".gitignore")
+
+	existing := "# User entries\n*.log\n"
+	os.WriteFile(gitignorePath, []byte(existing), 0644)
+
+	required := "*.log\nnode_modules/\n*.tmp\n"
+	modified, err := EnsureGitignoreEntries(gitignorePath, required)
+	if err != nil {
+		t.Fatalf("EnsureGitignoreEntries() error = %v", err)
+	}
+	if !modified {
+		t.Error("EnsureGitignoreEntries() should return modified=true when appending")
+	}
+
+	content, _ := os.ReadFile(gitignorePath)
+	s := string(content)
+
+	// Should preserve original content
+	if !strings.HasPrefix(s, existing) {
+		t.Error("should preserve existing content at the start")
+	}
+	// Should add missing entries
+	if !strings.Contains(s, "node_modules/") {
+		t.Error("should add node_modules/")
+	}
+	if !strings.Contains(s, "*.tmp") {
+		t.Error("should add *.tmp")
+	}
+	// Should NOT duplicate *.log
+	if strings.Count(s, "*.log") != 1 {
+		t.Error("should not duplicate *.log")
+	}
+}
+
+func TestEnsureGitignoreEntries_Idempotent(t *testing.T) {
+	dir := t.TempDir()
+	gitignorePath := filepath.Join(dir, ".gitignore")
+
+	required := "*.log\nnode_modules/\n"
+
+	// First call creates the file
+	EnsureGitignoreEntries(gitignorePath, required)
+	first, _ := os.ReadFile(gitignorePath)
+
+	// Second call should be a no-op
+	modified, err := EnsureGitignoreEntries(gitignorePath, required)
+	if err != nil {
+		t.Fatalf("EnsureGitignoreEntries() error = %v", err)
+	}
+	if modified {
+		t.Error("EnsureGitignoreEntries() should return modified=false on second call")
+	}
+
+	second, _ := os.ReadFile(gitignorePath)
+	if string(first) != string(second) {
+		t.Error("file content should not change on second call")
+	}
+}
+
+func TestEnsureGitignoreEntries_PreservesUserEntries(t *testing.T) {
+	dir := t.TempDir()
+	gitignorePath := filepath.Join(dir, ".gitignore")
+
+	userContent := "# My custom ignores\n.env\n.env.local\nbuild/\n"
+	os.WriteFile(gitignorePath, []byte(userContent), 0644)
+
+	required := "*.log\n"
+	EnsureGitignoreEntries(gitignorePath, required)
+
+	content, _ := os.ReadFile(gitignorePath)
+	s := string(content)
+
+	for _, entry := range []string{".env", ".env.local", "build/"} {
+		if !strings.Contains(s, entry) {
+			t.Errorf("should preserve user entry %q", entry)
+		}
 	}
 }

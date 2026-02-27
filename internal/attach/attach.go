@@ -50,6 +50,12 @@ func Run(targetPath string, allArgs []string) error {
 		os.MkdirAll(dir, 0755)
 	}
 
+	// Create plans/.gitkeep to keep directory tracked while contents are gitignored
+	gitkeepPath := filepath.Join(projectDir, "plans", ".gitkeep")
+	if !platform.FileExists(gitkeepPath) {
+		os.WriteFile(gitkeepPath, []byte{}, 0644)
+	}
+
 	// For symlink mode, extract assets first
 	var assetBase string
 	if useSymlinks {
@@ -108,6 +114,7 @@ func Run(targetPath string, allArgs []string) error {
 
 	// Setup gitignore
 	setupGitignore(claudeDir)
+	setupRootGitignore(projectDir)
 
 	platform.PrintBanner(os.Stdout, "Attachment Complete")
 	fmt.Printf("\n%s %s\n", platform.Bold("Platform attached to:"), projectDir)
@@ -294,24 +301,47 @@ func setupProjectClaudeMd(projectDir, claudeDir string, force bool) {
 
 func setupGitignore(claudeDir string) {
 	gitignorePath := filepath.Join(claudeDir, ".gitignore")
+	existed := platform.FileExists(gitignorePath)
 
-	if platform.FileExists(gitignorePath) {
+	// Read required entries from the embedded template
+	data, err := platform.ReadAsset(".claude/.gitignore")
+	if err != nil {
+		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error reading embedded .claude/.gitignore: %v", err))
 		return
 	}
 
-	content := `# Personal local settings (not shared)
-settings.local.json
-CLAUDE.local.md
+	modified, err := platform.EnsureGitignoreEntries(gitignorePath, string(data))
+	if err != nil {
+		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error writing .claude/.gitignore: %v", err))
+		return
+	}
+	if modified {
+		if existed {
+			platform.PrintSuccess(os.Stdout, "Updated .claude/.gitignore")
+		} else {
+			platform.PrintSuccess(os.Stdout, "Created .claude/.gitignore")
+		}
+	}
+}
 
-# Agent memory (personal)
-agent-memory-local/
+func setupRootGitignore(projectDir string) {
+	gitignorePath := filepath.Join(projectDir, ".gitignore")
 
-# Example files are tracked
-!*.example
-`
+	// Read required entries from the embedded template
+	data, err := platform.ReadAsset(".gitignore")
+	if err != nil {
+		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error reading embedded .gitignore: %v", err))
+		return
+	}
 
-	os.WriteFile(gitignorePath, []byte(content), 0644)
-	platform.PrintSuccess(os.Stdout, "Created .claude/.gitignore")
+	modified, err := platform.EnsureGitignoreEntries(gitignorePath, string(data))
+	if err != nil {
+		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error writing .gitignore: %v", err))
+		return
+	}
+	if modified {
+		platform.PrintSuccess(os.Stdout, "Updated .gitignore with claude-workspace entries")
+	}
 }
 
 func contains(slice []string, item string) bool {
