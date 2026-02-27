@@ -53,11 +53,94 @@ except Exception:
 PYEOF
 )
 
-# Combine and output
+# Service status alerts (cached, 5-minute TTL)
+# Supports: Atlassian Statuspage (GitHub, Claude, Cloudflare),
+#           AWS Health, Google Cloud, Azure DevOps
+status_alerts=$(python3 - <<'PYEOF' 2>/dev/null
+import json, os, time, urllib.request
+CACHE_DIR = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'claude-statusline')
+os.makedirs(CACHE_DIR, exist_ok=True)
+RED = "\033[1;31m"
+YLW = "\033[1;33m"
+RST = "\033[0m"
+
+def fetch_cached(label, url, ttl=300):
+    cache = os.path.join(CACHE_DIR, label.lower().replace(" ", "-") + "-status.json")
+    try:
+        if not os.path.exists(cache) or time.time() - os.path.getmtime(cache) > ttl:
+            req = urllib.request.Request(url, headers={"User-Agent": "claude-statusline"})
+            with urllib.request.urlopen(req, timeout=2) as r:
+                with open(cache, 'wb') as f:
+                    f.write(r.read())
+    except Exception:
+        pass
+    try:
+        with open(cache) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+def color(severity, text):
+    if severity == "major":
+        return "\U0001f6a8 " + RED + text + RST
+    return "\u26a0\ufe0f  " + YLW + text + RST
+
+alerts = []
+
+# Atlassian Statuspage services (GitHub, Claude, Cloudflare)
+for label, url in [
+    ("GitHub", "https://www.githubstatus.com/api/v2/status.json"),
+    ("Claude", "https://status.claude.com/api/v2/status.json"),
+    ("Cloudflare", "https://www.cloudflarestatus.com/api/v2/status.json"),
+]:
+    data = fetch_cached(label, url)
+    if data:
+        ind = data.get("status", {}).get("indicator", "none")
+        desc = data.get("status", {}).get("description", "")
+        if ind != "none":
+            sev = "major" if ind in ("major", "critical") else "minor"
+            alerts.append(color(sev, label + ": " + desc))
+
+# AWS — empty array means healthy, non-empty means active incidents
+data = fetch_cached("aws", "https://health.aws.amazon.com/public/currentevents")
+if data and isinstance(data, list) and len(data) > 0:
+    alerts.append(color("major", "AWS: Active Incidents (" + str(len(data)) + ")"))
+
+# Google Cloud — active incidents where latest status is not AVAILABLE
+data = fetch_cached("google-cloud", "https://status.cloud.google.com/incidents.json")
+if data and isinstance(data, list):
+    active = [i for i in data if i.get("most_recent_update", {}).get("status") not in ("AVAILABLE", None)]
+    if active:
+        sev = "major" if any(i.get("severity") == "high" for i in active) else "minor"
+        alerts.append(color(sev, "Google Cloud: Active Incidents (" + str(len(active)) + ")"))
+
+# Azure DevOps — status.health != "healthy"
+data = fetch_cached("azure-devops", "https://status.dev.azure.com/_apis/status/health?api-version=7.1-preview.1")
+if data:
+    health = data.get("status", {}).get("health", "healthy")
+    msg = data.get("status", {}).get("message", "Issues detected")
+    if health != "healthy":
+        sev = "major" if health == "unhealthy" else "minor"
+        alerts.append(color(sev, "Azure DevOps: " + msg))
+
+if alerts:
+    print("  ".join(alerts))
+PYEOF
+)
+
+# Combine and output — alerts on line 1, base statusline on line 2
+result=""
 if [[ -n "$base" && -n "$reset" ]]; then
-    printf '%s | %s\n' "${base%$'\n'}" "$reset"
+    result="${base%$'\n'} | $reset"
 elif [[ -n "$base" ]]; then
-    printf '%s\n' "$base"
+    result="${base%$'\n'}"
+fi
+if [[ -n "$status_alerts" && -n "$result" ]]; then
+    printf '%b\n%s\n' "$status_alerts" "$result"
+elif [[ -n "$status_alerts" ]]; then
+    printf '%b\n' "$status_alerts"
+elif [[ -n "$result" ]]; then
+    printf '%s\n' "$result"
 fi
 `
 

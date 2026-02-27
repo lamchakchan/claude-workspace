@@ -16,7 +16,7 @@ Lint: `go vet ./...` and `make lint` (CUE-based template validation)
 - internal/setup/      - `setup` command: first-time setup, API key provisioning, npm detection
 - internal/mcp/        - `mcp` command: add/list/remote MCP server configurations
 - internal/sandbox/    - `sandbox` command: git worktree creation for parallel development
-- internal/tools/      - Tool registry: defines required (claude, node) and optional (engram, shellcheck, jq, prettier, tmux) tools
+- internal/tools/      - Tool registry: defines required (claude, node) and optional (engram, shellcheck, jq, prettier, tmux, golangci-lint, python3) tools
 - internal/doctor/     - `doctor` command: health checks for platform configuration
 - internal/upgrade/    - `upgrade` command: self-update via GitHub releases
 - internal/sessions/   - `sessions` command: browse and review session prompts

@@ -49,6 +49,16 @@ func TestWriteWrapperScript_ContainsRequiredSections(t *testing.T) {
 		{"reset countdown", "subscriptionCreatedAt"},
 		{"python3 invocation", "python3"},
 		{"output combination", "resets"},
+		{"service status section", "Service status alerts"},
+		{"github status URL", "githubstatus.com/api/v2/status.json"},
+		{"claude status URL", "status.claude.com/api/v2/status.json"},
+		{"cloudflare status URL", "cloudflarestatus.com/api/v2/status.json"},
+		{"aws health URL", "health.aws.amazon.com/public/currentevents"},
+		{"google cloud URL", "status.cloud.google.com/incidents.json"},
+		{"azure devops URL", "status.dev.azure.com/_apis/status/health"},
+		{"status_alerts variable", "status_alerts"},
+		{"urllib import", "urllib.request"},
+		{"ansi color codes", "\\033[1;31m"},
 	}
 	for _, c := range checks {
 		if !strings.Contains(body, c.contain) {

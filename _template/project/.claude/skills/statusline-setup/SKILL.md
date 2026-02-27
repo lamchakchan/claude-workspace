@@ -1,6 +1,6 @@
 ---
 name: statusline-setup
-description: Configures the Claude Code statusline to display live session cost, context usage, model name, and weekly reset countdown. Use when the user wants to set up or customize their Claude Code statusline, or when the statusLine setting is missing from ~/.claude/settings.json.
+description: Configures the Claude Code statusline to display live session cost, context usage, model name, weekly reset countdown, and service status alerts (GitHub, Claude, Cloudflare, AWS, Google Cloud, Azure DevOps). Use when the user wants to set up or customize their Claude Code statusline, or when the statusLine setting is missing from ~/.claude/settings.json.
 ---
 
 # Statusline Setup
@@ -16,6 +16,17 @@ Opus | $0.23 session / $1.23 today / $0.45 block (2h 45m left) | $0.12/hr | 25,0
 Fields: model name, session cost, daily spend, active billing block spend (with time remaining), hourly burn rate, tokens used, context window percentage, and weekly Pro/Max reset countdown.
 
 The reset countdown (`resets in Xd` / `resets tomorrow` / `resets today`) is derived automatically from the subscription start date in `~/.claude.json` — no manual configuration required. Requires `python3` (standard on macOS and most Linux); silently omitted if unavailable.
+
+## Service Status Alerts
+
+When monitored services experience outages or degraded performance, a colored alert line appears above the normal statusline:
+
+```
+🚨 GitHub: Major System Outage  ⚠️  Claude: Degraded Performance
+Opus | $0.23 session / $1.23 today / $0.45 block (2h 45m left) | $0.12/hr | 25,000 (12%) | resets in 3d
+```
+
+Monitored services: GitHub, Claude, Cloudflare, AWS, Google Cloud, Azure DevOps. Alerts use bold red (🚨) for major/critical and bold yellow (⚠️) for minor/degraded. Responses are cached for 5 minutes with a 2-second HTTP timeout. When all services are healthy, the alert line is hidden entirely.
 
 ## Recommended Tool: ccusage
 
@@ -71,4 +82,4 @@ Use `--force` to overwrite an existing configuration:
 claude-workspace statusline --force
 ```
 
-This writes `~/.claude/statusline.sh`, which detects the available runtime (bun/npx/jq) each time it runs and appends the weekly reset countdown from `~/.claude.json`.
+This writes `~/.claude/statusline.sh`, which detects the available runtime (bun/npx/jq) each time it runs, appends the weekly reset countdown from `~/.claude.json`, and checks service status APIs for outage alerts.

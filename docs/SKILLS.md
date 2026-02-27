@@ -111,7 +111,7 @@ Not a step-by-step workflow — more of a reference guide that Claude applies th
 
 ### statusline-setup
 
-Configures the Claude Code statusline to display live session cost, context usage, model name, and weekly reset countdown. Detects the best available runtime (bun/npx/jq) and writes a wrapper script to `~/.claude/statusline.sh`.
+Configures the Claude Code statusline to display live session cost, context usage, model name, weekly reset countdown, and service status alerts (GitHub, Claude, Cloudflare, AWS, Google Cloud, Azure DevOps). Detects the best available runtime (bun/npx/jq) and writes a wrapper script to `~/.claude/statusline.sh`.
 
 **Workflow:** Check existing config → Write wrapper script → Register in settings → Confirm
 
