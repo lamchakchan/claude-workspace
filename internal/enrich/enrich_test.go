@@ -62,9 +62,17 @@ func TestRun_ScaffoldOnlyExistingFile(t *testing.T) {
 }
 
 func TestRun_DefaultsToCwd(t *testing.T) {
-	// Run with empty path — should use cwd and not error on directory resolution
-	// This will fail on enrichment (no claude CLI) but should not fail on path resolution
-	err := Run("", []string{"--scaffold-only"})
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmp := t.TempDir()
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chdir(orig) })
+
+	err = Run("", []string{"--scaffold-only"})
 	if err != nil {
 		t.Fatalf("Run() with empty path unexpected error: %v", err)
 	}
