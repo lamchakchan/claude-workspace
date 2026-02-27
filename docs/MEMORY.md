@@ -1,10 +1,10 @@
 # Memory Management
 
-This document explains the six memory layers available in Claude Code, when to use each, how to clear them, and what to gitignore.
+This document explains the memory layers available in Claude Code, when to use each, how to clear them, and what to gitignore.
 
 ---
 
-## 1. Overview — The Six Layers
+## 1. Overview — All Layers
 
 | Layer | File Location | Scope | Auto-loaded? | Shared? |
 |---|---|---|---|---|
@@ -150,18 +150,30 @@ Unlike auto-memory, Claude will not write to Memory MCP unprompted — you must 
 
 ### Session workflow
 
-**At session start** — load relevant context:
+**At session start** — load all stored memories:
 ```
-mcp__mcp-memory-libsql__search_nodes({"query": "preferences"})
+mcp__mcp-memory-libsql__read_graph()
 ```
 
-**During work** — record new facts:
+> **Why `read_graph` instead of `search_nodes`?** The underlying FTS5 engine has no stemming — "preference" won't match "preferences", "convention" won't match "conventions". Loading the full graph avoids keyword-matching failures. The graph is small enough for a single user that this is always safe.
+
+**During work** — record new facts following storage conventions:
 ```
 mcp__mcp-memory-libsql__create_entities({
-  "entities": [{"name": "claude-workspace", "entityType": "project",
-    "observations": ["Go CLI, builds with go build ./..., tests with go test ./..."]}]
+  "entities": [{"name": "go-conventions", "entityType": "convention",
+    "observations": ["Go: one package per CLI subcommand with Run() entry point",
+                     "Go: build with make build, not go build directly"]}]
 })
 ```
+
+### Storage conventions
+
+Follow these rules when saving to MCP memory for better retrieval:
+
+- **Entity names**: Short, kebab-case topic identifiers (e.g., `go-conventions`, `git-workflow`, `mermaid-prefs`)
+- **Entity types**: Use a controlled vocabulary — one of: `preference`, `pattern`, `convention`, `tool-config`, `workflow`
+- **Observations**: One fact per observation. Keep each under 100 characters. Front-load the key term (e.g., "Mermaid: use flowchart TD not graph TD" rather than "Always use Mermaid flowchart TD syntax").
+- **Granularity**: One entity per topic area. Don't pack unrelated facts into one entity.
 
 ### How to clear
 

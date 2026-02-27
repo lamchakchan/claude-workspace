@@ -32,12 +32,18 @@ If no MCP tool covers a capability, fall back to built-in tools normally. When m
 
 ## Memory Strategy
 
-Six memory layers are available — use each for its right scope:
+Three memory layers, each for its right scope:
 
-- **User CLAUDE.md** (`~/.claude/CLAUDE.md`): Permanent instructions you write. For stable rules and preferences that apply to all projects.
-- **Auto-memory** (`~/.claude/projects/<project>/memory/`): Claude's automatic notes per project. Loaded at every session start. Use `/memory` to view or edit. Clear by telling Claude directly ("forget X") or with `rm`.
-- **Memory MCP** (`mcp__mcp-memory-libsql__*` tools): Cross-project persistent knowledge graph with full-text search. NOT auto-loaded — call `search_nodes` at session start to load relevant context. Use for preferences and patterns that span multiple projects. Inspect with `claude-workspace memory`.
+- **User CLAUDE.md** (`~/.claude/CLAUDE.md`): Rules and preferences for all projects. Always loaded.
+- **Auto-memory** (`~/.claude/projects/<project>/memory/`): Project-specific facts Claude learns during work. Auto-loaded (first 200 lines). Use `/memory` to view or edit.
+- **Memory MCP** (`mcp__mcp-memory-libsql__*`): Cross-project factual knowledge (not rules — those belong in CLAUDE.md). NOT auto-loaded. Inspect with `claude-workspace memory`.
 
-**Session start rule**: At the beginning of every session, call `mcp__mcp-memory-libsql__search_nodes` with `{"query": "preferences"}` to load the user's stored preferences before doing any work.
+**Session start rule**: Call `mcp__mcp-memory-libsql__read_graph` to load all stored cross-project memories. Use `read_graph` (not `search_nodes`) to avoid keyword-matching issues with the underlying FTS engine (no stemming — "preference" won't match "preferences").
 
-See `docs/MEMORY.md` for the full reference including all six layers, clearing procedures, and gitignore rules.
+**When saving to MCP memory:**
+- One entity per topic, short kebab-case names (e.g., `go-conventions`, `git-workflow`)
+- One fact per observation, key term first, under 100 chars
+- Entity types: `preference` | `pattern` | `convention` | `tool-config` | `workflow`
+- Only save cross-project facts here. Project-specific facts → auto-memory. Rules/instructions → CLAUDE.md.
+
+See `docs/MEMORY.md` for the full reference including all layers, clearing procedures, and gitignore rules.

@@ -4,6 +4,12 @@
 
 You are a platform-aware AI coding agent deployed via the Claude Code Platform Engineering Kit. You operate within a governed environment with safety hooks, layered prompts, and team conventions.
 
+## Design Principles
+
+- **Cross-platform**: Target all supported OS/architecture combinations (darwin/linux, amd64/arm64). Avoid platform-specific assumptions; test and build for every target.
+- **Package manager agnostic**: Support multiple OS package managers (Homebrew, apt, yum, apk, etc.). Detect and adapt to whatever is available on the host.
+- **Template-driven delivery**: All content delivered via `attach` or `setup` must originate from `_template/`. The embedded templates are the single source of truth — never hardcode content that belongs in a template.
+
 ## Core Principles
 
 1. **Plan First**: Before making changes, always create a plan. Use the TodoWrite tool to break work into trackable steps. For significant work, use plan mode or the planner subagent.
@@ -44,6 +50,15 @@ You are a platform-aware AI coding agent deployed via the Claude Code Platform E
 - When context is getting full, proactively suggest compaction
 - Reference specific files and line numbers rather than quoting large blocks
 - Use `@` mentions for file references when possible
+
+## Plan Conventions
+
+- Plans are stored in `./plans/` (configured via `plansDirectory` in settings)
+- Naming: `plan-YYYY-MM-DD-<short-description>.md` (not auto-generated names)
+- Always include Status (Draft/Approved/In Progress/Complete) and Last Updated fields
+- Plans should be self-contained — resumable without the original session context
+- After creating a plan, suggest `/rename` for the session and log the plan file path
+- Use `/plan-resume` to pick up parked plans in a new session
 
 ## Git Conventions
 

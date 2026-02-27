@@ -88,6 +88,31 @@ run_phase_attach() {
 
     assert ".claude/skills/ is non-empty" \
         vm_exec_quiet "test -d ${PROJECT}/.claude/skills && [ \"\$(ls -A ${PROJECT}/.claude/skills)\" ]"
+
+    # Gitignore assertions
+    assert ".claude/.gitignore exists" \
+        vm_exec_quiet "test -f ${PROJECT}/.claude/.gitignore"
+
+    assert ".claude/.gitignore contains MEMORY.md" \
+        vm_exec_quiet "grep -q 'MEMORY.md' ${PROJECT}/.claude/.gitignore"
+
+    assert ".claude/.gitignore contains *.jsonl" \
+        vm_exec_quiet "grep -q '\*.jsonl' ${PROJECT}/.claude/.gitignore"
+
+    assert ".claude/.gitignore contains audits/" \
+        vm_exec_quiet "grep -q 'audits/' ${PROJECT}/.claude/.gitignore"
+
+    assert "root .gitignore exists" \
+        vm_exec_quiet "test -f ${PROJECT}/.gitignore"
+
+    assert "root .gitignore contains plans/*.md" \
+        vm_exec_quiet "grep -q 'plans/\*.md' ${PROJECT}/.gitignore"
+
+    assert "root .gitignore contains !plans/.gitkeep" \
+        vm_exec_quiet "grep -q '!plans/.gitkeep' ${PROJECT}/.gitignore"
+
+    assert "plans/.gitkeep exists" \
+        vm_exec_quiet "test -f ${PROJECT}/plans/.gitkeep"
 }
 
 run_phase_doctor() {
