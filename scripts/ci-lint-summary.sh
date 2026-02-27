@@ -24,6 +24,9 @@ OUT="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
 
 # ---- guard ---------------------------------------------------------------
 
+# Log file status to step logs (stderr) for diagnostics
+ls -la "$INPUT_FILE" >&2 2>/dev/null || echo "ci-lint-summary: $INPUT_FILE not found" >&2
+
 if [ ! -s "$INPUT_FILE" ]; then
     echo "## Lint \`${LABEL}\`" >> "$OUT"
     echo "" >> "$OUT"
