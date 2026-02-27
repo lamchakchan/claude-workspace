@@ -57,6 +57,7 @@ func newLauncher(version string, theme Theme) launcherModel {
 			title: "Inspect & Manage",
 			items: []commandItem{
 				{name: "Doctor", desc: "Check platform configuration health", icon: "🩺", command: "doctor"},
+				{name: "Skills", desc: "List available skills and personal commands", icon: "🛠", command: "skills"},
 				{name: "Sessions", desc: "Browse and review session prompts", icon: "💬", command: "sessions"},
 				{name: "Memory", desc: "Inspect and manage memory layers", icon: "🧠", command: "memory"},
 				{name: "Cost", desc: "View usage and costs", icon: "💰", command: "cost"},
@@ -156,7 +157,7 @@ func (m launcherModel) activate(item commandItem) tea.Cmd {
 		return execAndReturn(item.command, item.args)
 
 	// Data display: run inline; TUI resumes at launcher when done
-	case "doctor", "sessions", "memory", "cost":
+	case "doctor", "skills", "sessions", "memory", "cost":
 		return execAndReturn(item.command, item.args)
 
 	// Setup and statusline exit TUI (they may start their own interactive flow)

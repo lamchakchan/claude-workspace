@@ -19,6 +19,7 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/sandbox"
 	"github.com/lamchakchan/claude-workspace/internal/sessions"
 	"github.com/lamchakchan/claude-workspace/internal/setup"
+	"github.com/lamchakchan/claude-workspace/internal/skills"
 	"github.com/lamchakchan/claude-workspace/internal/statusline"
 	"github.com/lamchakchan/claude-workspace/internal/tui"
 	"github.com/lamchakchan/claude-workspace/internal/upgrade"
@@ -47,6 +48,7 @@ Commands:
   mcp list                       List all configured MCP servers
   upgrade [--self-only|--cli-only]  Upgrade claude-workspace and Claude Code CLI
   doctor                         Check platform configuration health
+  skills [list]                    List available skills and personal commands
   statusline                     Configure Claude Code statusline (cost & context display)
     [--force]                    Overwrite existing statusLine configuration
   sessions [list|show] [options]   Browse and review session prompts
@@ -212,6 +214,11 @@ func main() {
 		}
 	case "doctor":
 		if err := doctor.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "skills":
+		if err := skills.Run(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
