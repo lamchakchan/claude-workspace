@@ -42,19 +42,14 @@ Before starting a new plan, check if an existing plan covers this work:
    - Check it off in the plan file (`- [ ]` → `- [x]`)
    - Mark the corresponding todo as completed
 3. **Validate each step** - Run tests or verify after each change
-4. **Update documentation** - After code or architecture changes, update all affected docs:
-   - `CLAUDE.md` / `.claude/CLAUDE.md` — project instructions, key directories, conventions, important files
-   - `docs/` — architecture docs, CLI reference, runbook, or any doc that describes changed behavior
-   - `README.md` — if user-facing behavior, commands, or setup steps changed
-   - Inline code comments — only where logic is non-obvious and the change alters existing comments
-   - Skip this step only when changes are purely internal with zero impact on documented behavior
+4. **Update documentation** - Use the documentation-writer subagent to update affected docs after code or architecture changes. Skip only when changes are purely internal with zero impact on documented behavior
 5. **Handle deviations** - If the plan needs to change, update it and inform the user
 
 ## Phase 3: Verification
 
 1. **Run tests** - Use the test-runner subagent
 2. **Review changes** - Use the code-reviewer subagent
-3. **Verify documentation** - Confirm all affected docs reflect the changes. Check that CLAUDE.md, docs/, and README.md are consistent with the new code and architecture
+3. **Verify documentation** - Use the documentation-writer subagent to verify all affected docs are consistent with the changes
 4. **Summarize** - Report what was done and any remaining items
 5. **Update plan status** - Set the plan file's `Status:` to `Complete` and `Last Updated:` to today's date
 
