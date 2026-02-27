@@ -49,7 +49,7 @@ jobs:
           version: 'latest'
 
       - name: Setup golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
           version: v2.10
           args: --disable gocyclo ./...
