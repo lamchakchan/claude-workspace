@@ -15,6 +15,11 @@ import (
 // Set once by InitColor().
 var colorEnabled bool
 
+// IsTTY reports whether stdout is connected to a terminal.
+func IsTTY() bool {
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
+
 // InitColor determines whether color output should be enabled.
 // It respects NO_COLOR (https://no-color.org/), TERM=dumb, and non-TTY stdout.
 func InitColor() {

@@ -20,6 +20,7 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/sessions"
 	"github.com/lamchakchan/claude-workspace/internal/setup"
 	"github.com/lamchakchan/claude-workspace/internal/statusline"
+	"github.com/lamchakchan/claude-workspace/internal/tui"
 	"github.com/lamchakchan/claude-workspace/internal/upgrade"
 )
 
@@ -115,6 +116,13 @@ func main() {
 	args := os.Args[1:]
 
 	if len(args) == 0 {
+		if platform.IsTTY() {
+			if err := tui.Run(version); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		}
 		fmt.Print(helpText)
 		os.Exit(0)
 	}
