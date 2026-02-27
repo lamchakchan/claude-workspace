@@ -48,11 +48,15 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Setup golangci-lint
+      - name: Lint Go
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.10
-          args: --disable gocyclo ./...
+          args: --output.json.path=/tmp/lint-output.json ./...
+
+      - name: Lint Summary
+        if: always()
+        run: bash scripts/ci-lint-summary.sh /tmp/lint-output.json "${{ matrix.os }}"
 
       - name: Lint templates
         if: always()
