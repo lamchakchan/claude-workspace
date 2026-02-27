@@ -29,7 +29,7 @@ Before starting a new plan, check if an existing plan covers this work:
      Status: Draft
      Last Updated: YYYY-MM-DD
      ```
-   - Include: steps, affected files, risks, test strategy
+   - Include: steps, affected files, risks, test strategy, documentation updates
 4. **Present the plan** - Show the user what you'll do and ask for approval
 5. **Create a todo list** - Use TodoWrite to create trackable items from the plan
 6. **Name the session** - Suggest `/rename <plan-description>` so the session is easy to find with `claude --resume`
@@ -42,14 +42,21 @@ Before starting a new plan, check if an existing plan covers this work:
    - Check it off in the plan file (`- [ ]` → `- [x]`)
    - Mark the corresponding todo as completed
 3. **Validate each step** - Run tests or verify after each change
-4. **Handle deviations** - If the plan needs to change, update it and inform the user
+4. **Update documentation** - After code or architecture changes, update all affected docs:
+   - `CLAUDE.md` / `.claude/CLAUDE.md` — project instructions, key directories, conventions, important files
+   - `docs/` — architecture docs, CLI reference, runbook, or any doc that describes changed behavior
+   - `README.md` — if user-facing behavior, commands, or setup steps changed
+   - Inline code comments — only where logic is non-obvious and the change alters existing comments
+   - Skip this step only when changes are purely internal with zero impact on documented behavior
+5. **Handle deviations** - If the plan needs to change, update it and inform the user
 
 ## Phase 3: Verification
 
 1. **Run tests** - Use the test-runner subagent
 2. **Review changes** - Use the code-reviewer subagent
-3. **Summarize** - Report what was done and any remaining items
-4. **Update plan status** - Set the plan file's `Status:` to `Complete` and `Last Updated:` to today's date
+3. **Verify documentation** - Confirm all affected docs reflect the changes. Check that CLAUDE.md, docs/, and README.md are consistent with the new code and architecture
+4. **Summarize** - Report what was done and any remaining items
+5. **Update plan status** - Set the plan file's `Status:` to `Complete` and `Last Updated:` to today's date
 
 ## Status Values
 
@@ -66,3 +73,5 @@ Before starting a new plan, check if an existing plan covers this work:
 - ALWAYS create a todo list for multi-step work
 - ALWAYS validate after implementation
 - If a step fails, stop and report rather than continuing blindly
+- ALWAYS include documentation update steps in the plan for code or architecture changes
+- Documentation updates are not optional — treat them as implementation work, not an afterthought
