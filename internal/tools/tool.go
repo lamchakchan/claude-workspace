@@ -22,7 +22,7 @@ type Tool struct {
 }
 
 // IsInstalled reports whether the tool is available.
-func (t Tool) IsInstalled() bool {
+func (t *Tool) IsInstalled() bool {
 	if t.CheckFn != nil {
 		return t.CheckFn()
 	}
@@ -30,7 +30,7 @@ func (t Tool) IsInstalled() bool {
 }
 
 // Install runs the tool's install function.
-func (t Tool) Install() error {
+func (t *Tool) Install() error {
 	if t.InstallFn != nil {
 		return t.InstallFn()
 	}
@@ -38,7 +38,7 @@ func (t Tool) Install() error {
 }
 
 // Version returns the tool's version string.
-func (t Tool) Version() (string, error) {
+func (t *Tool) Version() (string, error) {
 	if t.VersionFn != nil {
 		return t.VersionFn()
 	}
@@ -46,7 +46,7 @@ func (t Tool) Version() (string, error) {
 }
 
 // InstallHint returns the manual install command for this tool.
-func (t Tool) InstallHint() string {
+func (t *Tool) InstallHint() string {
 	if t.InstallCmd != "" {
 		return t.InstallCmd
 	}
@@ -55,17 +55,8 @@ func (t Tool) InstallHint() string {
 
 // CheckAndInstall checks which tools are installed, attempts to install missing ones,
 // and reports results. Returns lists of installed and failed tool names.
-func CheckAndInstall(tools []Tool) (installed, failed []string) {
-	var missing []Tool
-	var found []string
-
-	for _, t := range tools {
-		if t.IsInstalled() {
-			found = append(found, t.Name)
-		} else {
-			missing = append(missing, t)
-		}
-	}
+func CheckAndInstall(toolList []Tool) (installed, failed []string) {
+	found, missing := partitionTools(toolList)
 
 	if len(found) > 0 {
 		platform.PrintSuccess(os.Stdout, fmt.Sprintf("Found: %s", strings.Join(found, ", ")))
@@ -76,10 +67,37 @@ func CheckAndInstall(tools []Tool) (installed, failed []string) {
 		return found, nil
 	}
 
-	// Attempt to install missing tools
+	attemptInstalls(missing)
+
+	nowInstalled, stillMissing := partitionTools(missing)
+	reportMissing(stillMissing)
+
+	allInstalled := make([]string, 0, len(found)+len(nowInstalled))
+	allInstalled = append(allInstalled, found...)
+	allInstalled = append(allInstalled, nowInstalled...)
+	failed = make([]string, 0, len(stillMissing))
+	for _, t := range stillMissing {
+		failed = append(failed, t.Name)
+	}
+	return allInstalled, failed
+}
+
+// partitionTools splits tools into found (name strings) and missing (Tool slices).
+func partitionTools(toolList []Tool) (found []string, missing []Tool) {
+	for _, t := range toolList {
+		if t.IsInstalled() {
+			found = append(found, t.Name)
+		} else {
+			missing = append(missing, t)
+		}
+	}
+	return found, missing
+}
+
+// attemptInstalls tries to install missing tools via system packages and custom installers.
+func attemptInstalls(missing []Tool) {
 	pm := platform.DetectPackageManager()
 
-	// Batch install system-package tools (those without custom InstallFn)
 	if pm != platform.PMNone {
 		var sysNames []string
 		for _, t := range missing {
@@ -95,7 +113,6 @@ func CheckAndInstall(tools []Tool) (installed, failed []string) {
 		}
 	}
 
-	// Run custom installs for tools with InstallFn
 	for _, t := range missing {
 		if t.InstallFn != nil && !t.IsInstalled() {
 			fmt.Printf("\n  Installing %s (%s)...\n", t.Name, t.Purpose)
@@ -106,18 +123,10 @@ func CheckAndInstall(tools []Tool) (installed, failed []string) {
 			}
 		}
 	}
+}
 
-	// Re-check what's still missing
-	var stillMissing []Tool
-	for _, t := range missing {
-		if t.IsInstalled() {
-			installed = append(installed, t.Name)
-		} else {
-			stillMissing = append(stillMissing, t)
-			failed = append(failed, t.Name)
-		}
-	}
-
+// reportMissing prints instructions for tools that could not be installed.
+func reportMissing(stillMissing []Tool) {
 	if len(stillMissing) > 0 {
 		fmt.Println("\n  Optional tools not found (not required, but useful):")
 		for _, t := range stillMissing {
@@ -127,7 +136,4 @@ func CheckAndInstall(tools []Tool) (installed, failed []string) {
 	} else {
 		fmt.Println("  All optional tools are available.")
 	}
-
-	installed = append(found, installed...)
-	return installed, failed
 }

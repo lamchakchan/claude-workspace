@@ -10,7 +10,7 @@ import (
 func TestReadJSONFile(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "test.json")
-	os.WriteFile(f, []byte(`{"name":"alice","age":30}`), 0644)
+	_ = os.WriteFile(f, []byte(`{"name":"alice","age":30}`), 0644)
 
 	var data struct {
 		Name string `json:"name"`
@@ -37,7 +37,7 @@ func TestReadJSONFile_MissingFile(t *testing.T) {
 func TestReadJSONFile_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "bad.json")
-	os.WriteFile(f, []byte(`not json`), 0644)
+	_ = os.WriteFile(f, []byte(`not json`), 0644)
 
 	err := ReadJSONFile(f, &struct{}{})
 	if err == nil {
@@ -69,7 +69,7 @@ func TestWriteJSONFile_Permissions(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "perms.json")
 
-	WriteJSONFile(f, map[string]string{})
+	_ = WriteJSONFile(f, map[string]string{})
 
 	info, err := os.Stat(f)
 	if err != nil {
@@ -142,7 +142,7 @@ func TestReadWriteJSONFile_Roundtrip(t *testing.T) {
 func TestReadJSONFileRaw(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "raw.json")
-	os.WriteFile(f, []byte(`{"name":"bob","nested":{"x":1}}`), 0644)
+	_ = os.WriteFile(f, []byte(`{"name":"bob","nested":{"x":1}}`), 0644)
 
 	m, err := ReadJSONFileRaw(f)
 	if err != nil {
@@ -169,7 +169,7 @@ func TestReadJSONFileRaw(t *testing.T) {
 func TestReadJSONFileRaw_PreservesRawValues(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "raw.json")
-	os.WriteFile(f, []byte(`{"arr":[1,2,3],"bool":true,"null":null}`), 0644)
+	_ = os.WriteFile(f, []byte(`{"arr":[1,2,3],"bool":true,"null":null}`), 0644)
 
 	m, err := ReadJSONFileRaw(f)
 	if err != nil {
@@ -197,7 +197,7 @@ func TestReadJSONFileRaw_MissingFile(t *testing.T) {
 func TestReadJSONFileRaw_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "bad.json")
-	os.WriteFile(f, []byte(`{invalid`), 0644)
+	_ = os.WriteFile(f, []byte(`{invalid`), 0644)
 
 	_, err := ReadJSONFileRaw(f)
 	if err == nil {

@@ -164,8 +164,8 @@ func TestBuildEnrichmentPrompt(t *testing.T) {
 func TestEnrichClaudeMd_MissingCLI(t *testing.T) {
 	dir := t.TempDir()
 	claudeDir := filepath.Join(dir, ".claude")
-	os.MkdirAll(claudeDir, 0755)
-	os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
+	_ = os.MkdirAll(claudeDir, 0755)
+	_ = os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
 
 	// Save and clear PATH so claude won't be found
 	origPath := os.Getenv("PATH")
@@ -187,17 +187,20 @@ func TestEnrichClaudeMd_MissingCLI(t *testing.T) {
 	}
 }
 
-func TestEnrichClaudeMd_ScriptReturnsInvalidOutput(t *testing.T) {
+// testEnrichClaudeMdFailure is a helper for testing EnrichClaudeMd error scenarios.
+// It creates a fake claude script, runs enrichment, and verifies the expected error
+// and that the scaffold file is preserved.
+func testEnrichClaudeMdFailure(t *testing.T, scriptBody, wantErrContains string) {
+	t.Helper()
 	dir := t.TempDir()
 	claudeDir := filepath.Join(dir, ".claude")
-	os.MkdirAll(claudeDir, 0755)
-	os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
+	_ = os.MkdirAll(claudeDir, 0755)
+	_ = os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
 
-	// Create a fake "claude" script that outputs non-markdown text
 	binDir := filepath.Join(dir, "bin")
-	os.MkdirAll(binDir, 0755)
+	_ = os.MkdirAll(binDir, 0755)
 	fakeScript := filepath.Join(binDir, "claude")
-	os.WriteFile(fakeScript, []byte("#!/bin/sh\necho 'not markdown'\n"), 0755)
+	_ = os.WriteFile(fakeScript, []byte(scriptBody), 0755)
 
 	origPath := os.Getenv("PATH")
 	os.Setenv("PATH", binDir)
@@ -205,10 +208,10 @@ func TestEnrichClaudeMd_ScriptReturnsInvalidOutput(t *testing.T) {
 
 	err := EnrichClaudeMd(dir, claudeDir)
 	if err == nil {
-		t.Fatal("EnrichClaudeMd() expected error for invalid output")
+		t.Fatal("EnrichClaudeMd() expected error")
 	}
-	if !strings.Contains(err.Error(), "enrichment produced no markdown output") {
-		t.Errorf("error = %q, want to contain 'enrichment produced no markdown output'", err.Error())
+	if !strings.Contains(err.Error(), wantErrContains) {
+		t.Errorf("error = %q, want to contain %q", err.Error(), wantErrContains)
 	}
 
 	// Verify scaffold is preserved
@@ -218,17 +221,21 @@ func TestEnrichClaudeMd_ScriptReturnsInvalidOutput(t *testing.T) {
 	}
 }
 
+func TestEnrichClaudeMd_ScriptReturnsInvalidOutput(t *testing.T) {
+	testEnrichClaudeMdFailure(t, "#!/bin/sh\necho 'not markdown'\n", "enrichment produced no markdown output")
+}
+
 func TestEnrichClaudeMd_ScriptReturnsEmptyOutput(t *testing.T) {
 	dir := t.TempDir()
 	claudeDir := filepath.Join(dir, ".claude")
-	os.MkdirAll(claudeDir, 0755)
-	os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
+	_ = os.MkdirAll(claudeDir, 0755)
+	_ = os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
 
 	// Create a fake "claude" script that outputs nothing
 	binDir := filepath.Join(dir, "bin")
-	os.MkdirAll(binDir, 0755)
+	_ = os.MkdirAll(binDir, 0755)
 	fakeScript := filepath.Join(binDir, "claude")
-	os.WriteFile(fakeScript, []byte("#!/bin/sh\n"), 0755)
+	_ = os.WriteFile(fakeScript, []byte("#!/bin/sh\n"), 0755)
 
 	origPath := os.Getenv("PATH")
 	os.Setenv("PATH", binDir)
@@ -246,15 +253,15 @@ func TestEnrichClaudeMd_ScriptReturnsEmptyOutput(t *testing.T) {
 func TestEnrichClaudeMd_ScriptReturnsValidOutput(t *testing.T) {
 	dir := t.TempDir()
 	claudeDir := filepath.Join(dir, ".claude")
-	os.MkdirAll(claudeDir, 0755)
-	os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
+	_ = os.MkdirAll(claudeDir, 0755)
+	_ = os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
 
 	// Create a fake "claude" script that outputs valid enriched markdown
 	binDir := filepath.Join(dir, "bin")
-	os.MkdirAll(binDir, 0755)
+	_ = os.MkdirAll(binDir, 0755)
 	enrichedContent := "# Project Instructions\n\n## Project\nName: test-project"
 	fakeScript := filepath.Join(binDir, "claude")
-	os.WriteFile(fakeScript, []byte("#!/bin/sh\nprintf '"+enrichedContent+"'\n"), 0755)
+	_ = os.WriteFile(fakeScript, []byte("#!/bin/sh\nprintf '"+enrichedContent+"'\n"), 0755)
 
 	origPath := os.Getenv("PATH")
 	os.Setenv("PATH", binDir)
@@ -273,41 +280,14 @@ func TestEnrichClaudeMd_ScriptReturnsValidOutput(t *testing.T) {
 }
 
 func TestEnrichClaudeMd_ScriptFailsNonZero(t *testing.T) {
-	dir := t.TempDir()
-	claudeDir := filepath.Join(dir, ".claude")
-	os.MkdirAll(claudeDir, 0755)
-	os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# scaffold"), 0644)
-
-	// Create a fake "claude" script that exits non-zero
-	binDir := filepath.Join(dir, "bin")
-	os.MkdirAll(binDir, 0755)
-	fakeScript := filepath.Join(binDir, "claude")
-	os.WriteFile(fakeScript, []byte("#!/bin/sh\nexit 1\n"), 0755)
-
-	origPath := os.Getenv("PATH")
-	os.Setenv("PATH", binDir)
-	defer os.Setenv("PATH", origPath)
-
-	err := EnrichClaudeMd(dir, claudeDir)
-	if err == nil {
-		t.Fatal("EnrichClaudeMd() expected error for non-zero exit")
-	}
-	if !strings.Contains(err.Error(), "claude exited with error") {
-		t.Errorf("error = %q, want to contain 'claude exited with error'", err.Error())
-	}
-
-	// Verify scaffold is preserved
-	data, _ := os.ReadFile(filepath.Join(claudeDir, "CLAUDE.md"))
-	if string(data) != "# scaffold" {
-		t.Errorf("scaffold was modified: got %q", string(data))
-	}
+	testEnrichClaudeMdFailure(t, "#!/bin/sh\nexit 1\n", "claude exited with error")
 }
 
 func TestGenerateClaudeMdScaffold(t *testing.T) {
 	dir := t.TempDir()
 
 	// Test with a Go project
-	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test"), 0644)
 
 	scaffold := GenerateClaudeMdScaffold(dir)
 

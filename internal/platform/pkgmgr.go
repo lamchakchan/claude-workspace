@@ -119,7 +119,7 @@ func (pm PackageManager) String() string {
 // PMInstallNames returns the package names used by a specific package manager.
 // Some package managers use different package names (e.g., "nodejs" vs "node").
 // This is a convenience for callers that need PM-specific name mapping.
-func PMInstallNames(pm PackageManager, names []string) []string {
+func PMInstallNames(_ PackageManager, names []string) []string {
 	// Default: return as-is. Callers can override per-tool if needed.
 	result := make([]string, len(names))
 	copy(result, names)

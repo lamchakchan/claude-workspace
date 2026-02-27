@@ -10,46 +10,33 @@ import (
 
 // EnrichModel is the interactive enrich project form screen.
 type EnrichModel struct {
-	theme Theme
-	form  FormModel
+	theme *Theme
+	form  *FormModel
 }
 
 // NewEnrich creates a new enrich form screen.
-func NewEnrich(theme Theme) EnrichModel {
+func NewEnrich(theme *Theme) *EnrichModel {
 	fields := []FormField{
 		{Label: "Project path", Placeholder: "leave blank for current directory"},
 	}
 
-	return EnrichModel{
+	return &EnrichModel{
 		theme: theme,
 		form:  NewForm("Enrich CLAUDE.md with AI", fields, theme),
 	}
 }
 
-func (m EnrichModel) Init() tea.Cmd {
+func (m *EnrichModel) Init() tea.Cmd {
 	return m.form.Init()
 }
 
-func (m EnrichModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case FormResult:
-		if msg.Cancelled {
-			return m, func() tea.Msg { return PopViewMsg{} }
-		}
-		return m, m.runEnrich(msg.Values)
-
-	case tea.KeyPressMsg:
-		if IsQuit(msg) || IsBack(msg) {
-			return m, func() tea.Msg { return PopViewMsg{} }
-		}
-	}
-
-	updated, cmd := m.form.Update(msg)
-	m.form = updated
+func (m *EnrichModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	m.form, cmd = formViewUpdate(m.form, msg, m.runEnrich)
 	return m, cmd
 }
 
-func (m EnrichModel) runEnrich(values []string) tea.Cmd {
+func (m *EnrichModel) runEnrich(values []string) tea.Cmd {
 	projectPath := strings.TrimSpace(values[0])
 
 	args := []string{"enrich"}
@@ -62,11 +49,11 @@ func (m EnrichModel) runEnrich(values []string) tea.Cmd {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+	return tea.ExecProcess(cmd, func(_ error) tea.Msg {
 		return PopViewMsg{}
 	})
 }
 
-func (m EnrichModel) View() tea.View {
+func (m *EnrichModel) View() tea.View {
 	return tea.NewView(m.theme.SectionBanner("Enrich CLAUDE.md with AI") + "\n" + m.form.View())
 }

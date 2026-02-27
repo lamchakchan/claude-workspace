@@ -103,7 +103,7 @@ func TestRunQuietDir_Failure(t *testing.T) {
 
 func TestRunQuietDir_RunsInDir(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "marker.txt"), []byte("x"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "marker.txt"), []byte("x"), 0644)
 
 	// ls marker.txt should succeed in the right directory
 	err := RunQuietDir(dir, "ls", "marker.txt")
@@ -155,7 +155,7 @@ func TestOutput_NonZeroExit(t *testing.T) {
 
 func TestOutputDir(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "marker.txt"), []byte("x"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "marker.txt"), []byte("x"), 0644)
 
 	out, err := OutputDir(dir, "ls", "marker.txt")
 	if err != nil {
@@ -168,7 +168,7 @@ func TestOutputDir(t *testing.T) {
 
 func TestOutputDir_WrongDir(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "marker.txt"), []byte("x"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "marker.txt"), []byte("x"), 0644)
 
 	otherDir := t.TempDir()
 	_, err := OutputDir(otherDir, "ls", "marker.txt")
@@ -257,7 +257,7 @@ func TestRunDirWithStdin_TrimsWhitespace(t *testing.T) {
 
 func TestRunDirWithStdin_RunsInDir(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "marker.txt"), []byte("x"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "marker.txt"), []byte("x"), 0644)
 	ctx := context.Background()
 
 	out, err := RunDirWithStdin(ctx, dir, "", "ls", "marker.txt")
@@ -271,7 +271,7 @@ func TestRunDirWithStdin_RunsInDir(t *testing.T) {
 
 func TestRunDirWithStdin_WrongDir(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "marker.txt"), []byte("x"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "marker.txt"), []byte("x"), 0644)
 	ctx := context.Background()
 
 	otherDir := t.TempDir()

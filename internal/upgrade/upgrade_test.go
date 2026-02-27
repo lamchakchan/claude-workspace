@@ -73,7 +73,7 @@ func TestFetchLatestWithMockServer(t *testing.T) {
 		if r.Header.Get("Accept") != "application/vnd.github+json" {
 			t.Errorf("missing Accept header, got %q", r.Header.Get("Accept"))
 		}
-		json.NewEncoder(w).Encode(release)
+		_ = json.NewEncoder(w).Encode(release)
 	}))
 	defer server.Close()
 
@@ -97,7 +97,7 @@ func TestFetchLatestWithMockServer(t *testing.T) {
 }
 
 func TestFetchLatestRateLimited(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(403)
 	}))
 	defer server.Close()
@@ -116,7 +116,7 @@ func TestFetchLatestRateLimited(t *testing.T) {
 }
 
 func TestFetchLatestServerError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(500)
 	}))
 	defer server.Close()
@@ -136,8 +136,8 @@ func TestFetchLatestServerError(t *testing.T) {
 
 func TestDownloadAsset(t *testing.T) {
 	content := "binary-content-here"
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(content))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(content))
 	}))
 	defer server.Close()
 
@@ -164,7 +164,7 @@ func TestDownloadAsset(t *testing.T) {
 }
 
 func TestDownloadAssetServerError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(404)
 	}))
 	defer server.Close()
@@ -192,14 +192,14 @@ func TestVerifyChecksum(t *testing.T) {
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "test.tar.gz")
 	fileContent := []byte("test-archive-content")
-	os.WriteFile(filePath, fileContent, 0644)
+	_ = os.WriteFile(filePath, fileContent, 0644)
 
 	h := sha256.Sum256(fileContent)
 	expectedHash := hex.EncodeToString(h[:])
 	checksumContent := fmt.Sprintf("%s  test.tar.gz\n%s  other.tar.gz\n", expectedHash, "0000000000000000000000000000000000000000000000000000000000000000")
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(checksumContent))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(checksumContent))
 	}))
 	defer server.Close()
 
@@ -218,12 +218,12 @@ func TestVerifyChecksum(t *testing.T) {
 func TestVerifyChecksumMismatch(t *testing.T) {
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "test.tar.gz")
-	os.WriteFile(filePath, []byte("actual content"), 0644)
+	_ = os.WriteFile(filePath, []byte("actual content"), 0644)
 
 	checksumContent := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  test.tar.gz\n"
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(checksumContent))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(checksumContent))
 	}))
 	defer server.Close()
 
@@ -434,8 +434,8 @@ func TestRunSelfOnlyUpToDate(t *testing.T) {
 		Assets:  []ReleaseAsset{},
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(release)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(release)
 	}))
 	defer server.Close()
 

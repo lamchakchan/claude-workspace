@@ -10,46 +10,33 @@ import (
 
 // AttachModel is the interactive attach project form screen.
 type AttachModel struct {
-	theme Theme
-	form  FormModel
+	theme *Theme
+	form  *FormModel
 }
 
 // NewAttach creates a new attach form screen.
-func NewAttach(theme Theme) AttachModel {
+func NewAttach(theme *Theme) *AttachModel {
 	fields := []FormField{
 		{Label: "Project path", Placeholder: "e.g. ./my-project or /abs/path", Required: true},
 	}
 
-	return AttachModel{
+	return &AttachModel{
 		theme: theme,
 		form:  NewForm("Attach Platform Config", fields, theme),
 	}
 }
 
-func (m AttachModel) Init() tea.Cmd {
+func (m *AttachModel) Init() tea.Cmd {
 	return m.form.Init()
 }
 
-func (m AttachModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case FormResult:
-		if msg.Cancelled {
-			return m, func() tea.Msg { return PopViewMsg{} }
-		}
-		return m, m.runAttach(msg.Values)
-
-	case tea.KeyPressMsg:
-		if IsQuit(msg) || IsBack(msg) {
-			return m, func() tea.Msg { return PopViewMsg{} }
-		}
-	}
-
-	updated, cmd := m.form.Update(msg)
-	m.form = updated
+func (m *AttachModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	m.form, cmd = formViewUpdate(m.form, msg, m.runAttach)
 	return m, cmd
 }
 
-func (m AttachModel) runAttach(values []string) tea.Cmd {
+func (m *AttachModel) runAttach(values []string) tea.Cmd {
 	projectPath := strings.TrimSpace(values[0])
 
 	exe, _ := os.Executable()
@@ -57,11 +44,11 @@ func (m AttachModel) runAttach(values []string) tea.Cmd {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+	return tea.ExecProcess(cmd, func(_ error) tea.Msg {
 		return PopViewMsg{}
 	})
 }
 
-func (m AttachModel) View() tea.View {
+func (m *AttachModel) View() tea.View {
 	return tea.NewView(m.theme.SectionBanner("Attach Platform Config") + "\n" + m.form.View())
 }

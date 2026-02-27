@@ -32,11 +32,11 @@ type Step struct {
 type StepperModel struct {
 	Steps   []Step
 	spinner spinner.Model
-	theme   Theme
+	theme   *Theme
 }
 
 // NewStepper creates a new stepper with the given step labels.
-func NewStepper(labels []string, theme Theme) StepperModel {
+func NewStepper(labels []string, theme *Theme) *StepperModel {
 	steps := make([]Step, len(labels))
 	for i, l := range labels {
 		steps[i] = Step{Label: l, Status: StepPending}
@@ -46,7 +46,7 @@ func NewStepper(labels []string, theme Theme) StepperModel {
 	sp.Spinner = spinner.MiniDot
 	sp.Style = lipgloss.NewStyle().Foreground(theme.Primary)
 
-	return StepperModel{
+	return &StepperModel{
 		Steps:   steps,
 		spinner: sp,
 		theme:   theme,
@@ -54,12 +54,12 @@ func NewStepper(labels []string, theme Theme) StepperModel {
 }
 
 // Init starts the spinner tick.
-func (m StepperModel) Init() tea.Cmd {
+func (m *StepperModel) Init() tea.Cmd {
 	return m.spinner.Tick
 }
 
 // Update handles spinner tick messages.
-func (m StepperModel) Update(msg tea.Msg) (StepperModel, tea.Cmd) {
+func (m *StepperModel) Update(msg tea.Msg) (*StepperModel, tea.Cmd) {
 	var cmd tea.Cmd
 	m.spinner, cmd = m.spinner.Update(msg)
 	return m, cmd
@@ -80,7 +80,7 @@ func (m *StepperModel) SetDetail(idx int, detail string) {
 }
 
 // View renders the stepper as a string (used inside a parent model's View).
-func (m StepperModel) View() string {
+func (m *StepperModel) View() string {
 	var b strings.Builder
 
 	for _, step := range m.Steps {

@@ -18,12 +18,12 @@ type ConfirmModel struct {
 	Body   string
 	Cursor bool // true = yes, false = no
 	done   bool
-	theme  Theme
+	theme  *Theme
 }
 
 // NewConfirm creates a new confirmation dialog.
-func NewConfirm(title, body string, defaultYes bool, theme Theme) ConfirmModel {
-	return ConfirmModel{
+func NewConfirm(title, body string, defaultYes bool, theme *Theme) *ConfirmModel {
+	return &ConfirmModel{
 		Title:  title,
 		Body:   body,
 		Cursor: defaultYes,
@@ -31,19 +31,18 @@ func NewConfirm(title, body string, defaultYes bool, theme Theme) ConfirmModel {
 	}
 }
 
-func (m ConfirmModel) Update(msg tea.Msg) (ConfirmModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
+func (m *ConfirmModel) Update(msg tea.Msg) (*ConfirmModel, tea.Cmd) {
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
 		switch msg.String() {
 		case "y", "Y":
 			m.Cursor = true
 			m.done = true
 			return m, func() tea.Msg { return ConfirmResult{Confirmed: true} }
-		case "n", "N", "q", "ctrl+c":
+		case "n", "N", "q", keyCtrlC:
 			m.Cursor = false
 			m.done = true
 			return m, func() tea.Msg { return ConfirmResult{Confirmed: false} }
-		case "enter":
+		case keyEnter:
 			m.done = true
 			confirmed := m.Cursor
 			return m, func() tea.Msg { return ConfirmResult{Confirmed: confirmed} }
@@ -56,7 +55,7 @@ func (m ConfirmModel) Update(msg tea.Msg) (ConfirmModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m ConfirmModel) View() string {
+func (m *ConfirmModel) View() string {
 	var b strings.Builder
 
 	b.WriteString(m.theme.Title.Render(m.Title))
@@ -93,7 +92,7 @@ func (m ConfirmModel) View() string {
 	b.WriteString("\n\n")
 
 	help := m.theme.HelpKey.Render("←/→") + " " + m.theme.HelpDesc.Render("switch") + "  " +
-		m.theme.HelpKey.Render("enter") + " " + m.theme.HelpDesc.Render("confirm") + "  " +
+		m.theme.HelpKey.Render(keyEnter) + " " + m.theme.HelpDesc.Render("confirm") + "  " +
 		m.theme.HelpKey.Render("q") + " " + m.theme.HelpDesc.Render("cancel")
 	b.WriteString(help)
 

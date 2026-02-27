@@ -322,6 +322,44 @@ claude-workspace doctor
 
 ---
 
+## claude-workspace skills
+
+List available skills (project-level and platform built-in) and personal commands (`~/.claude/commands/`).
+
+**Synopsis:**
+
+```
+claude-workspace skills [list]
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List all discovered skills and personal commands (default) |
+
+**Flags:** None.
+
+**Sources scanned:**
+
+1. **Project skills** — `.claude/skills/*/SKILL.md` in the current directory. Parses YAML frontmatter for `name` and `description`.
+2. **Personal commands** — `~/.claude/commands/*.md`. Uses filename as name, first non-empty line as description.
+3. **Platform built-in skills** — Skills embedded in the `claude-workspace` binary (useful when run outside an attached project).
+
+**Examples:**
+
+```bash
+# List all skills (default subcommand)
+claude-workspace skills
+
+# Explicit list subcommand
+claude-workspace skills list
+```
+
+**See also:** [Skills Reference](SKILLS.md)
+
+---
+
 ## claude-workspace statusline
 
 Configure the Claude Code statusline to display live session cost, context usage, and model name.

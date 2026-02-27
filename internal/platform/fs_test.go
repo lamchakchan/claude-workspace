@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,7 +12,7 @@ import (
 func TestFileExists(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "exists.txt")
-	os.WriteFile(f, []byte("hi"), 0644)
+	_ = os.WriteFile(f, []byte("hi"), 0644)
 
 	tests := []struct {
 		name string
@@ -40,7 +41,7 @@ func TestCopyFile(t *testing.T) {
 	dst := filepath.Join(dir, "sub", "dst.txt")
 
 	content := []byte("hello copy")
-	os.WriteFile(src, content, 0755)
+	_ = os.WriteFile(src, content, 0755)
 
 	if err := CopyFile(src, dst); err != nil {
 		t.Fatalf("CopyFile() error = %v", err)
@@ -50,7 +51,7 @@ func TestCopyFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading dst: %v", err)
 	}
-	if string(got) != string(content) {
+	if !bytes.Equal(got, content) {
 		t.Errorf("CopyFile() content = %q, want %q", got, content)
 	}
 
@@ -66,7 +67,7 @@ func TestCopyFile_CreatesParentDirs(t *testing.T) {
 	src := filepath.Join(dir, "src.txt")
 	dst := filepath.Join(dir, "a", "b", "c", "dst.txt")
 
-	os.WriteFile(src, []byte("deep"), 0644)
+	_ = os.WriteFile(src, []byte("deep"), 0644)
 
 	if err := CopyFile(src, dst); err != nil {
 		t.Fatalf("CopyFile() error = %v", err)
@@ -91,8 +92,8 @@ func TestCopyFile_OverwritesExisting(t *testing.T) {
 	src := filepath.Join(dir, "src.txt")
 	dst := filepath.Join(dir, "dst.txt")
 
-	os.WriteFile(src, []byte("new content"), 0644)
-	os.WriteFile(dst, []byte("old content"), 0644)
+	_ = os.WriteFile(src, []byte("new content"), 0644)
+	_ = os.WriteFile(dst, []byte("old content"), 0644)
 
 	if err := CopyFile(src, dst); err != nil {
 		t.Fatalf("CopyFile() error = %v", err)
@@ -106,10 +107,10 @@ func TestCopyFile_OverwritesExisting(t *testing.T) {
 
 func TestWalkFiles(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "sub", "deep"), 0755)
-	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0644)
-	os.WriteFile(filepath.Join(dir, "sub", "b.txt"), []byte("b"), 0644)
-	os.WriteFile(filepath.Join(dir, "sub", "deep", "c.txt"), []byte("c"), 0644)
+	_ = os.MkdirAll(filepath.Join(dir, "sub", "deep"), 0755)
+	_ = os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "sub", "b.txt"), []byte("b"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "sub", "deep", "c.txt"), []byte("c"), 0644)
 
 	var files []string
 	err := WalkFiles(dir, func(relPath string) error {
@@ -155,8 +156,8 @@ func TestWalkFiles_EmptyDir(t *testing.T) {
 
 func TestWalkFiles_SkipsDirectories(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "emptydir"), 0755)
-	os.WriteFile(filepath.Join(dir, "file.txt"), []byte("x"), 0644)
+	_ = os.MkdirAll(filepath.Join(dir, "emptydir"), 0755)
+	_ = os.WriteFile(filepath.Join(dir, "file.txt"), []byte("x"), 0644)
 
 	var files []string
 	err := WalkFiles(dir, func(relPath string) error {
@@ -176,7 +177,7 @@ func TestSymlinkFile(t *testing.T) {
 	src := filepath.Join(dir, "original.txt")
 	dst := filepath.Join(dir, "link.txt")
 
-	os.WriteFile(src, []byte("target"), 0644)
+	_ = os.WriteFile(src, []byte("target"), 0644)
 
 	if err := SymlinkFile(src, dst); err != nil {
 		t.Fatalf("SymlinkFile() error = %v", err)
@@ -205,10 +206,10 @@ func TestSymlinkFile_OverwritesExisting(t *testing.T) {
 	src2 := filepath.Join(dir, "second.txt")
 	dst := filepath.Join(dir, "link.txt")
 
-	os.WriteFile(src1, []byte("first"), 0644)
-	os.WriteFile(src2, []byte("second"), 0644)
+	_ = os.WriteFile(src1, []byte("first"), 0644)
+	_ = os.WriteFile(src2, []byte("second"), 0644)
 
-	SymlinkFile(src1, dst)
+	_ = SymlinkFile(src1, dst)
 
 	if err := SymlinkFile(src2, dst); err != nil {
 		t.Fatalf("SymlinkFile() error on overwrite = %v", err)
@@ -225,8 +226,8 @@ func TestSymlinkFile_OverwritesRegularFile(t *testing.T) {
 	src := filepath.Join(dir, "src.txt")
 	dst := filepath.Join(dir, "dst.txt")
 
-	os.WriteFile(src, []byte("source"), 0644)
-	os.WriteFile(dst, []byte("will be replaced"), 0644)
+	_ = os.WriteFile(src, []byte("source"), 0644)
+	_ = os.WriteFile(dst, []byte("will be replaced"), 0644)
 
 	if err := SymlinkFile(src, dst); err != nil {
 		t.Fatalf("SymlinkFile() error = %v", err)
@@ -243,7 +244,7 @@ func TestSymlinkFile_CreatesParentDirs(t *testing.T) {
 	src := filepath.Join(dir, "src.txt")
 	dst := filepath.Join(dir, "a", "b", "link.txt")
 
-	os.WriteFile(src, []byte("x"), 0644)
+	_ = os.WriteFile(src, []byte("x"), 0644)
 
 	if err := SymlinkFile(src, dst); err != nil {
 		t.Fatalf("SymlinkFile() error = %v", err)
@@ -258,10 +259,10 @@ func TestIsExecutable(t *testing.T) {
 	dir := t.TempDir()
 
 	execFile := filepath.Join(dir, "run.sh")
-	os.WriteFile(execFile, []byte("#!/bin/bash"), 0755)
+	_ = os.WriteFile(execFile, []byte("#!/bin/bash"), 0755)
 
 	noExecFile := filepath.Join(dir, "data.txt")
-	os.WriteFile(noExecFile, []byte("data"), 0644)
+	_ = os.WriteFile(noExecFile, []byte("data"), 0644)
 
 	tests := []struct {
 		name string
@@ -312,7 +313,7 @@ func TestEnsureGitignoreEntries_AppendsMissing(t *testing.T) {
 	gitignorePath := filepath.Join(dir, ".gitignore")
 
 	existing := "# User entries\n*.log\n"
-	os.WriteFile(gitignorePath, []byte(existing), 0644)
+	_ = os.WriteFile(gitignorePath, []byte(existing), 0644)
 
 	required := "*.log\nnode_modules/\n*.tmp\n"
 	modified, err := EnsureGitignoreEntries(gitignorePath, required)
@@ -350,7 +351,7 @@ func TestEnsureGitignoreEntries_Idempotent(t *testing.T) {
 	required := "*.log\nnode_modules/\n"
 
 	// First call creates the file
-	EnsureGitignoreEntries(gitignorePath, required)
+	_, _ = EnsureGitignoreEntries(gitignorePath, required)
 	first, _ := os.ReadFile(gitignorePath)
 
 	// Second call should be a no-op
@@ -363,7 +364,7 @@ func TestEnsureGitignoreEntries_Idempotent(t *testing.T) {
 	}
 
 	second, _ := os.ReadFile(gitignorePath)
-	if string(first) != string(second) {
+	if !bytes.Equal(first, second) {
 		t.Error("file content should not change on second call")
 	}
 }
@@ -373,10 +374,10 @@ func TestEnsureGitignoreEntries_PreservesUserEntries(t *testing.T) {
 	gitignorePath := filepath.Join(dir, ".gitignore")
 
 	userContent := "# My custom ignores\n.env\n.env.local\nbuild/\n"
-	os.WriteFile(gitignorePath, []byte(userContent), 0644)
+	_ = os.WriteFile(gitignorePath, []byte(userContent), 0644)
 
 	required := "*.log\n"
-	EnsureGitignoreEntries(gitignorePath, required)
+	_, _ = EnsureGitignoreEntries(gitignorePath, required)
 
 	content, _ := os.ReadFile(gitignorePath)
 	s := string(content)

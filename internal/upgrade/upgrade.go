@@ -64,6 +64,21 @@ func stepCount(f upgradeFlags) int {
 	return 6
 }
 
+// stepper tracks step progress for multi-step commands.
+type stepper struct {
+	total   int
+	current int
+}
+
+func newStepper(f upgradeFlags) *stepper {
+	return &stepper{total: stepCount(f)}
+}
+
+func (s *stepper) next() int {
+	s.current++
+	return s.current
+}
+
 // Run is the entry point for the upgrade command.
 func Run(version string, args []string) error {
 	f, err := parseFlags(args)
@@ -71,213 +86,315 @@ func Run(version string, args []string) error {
 		return err
 	}
 
-	checkOnly := f.checkOnly
-	autoYes := f.autoYes
-	selfOnly := f.selfOnly
-	cliOnly := f.cliOnly
+	s := newStepper(f)
 
-	totalSteps := stepCount(f)
-	step := 0
-	nextStep := func() int {
-		step++
-		return step
-	}
-
-	if !cliOnly {
-		platform.PrintBanner(os.Stdout, "Upgrading claude-workspace")
-
-		// Step 1: Check for updates
-		platform.PrintStep(os.Stdout, nextStep(), totalSteps, "Checking for updates...")
-		fmt.Printf("  Current: %s\n", version)
-
-		release, err := FetchLatest()
-		if err != nil {
-			return fmt.Errorf("checking for updates: %w", err)
-		}
-
-		latestVersion := release.TagName
-		publishedDate := ""
-		if release.PublishedAt != "" {
-			// Trim to date portion
-			if idx := strings.Index(release.PublishedAt, "T"); idx > 0 {
-				publishedDate = release.PublishedAt[:idx]
-			} else {
-				publishedDate = release.PublishedAt
-			}
-		}
-
-		fmt.Printf("  Latest:  %s", latestVersion)
-		if publishedDate != "" {
-			fmt.Printf(" (%s)", publishedDate)
-		}
-		fmt.Println()
-
-		// Compare versions
-		currentNormalized := version
-		if !strings.HasPrefix(currentNormalized, "v") {
-			currentNormalized = "v" + currentNormalized
-		}
-
-		if version == "dev" {
-			platform.PrintWarningLine(os.Stdout, "You are running a dev build.")
-			fmt.Println("  Upgrading will install the latest stable release.")
-		} else if currentNormalized == latestVersion {
-			fmt.Println("\n  Already up to date.")
-			if !selfOnly {
-				// Still run CLI upgrade step
-				return upgradeCLI(nextStep, totalSteps, autoYes, checkOnly)
-			}
-			return nil
-		}
-
-		// Print changelog
-		if release.Body != "" {
-			fmt.Println("\n  Changelog:")
-			for _, line := range strings.Split(release.Body, "\n") {
-				line = strings.TrimSpace(line)
-				if line != "" {
-					fmt.Printf("    %s\n", line)
-				}
-			}
-		}
-
-		if checkOnly && selfOnly {
-			fmt.Println()
-			return ErrUpdateAvailable
-		}
-
-		if checkOnly && !selfOnly {
-			// In check mode with CLI step, show self status then check CLI
-			fmt.Println()
-			fmt.Println("  Update available for claude-workspace.")
-			if err := upgradeCLI(nextStep, totalSteps, autoYes, checkOnly); err != nil {
-				return err
-			}
-			return ErrUpdateAvailable
-		}
-
-		// Confirm
-		if !autoYes {
-			fmt.Print("\n")
-			platform.PrintPrompt(os.Stdout, "  Proceed? [Y/n] ")
-			reader := bufio.NewReader(os.Stdin)
-			answer, _ := reader.ReadString('\n')
-			answer = strings.TrimSpace(strings.ToLower(answer))
-			if answer != "" && answer != "y" && answer != "yes" {
-				fmt.Println("  Upgrade cancelled.")
-				return nil
-			}
-		}
-
-		// Step 2: Download
-		platform.PrintStep(os.Stdout, nextStep(), totalSteps, fmt.Sprintf("Downloading claude-workspace %s...", latestVersion))
-
-		asset, err := FindAsset(release)
-		if err != nil {
+	if !f.cliOnly {
+		if err := upgradeSelf(version, f, s); err != nil {
 			return err
 		}
-
-		tmpDir, err := os.MkdirTemp("", "claude-workspace-upgrade-*")
-		if err != nil {
-			return fmt.Errorf("creating temp directory: %w", err)
-		}
-		defer os.RemoveAll(tmpDir)
-
-		archivePath := filepath.Join(tmpDir, asset.Name)
-		if err := DownloadAsset(*asset, archivePath); err != nil {
-			return err
-		}
-
-		if err := VerifyChecksum(release, archivePath, asset.Name); err != nil {
-			return err
-		}
-
-		// Extract binary from tarball
-		binaryPath, err := extractBinary(archivePath, tmpDir)
-		if err != nil {
-			return fmt.Errorf("extracting binary: %w", err)
-		}
-
-		// Step 3: Replace binary
-		platform.PrintStep(os.Stdout, nextStep(), totalSteps, "Replacing binary...")
-		oldVersion := version
-		if err := ReplaceBinary(binaryPath); err != nil {
-			return fmt.Errorf("replacing binary: %w", err)
-		}
-		currentExec, _ := os.Executable()
-		installPath, _ := filepath.EvalSymlinks(currentExec)
-		fmt.Printf("  %s updated (%s → %s)\n", installPath, oldVersion, latestVersion)
-
-		// Step 4: Refresh shared assets
-		platform.PrintStep(os.Stdout, nextStep(), totalSteps, "Refreshing shared assets...")
-		if _, err := platform.ExtractForSymlink(); err != nil {
-			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not refresh shared assets: %v", err))
-		} else {
-			fmt.Println("  ~/.claude-workspace/assets/ updated")
-			fmt.Println("  Symlinked projects will pick up changes automatically.")
-		}
-
-		// Step 5: Merge global settings
-		platform.PrintStep(os.Stdout, nextStep(), totalSteps, "Merging global settings...")
-		if err := mergeGlobalSettings(); err != nil {
-			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not merge settings: %v", err))
-		}
-
-		if selfOnly {
-			platform.PrintBanner(os.Stdout, "Upgrade Complete")
-			fmt.Println("\n  Tip: For projects using copied (non-symlinked) assets,")
-			fmt.Println("       run 'claude-workspace attach --force' to refresh.")
-			fmt.Println()
+		if f.selfOnly {
+			printUpgradeComplete(false)
 			return nil
 		}
 	}
 
-	// Final step: Upgrade Claude Code CLI
-	if err := upgradeCLI(nextStep, totalSteps, autoYes, checkOnly); err != nil {
+	if err := upgradeCLI(s, f.autoYes, f.checkOnly); err != nil {
 		return err
 	}
 
-	platform.PrintBanner(os.Stdout, "Upgrade Complete")
-	if !cliOnly {
-		fmt.Println("\n  Tip: For projects using copied (non-symlinked) assets,")
-		fmt.Println("       run 'claude-workspace attach --force' to refresh.")
+	printUpgradeComplete(!f.cliOnly)
+	return nil
+}
+
+// upgradeSelf handles the self-update portion (steps 1-5).
+func upgradeSelf(version string, f upgradeFlags, s *stepper) error {
+	platform.PrintBanner(os.Stdout, "Upgrading claude-workspace")
+
+	release, upToDate, err := checkForUpdates(version, s)
+	if err != nil {
+		return err
+	}
+
+	if upToDate {
+		if !f.selfOnly {
+			return upgradeCLI(s, f.autoYes, f.checkOnly)
+		}
+		return nil
+	}
+
+	printChangelog(release)
+
+	if f.checkOnly {
+		return handleCheckOnly(f, s)
+	}
+
+	if !f.autoYes && !confirmUpgrade() {
+		return nil
+	}
+
+	return downloadAndInstall(version, release, s)
+}
+
+// checkForUpdates fetches the latest release and compares versions.
+// Returns the release, whether the current version is up to date, and any error.
+func checkForUpdates(version string, s *stepper) (*Release, bool, error) {
+	platform.PrintStep(os.Stdout, s.next(), s.total, "Checking for updates...")
+	fmt.Printf("  Current: %s\n", version)
+
+	release, err := FetchLatest()
+	if err != nil {
+		return nil, false, fmt.Errorf("checking for updates: %w", err)
+	}
+
+	latestVersion := release.TagName
+	publishedDate := extractDate(release.PublishedAt)
+
+	fmt.Printf("  Latest:  %s", latestVersion)
+	if publishedDate != "" {
+		fmt.Printf(" (%s)", publishedDate)
 	}
 	fmt.Println()
+
+	currentNormalized := version
+	if !strings.HasPrefix(currentNormalized, "v") {
+		currentNormalized = "v" + currentNormalized
+	}
+
+	if version == "dev" {
+		platform.PrintWarningLine(os.Stdout, "You are running a dev build.")
+		fmt.Println("  Upgrading will install the latest stable release.")
+		return release, false, nil
+	}
+
+	if currentNormalized == latestVersion {
+		fmt.Println("\n  Already up to date.")
+		return release, true, nil
+	}
+
+	return release, false, nil
+}
+
+// extractDate returns the date portion of an ISO timestamp.
+func extractDate(ts string) string {
+	if idx := strings.Index(ts, "T"); idx > 0 {
+		return ts[:idx]
+	}
+	return ts
+}
+
+// printChangelog prints the release changelog if present.
+func printChangelog(release *Release) {
+	if release.Body == "" {
+		return
+	}
+	fmt.Println("\n  Changelog:")
+	for _, line := range strings.Split(release.Body, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			fmt.Printf("    %s\n", line)
+		}
+	}
+}
+
+// handleCheckOnly handles the --check flag behavior.
+func handleCheckOnly(f upgradeFlags, s *stepper) error {
+	if f.selfOnly {
+		fmt.Println()
+		return ErrUpdateAvailable
+	}
+	fmt.Println()
+	fmt.Println("  Update available for claude-workspace.")
+	if err := upgradeCLI(s, f.autoYes, f.checkOnly); err != nil {
+		return err
+	}
+	return ErrUpdateAvailable
+}
+
+// confirmUpgrade prompts the user and returns true if they accept.
+func confirmUpgrade() bool {
+	fmt.Print("\n")
+	platform.PrintPrompt(os.Stdout, "  Proceed? [Y/n] ")
+	reader := bufio.NewReader(os.Stdin)
+	answer, _ := reader.ReadString('\n')
+	answer = strings.TrimSpace(strings.ToLower(answer))
+	if answer != "" && answer != "y" && answer != "yes" {
+		fmt.Println("  Upgrade cancelled.")
+		return false
+	}
+	return true
+}
+
+// downloadAndInstall downloads, verifies, and installs the new binary (steps 2-5).
+func downloadAndInstall(version string, release *Release, s *stepper) error {
+	latestVersion := release.TagName
+
+	platform.PrintStep(os.Stdout, s.next(), s.total, fmt.Sprintf("Downloading claude-workspace %s...", latestVersion))
+
+	asset, err := FindAsset(release)
+	if err != nil {
+		return err
+	}
+
+	tmpDir, err := os.MkdirTemp("", "claude-workspace-upgrade-*")
+	if err != nil {
+		return fmt.Errorf("creating temp directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	archivePath := filepath.Join(tmpDir, asset.Name)
+	if err := DownloadAsset(*asset, archivePath); err != nil {
+		return err
+	}
+
+	if err := VerifyChecksum(release, archivePath, asset.Name); err != nil {
+		return err
+	}
+
+	binaryPath, err := extractBinary(archivePath, tmpDir)
+	if err != nil {
+		return fmt.Errorf("extracting binary: %w", err)
+	}
+
+	platform.PrintStep(os.Stdout, s.next(), s.total, "Replacing binary...")
+	if err := ReplaceBinary(binaryPath); err != nil {
+		return fmt.Errorf("replacing binary: %w", err)
+	}
+	currentExec, _ := os.Executable()
+	installPath, _ := filepath.EvalSymlinks(currentExec)
+	fmt.Printf("  %s updated (%s → %s)\n", installPath, version, latestVersion)
+
+	refreshAssets(s)
+	mergeSettings(s)
 
 	return nil
 }
 
-// upgradeCLI detects the current Claude Code CLI and runs the official installer to upgrade it.
-func upgradeCLI(nextStep func() int, totalSteps int, autoYes, checkOnly bool) error {
-	platform.PrintStep(os.Stdout, nextStep(), totalSteps, "Upgrading Claude Code CLI...")
-
-	home, _ := os.UserHomeDir()
-
-	// Detect claude binary and check if managed by Homebrew
-	claudeBin := "claude"
-	isHomebrew := false
-	if resolvedPath, err := exec.LookPath("claude"); err == nil {
-		claudeBin = resolvedPath
-		isHomebrew = isHomebrewBinary(resolvedPath)
+// refreshAssets updates shared symlinked assets (step 4).
+func refreshAssets(s *stepper) {
+	platform.PrintStep(os.Stdout, s.next(), s.total, "Refreshing shared assets...")
+	if _, err := platform.ExtractForSymlink(); err != nil {
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not refresh shared assets: %v", err))
 	} else {
+		fmt.Println("  ~/.claude-workspace/assets/ updated")
+		fmt.Println("  Symlinked projects will pick up changes automatically.")
+	}
+}
+
+// mergeSettings merges platform defaults into global settings (step 5).
+func mergeSettings(s *stepper) {
+	platform.PrintStep(os.Stdout, s.next(), s.total, "Merging global settings...")
+	if err := mergeGlobalSettings(); err != nil {
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not merge settings: %v", err))
+	}
+}
+
+// printUpgradeComplete prints the final upgrade banner.
+func printUpgradeComplete(showTip bool) {
+	platform.PrintBanner(os.Stdout, "Upgrade Complete")
+	if showTip {
+		fmt.Println("\n  Tip: For projects using copied (non-symlinked) assets,")
+		fmt.Println("       run 'claude-workspace attach --force' to refresh.")
+	}
+	fmt.Println()
+}
+
+// cliInfo holds detected Claude Code CLI state.
+type cliInfo struct {
+	BinPath    string
+	IsHomebrew bool
+	Installed  bool
+	OldVersion string
+}
+
+// detectClaudeBinary locates the Claude Code CLI and determines its install method.
+func detectClaudeBinary() cliInfo {
+	info := cliInfo{BinPath: "claude"}
+
+	if resolvedPath, err := exec.LookPath("claude"); err == nil {
+		info.BinPath = resolvedPath
+		info.IsHomebrew = isHomebrewBinary(resolvedPath)
+	} else {
+		home, _ := os.UserHomeDir()
 		localBin := filepath.Join(home, ".local", "bin", "claude")
 		if platform.FileExists(localBin) {
-			claudeBin = localBin
+			info.BinPath = localBin
 		}
 	}
 
-	installed := false
-	oldVersion := ""
-	if ver, err := platform.Output(claudeBin, "--version"); err == nil {
-		installed = true
-		oldVersion = strings.TrimSpace(ver)
-		fmt.Printf("  Current Claude Code CLI: %s\n", oldVersion)
+	if ver, err := platform.Output(info.BinPath, "--version"); err == nil {
+		info.Installed = true
+		info.OldVersion = strings.TrimSpace(ver)
+	}
+
+	return info
+}
+
+// runCLIInstall executes the appropriate CLI install/upgrade command.
+func runCLIInstall(info cliInfo) {
+	if info.IsHomebrew {
+		fmt.Println("  Detected Homebrew installation. Running: brew upgrade claude-code...")
+		if err := platform.Run("brew", "upgrade", "claude-code"); err != nil {
+			fmt.Println("  Claude Code is already up to date (or brew upgrade failed).")
+			fmt.Println("  To upgrade manually: brew upgrade claude-code")
+		}
+		return
+	}
+
+	npmInfo := setup.DetectNpmClaude()
+	if npmInfo.Detected {
+		fmt.Printf("  Detected Claude Code installed via npm (source: %s).\n", npmInfo.Source)
+		fmt.Println("  Removing npm version before upgrading...")
+		if err := setup.UninstallNpmClaude(npmInfo); err != nil {
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not remove npm Claude: %v", err))
+			fmt.Println("  You may need to run: npm uninstall -g @anthropic-ai/claude-code")
+		} else {
+			fmt.Println("  npm Claude Code removed successfully.")
+		}
+	}
+
+	fmt.Println("  Running official installer...")
+	if err := platform.Run("bash", "-c", tools.ClaudeInstallCmd); err != nil {
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Claude Code CLI upgrade failed: %v", err))
+		fmt.Println("  You can upgrade manually: curl -fsSL https://claude.ai/install.sh | bash")
+		return
+	}
+
+	home, _ := os.UserHomeDir()
+	localBin := filepath.Join(home, ".local", "bin")
+	if platform.FileExists(filepath.Join(localBin, "claude")) {
+		os.Setenv("PATH", localBin+":"+os.Getenv("PATH"))
+	}
+}
+
+// reportCLIVersion prints a before/after version comparison.
+func reportCLIVersion(info cliInfo) {
+	newVer, err := platform.Output(info.BinPath, "--version")
+	if err != nil {
+		fmt.Println("  Claude Code CLI installed successfully.")
+		return
+	}
+	newVersion := strings.TrimSpace(newVer)
+	if info.OldVersion != "" {
+		fmt.Printf("  Claude Code CLI: %s → %s\n", info.OldVersion, newVersion)
+	} else {
+		fmt.Printf("  Claude Code CLI installed: %s\n", newVersion)
+	}
+}
+
+// upgradeCLI detects the current Claude Code CLI and runs the official installer to upgrade it.
+func upgradeCLI(s *stepper, autoYes, checkOnly bool) error {
+	platform.PrintStep(os.Stdout, s.next(), s.total, "Upgrading Claude Code CLI...")
+
+	info := detectClaudeBinary()
+
+	if info.Installed {
+		fmt.Printf("  Current Claude Code CLI: %s\n", info.OldVersion)
 	} else {
 		fmt.Println("  Claude Code CLI not found.")
 	}
 
 	if checkOnly {
-		if installed {
+		if info.Installed {
 			fmt.Println("  (Cannot check latest version remotely; run without --check to upgrade.)")
 		} else {
 			fmt.Println("  Claude Code CLI is not installed.")
@@ -285,10 +402,9 @@ func upgradeCLI(nextStep func() int, totalSteps int, autoYes, checkOnly bool) er
 		return nil
 	}
 
-	// Prompt user
 	if !autoYes {
 		action := "Install"
-		if installed {
+		if info.Installed {
 			action = "Upgrade"
 		}
 		fmt.Print("\n")
@@ -302,53 +418,8 @@ func upgradeCLI(nextStep func() int, totalSteps int, autoYes, checkOnly bool) er
 		}
 	}
 
-	if isHomebrew {
-		fmt.Println("  Detected Homebrew installation. Running: brew upgrade claude-code...")
-		if err := platform.Run("brew", "upgrade", "claude-code"); err != nil {
-			// `brew upgrade` exits non-zero when already at latest; treat as success
-			fmt.Println("  Claude Code is already up to date (or brew upgrade failed).")
-			fmt.Println("  To upgrade manually: brew upgrade claude-code")
-		}
-	} else {
-		// Check for npm-installed Claude before running installer
-		npmInfo := setup.DetectNpmClaude()
-		if npmInfo.Detected {
-			fmt.Printf("  Detected Claude Code installed via npm (source: %s).\n", npmInfo.Source)
-			fmt.Println("  Removing npm version before upgrading...")
-			if err := setup.UninstallNpmClaude(npmInfo); err != nil {
-				platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not remove npm Claude: %v", err))
-				fmt.Println("  You may need to run: npm uninstall -g @anthropic-ai/claude-code")
-			} else {
-				fmt.Println("  npm Claude Code removed successfully.")
-			}
-		}
-
-		// Run official installer
-		fmt.Println("  Running official installer...")
-		if err := platform.Run("bash", "-c", tools.ClaudeInstallCmd); err != nil {
-			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Claude Code CLI upgrade failed: %v", err))
-			fmt.Println("  You can upgrade manually: curl -fsSL https://claude.ai/install.sh | bash")
-			return nil // non-fatal
-		}
-
-		// Augment PATH for current process so we can detect the new version
-		localBin := filepath.Join(home, ".local", "bin")
-		if platform.FileExists(filepath.Join(localBin, "claude")) {
-			os.Setenv("PATH", localBin+":"+os.Getenv("PATH"))
-		}
-	}
-
-	// Show version comparison
-	if newVer, err := platform.Output(claudeBin, "--version"); err == nil {
-		newVersion := strings.TrimSpace(newVer)
-		if oldVersion != "" {
-			fmt.Printf("  Claude Code CLI: %s → %s\n", oldVersion, newVersion)
-		} else {
-			fmt.Printf("  Claude Code CLI installed: %s\n", newVersion)
-		}
-	} else {
-		fmt.Println("  Claude Code CLI installed successfully.")
-	}
+	runCLIInstall(info)
+	reportCLIVersion(info)
 
 	return nil
 }

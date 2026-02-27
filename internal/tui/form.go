@@ -29,11 +29,11 @@ type FormModel struct {
 	inputs []textinput.Model
 	cursor int // focused field index
 	done   bool
-	theme  Theme
+	theme  *Theme
 }
 
 // NewForm creates a new form with the given fields.
-func NewForm(title string, fields []FormField, theme Theme) FormModel {
+func NewForm(title string, fields []FormField, theme *Theme) *FormModel {
 	inputs := make([]textinput.Model, len(fields))
 	for i, f := range fields {
 		ti := textinput.New()
@@ -47,7 +47,7 @@ func NewForm(title string, fields []FormField, theme Theme) FormModel {
 		inputs[i] = ti
 	}
 
-	return FormModel{
+	return &FormModel{
 		Title:  title,
 		Fields: fields,
 		inputs: inputs,
@@ -56,26 +56,25 @@ func NewForm(title string, fields []FormField, theme Theme) FormModel {
 }
 
 // Values returns the current values of all fields.
-func (m FormModel) Values() []string {
+func (m *FormModel) Values() []string {
 	vals := make([]string, len(m.inputs))
-	for i, inp := range m.inputs {
-		vals[i] = inp.Value()
+	for i := range m.inputs {
+		vals[i] = m.inputs[i].Value()
 	}
 	return vals
 }
 
-func (m FormModel) Init() tea.Cmd {
+func (m *FormModel) Init() tea.Cmd {
 	if len(m.inputs) > 0 {
 		return textinput.Blink
 	}
 	return nil
 }
 
-func (m FormModel) Update(msg tea.Msg) (FormModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
+func (m *FormModel) Update(msg tea.Msg) (*FormModel, tea.Cmd) {
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
 		switch msg.String() {
-		case "ctrl+c", "esc":
+		case keyCtrlC, "esc":
 			m.done = true
 			return m, func() tea.Msg { return FormResult{Cancelled: true} }
 
@@ -89,7 +88,7 @@ func (m FormModel) Update(msg tea.Msg) (FormModel, tea.Cmd) {
 			m.cursor = (m.cursor - 1 + len(m.inputs)) % len(m.inputs)
 			m.inputs[m.cursor].Focus()
 
-		case "enter":
+		case keyEnter:
 			if m.cursor == len(m.inputs)-1 {
 				return m.submit()
 			}
@@ -104,7 +103,7 @@ func (m FormModel) Update(msg tea.Msg) (FormModel, tea.Cmd) {
 	return m, cmd
 }
 
-func (m FormModel) submit() (FormModel, tea.Cmd) {
+func (m *FormModel) submit() (*FormModel, tea.Cmd) {
 	for i, f := range m.Fields {
 		if f.Required && strings.TrimSpace(m.inputs[i].Value()) == "" {
 			m.inputs[m.cursor].Blur()
@@ -119,7 +118,7 @@ func (m FormModel) submit() (FormModel, tea.Cmd) {
 	return m, func() tea.Msg { return FormResult{Values: vals} }
 }
 
-func (m FormModel) View() string {
+func (m *FormModel) View() string {
 	var b strings.Builder
 
 	b.WriteString(m.theme.Title.Render(m.Title))
@@ -138,7 +137,7 @@ func (m FormModel) View() string {
 
 	b.WriteString("\n")
 	help := m.theme.HelpKey.Render("tab") + " " + m.theme.HelpDesc.Render("next field") + "  " +
-		m.theme.HelpKey.Render("enter") + " " + m.theme.HelpDesc.Render("submit") + "  " +
+		m.theme.HelpKey.Render(keyEnter) + " " + m.theme.HelpDesc.Render("submit") + "  " +
 		m.theme.HelpKey.Render("esc") + " " + m.theme.HelpDesc.Render("cancel")
 	b.WriteString(help)
 

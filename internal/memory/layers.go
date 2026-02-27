@@ -19,6 +19,10 @@ const (
 	LayerLocalMD         LayerName = "local_md"
 	LayerAutoMemory      LayerName = "auto_memory"
 	LayerMemoryMCP       LayerName = "memory_mcp"
+
+	providerNone   = "none"
+	providerEngram = "engram"
+	providerLibsql = "mcp-memory-libsql"
 )
 
 // AllLayers lists every layer in precedence order.
@@ -53,7 +57,7 @@ func DiscoverLayers() ([]Layer, error) {
 		return nil, fmt.Errorf("getting working directory: %w", err)
 	}
 
-	var layers []Layer
+	layers := make([]Layer, 0, 5)
 
 	// User CLAUDE.md
 	userMD := filepath.Join(home, ".claude", "CLAUDE.md")
@@ -70,12 +74,9 @@ func DiscoverLayers() ([]Layer, error) {
 	localMD := filepath.Join(cwd, "CLAUDE.local.md")
 	layers = append(layers, discoverFileLayer(LayerLocalMD, "CLAUDE.local.md", localMD))
 
-	// Auto-memory
+	// Auto-memory + Memory MCP
 	autoDir := autoMemoryDir(home, cwd)
-	layers = append(layers, discoverAutoMemory(autoDir))
-
-	// Memory MCP
-	layers = append(layers, discoverMemoryMCP(home))
+	layers = append(layers, discoverAutoMemory(autoDir), discoverMemoryMCP(home))
 
 	return layers, nil
 }
@@ -177,14 +178,14 @@ func discoverMemoryMCP(home string) Layer {
 	}
 
 	switch provider {
-	case "engram":
-		if platform.Exists("engram") {
-			stats, err := platform.Output("engram", "stats")
+	case providerEngram:
+		if platform.Exists(providerEngram) {
+			stats, err := platform.Output(providerEngram, "stats")
 			if err == nil {
 				l.Stats = stats
 			}
 		}
-	case "mcp-memory-libsql":
+	case providerLibsql:
 		// No CLI stats command — direct users to the Claude tool instead
 		l.Stats = "run: mcp__mcp-memory-libsql__read_graph"
 	}
@@ -230,9 +231,9 @@ func detectProvider(home string) (string, string) {
 		// Fall back to checking if engram data exists
 		engramDB := filepath.Join(home, ".engram", "engram.db")
 		if platform.FileExists(engramDB) {
-			return "engram", engramDB
+			return providerEngram, engramDB
 		}
-		return "none", ""
+		return providerNone, ""
 	}
 
 	var config struct {
@@ -241,18 +242,18 @@ func detectProvider(home string) (string, string) {
 	if err := platform.ReadJSONFile(claudeJSON, &config); err != nil {
 		engramDB := filepath.Join(home, ".engram", "engram.db")
 		if platform.FileExists(engramDB) {
-			return "engram", engramDB
+			return providerEngram, engramDB
 		}
-		return "none", ""
+		return providerNone, ""
 	}
 
 	// Priority 1: mcp-memory-libsql
-	if raw, ok := config.MCPServers["mcp-memory-libsql"]; ok {
-		return "mcp-memory-libsql", libsqlDBPath(raw, defaultLibsqlPath)
+	if raw, ok := config.MCPServers[providerLibsql]; ok {
+		return providerLibsql, libsqlDBPath(raw, defaultLibsqlPath)
 	}
 	// Priority 2: engram
-	if _, ok := config.MCPServers["engram"]; ok {
-		return "engram", filepath.Join(home, ".engram", "engram.db")
+	if _, ok := config.MCPServers[providerEngram]; ok {
+		return providerEngram, filepath.Join(home, ".engram", "engram.db")
 	}
 	// Priority 3: memory (legacy)
 	if _, ok := config.MCPServers["memory"]; ok {
@@ -262,9 +263,9 @@ func detectProvider(home string) (string, string) {
 	// No MCP server configured, but check if engram data exists as fallback
 	engramDB := filepath.Join(home, ".engram", "engram.db")
 	if platform.FileExists(engramDB) {
-		return "engram", engramDB
+		return providerEngram, engramDB
 	}
-	return "none", ""
+	return providerNone, ""
 }
 
 func countLines(s string) int {

@@ -42,10 +42,58 @@ func Run(args []string) error {
 
 	platform.PrintBanner(os.Stdout, "Claude Code Platform Setup")
 
-	// Step 1: Check if Claude Code CLI is installed
 	platform.PrintStep(os.Stdout, 1, 9, "Checking Claude Code installation...")
+	if err := ensureClaudeCLI(); err != nil {
+		return err
+	}
 
-	// Check for npm-installed Claude that needs cleanup
+	platform.PrintStep(os.Stdout, 2, 9, "API Key provisioning...")
+	if err := provisionAPIKey(); err != nil {
+		return err
+	}
+
+	platform.PrintStep(os.Stdout, 3, 9, "Setting up global user configuration...")
+	if err := setupGlobalSettings(force); err != nil {
+		return err
+	}
+
+	platform.PrintStep(os.Stdout, 4, 9, "Setting up global CLAUDE.md...")
+	if err := setupGlobalClaudeMd(); err != nil {
+		return err
+	}
+
+	platform.PrintStep(os.Stdout, 5, 9, "Installing claude-workspace to PATH...")
+	installBinaryToPath()
+
+	platform.PrintStep(os.Stdout, 6, 9, "Checking Node.js (required for filesystem MCP server)...")
+	ensureNode()
+
+	platform.PrintStep(os.Stdout, 7, 9, "Registering user-scoped MCP servers...")
+	if err := setupUserMCPServers(force); err != nil {
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("MCP server registration skipped: %v", err))
+	}
+
+	platform.PrintStep(os.Stdout, 8, 9, "Checking optional system tools...")
+	tools.CheckAndInstall(tools.Optional())
+
+	platform.PrintStep(os.Stdout, 9, 9, "Statusline setup (cost & context display)...")
+	if err := statusline.Run([]string{}); err != nil {
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("statusline setup skipped: %v", err))
+	}
+
+	platform.PrintBanner(os.Stdout, "Setup Complete")
+	fmt.Println("\nNext steps:")
+	fmt.Println()
+	platform.PrintCommand(os.Stdout, "claude-workspace attach /path/to/project")
+	platform.PrintCommand(os.Stdout, "cd /path/to/project && claude")
+	platform.PrintCommand(os.Stdout, "claude-workspace mcp add <name> -- <command>")
+	fmt.Println()
+
+	return nil
+}
+
+// ensureClaudeCLI checks for and installs the Claude Code CLI.
+func ensureClaudeCLI() error {
 	npmInfo := DetectNpmClaude()
 	if npmInfo.Detected {
 		fmt.Printf("  Detected Claude Code installed via npm (source: %s).\n", npmInfo.Source)
@@ -64,88 +112,37 @@ func Run(args []string) error {
 		ver, _ := platform.Output("claude", "--version")
 		fmt.Printf("  Claude Code CLI found: %s\n", ver)
 
-		// Ensure ~/.local/bin/claude symlink exists. Claude Code expects its binary there
-		// regardless of how it was installed (e.g. Homebrew). Missing symlink causes startup
-		// warnings that claude update does not fix (known upstream issue).
 		if claudePath, err := exec.LookPath("claude"); err == nil {
 			home, _ := os.UserHomeDir()
 			if err := ensureLocalBinClaude(home, claudePath); err != nil {
 				platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not create ~/.local/bin/claude: %v", err))
 			}
 		}
-	} else {
-		fmt.Println("  Claude Code CLI not found. Installing...")
-		if err := claudeTool.Install(); err != nil {
-			return err
-		}
+		return nil
 	}
 
-	// Step 2: API Key provisioning
-	platform.PrintStep(os.Stdout, 2, 9, "API Key provisioning...")
-	if err := provisionApiKey(); err != nil {
-		return err
-	}
+	fmt.Println("  Claude Code CLI not found. Installing...")
+	return claudeTool.Install()
+}
 
-	// Step 3: Create global user settings
-	platform.PrintStep(os.Stdout, 3, 9, "Setting up global user configuration...")
-	if err := setupGlobalSettings(force); err != nil {
-		return err
-	}
-
-	// Step 4: Create global CLAUDE.md
-	platform.PrintStep(os.Stdout, 4, 9, "Setting up global CLAUDE.md...")
-	if err := setupGlobalClaudeMd(); err != nil {
-		return err
-	}
-
-	// Step 5: Install binary to PATH
-	platform.PrintStep(os.Stdout, 5, 9, "Installing claude-workspace to PATH...")
-	installBinaryToPath()
-
-	// Step 6: Ensure Node.js is available
-	platform.PrintStep(os.Stdout, 6, 9, "Checking Node.js (required for filesystem MCP server)...")
+// ensureNode checks for Node.js and installs it if missing.
+func ensureNode() {
 	nodeTool := tools.Node()
 	if nodeTool.IsInstalled() {
 		ver, _ := platform.Output("node", "--version")
 		fmt.Printf("  Node.js found: %s\n", ver)
-	} else {
-		fmt.Println("  Node.js not found or below minimum version. Installing...")
-		if err := nodeTool.Install(); err != nil {
-			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Node.js install failed: %v", err))
-			fmt.Println("  MCP servers require Node.js. Install manually: https://nodejs.org")
-		} else if ver, err := platform.Output("node", "--version"); err == nil {
-			fmt.Printf("  Node.js installed: %s\n", ver)
-		}
+		return
 	}
-
-	// Step 7: Register user-scoped MCP servers (mcp-memory-libsql via npx — no extra install needed)
-	platform.PrintStep(os.Stdout, 7, 9, "Registering user-scoped MCP servers...")
-	if err := setupUserMCPServers(force); err != nil {
-		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("MCP server registration skipped: %v", err))
+	fmt.Println("  Node.js not found or below minimum version. Installing...")
+	if err := nodeTool.Install(); err != nil {
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Node.js install failed: %v", err))
+		fmt.Println("  MCP servers require Node.js. Install manually: https://nodejs.org")
+	} else if ver, err := platform.Output("node", "--version"); err == nil {
+		fmt.Printf("  Node.js installed: %s\n", ver)
 	}
-
-	// Step 8: Check optional system tools
-	platform.PrintStep(os.Stdout, 8, 9, "Checking optional system tools...")
-	tools.CheckAndInstall(tools.Optional())
-
-	// Step 9: Statusline setup
-	platform.PrintStep(os.Stdout, 9, 9, "Statusline setup (cost & context display)...")
-	if err := statusline.Run([]string{}); err != nil {
-		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("statusline setup skipped: %v", err))
-	}
-
-	platform.PrintBanner(os.Stdout, "Setup Complete")
-	fmt.Println("\nNext steps:")
-	fmt.Println()
-	platform.PrintCommand(os.Stdout, "claude-workspace attach /path/to/project")
-	platform.PrintCommand(os.Stdout, "cd /path/to/project && claude")
-	platform.PrintCommand(os.Stdout, "claude-workspace mcp add <name> -- <command>")
-	fmt.Println()
-
-	return nil
 }
 
-func provisionApiKey() error {
+func provisionAPIKey() error {
 	if platform.FileExists(claudeConfig) {
 		var config map[string]json.RawMessage
 		if err := platform.ReadJSONFile(claudeConfig, &config); err == nil {
@@ -454,11 +451,9 @@ func setupUserMCPServers(force bool) error {
 		config = make(map[string]interface{})
 	}
 
-	// On force: remove all known memory provider keys first (clean slate for re-registration)
 	if force {
 		config = RemoveUserMCPServers(config, knownMemoryProviders)
 	} else {
-		// Check if any known memory provider is already configured — skip if so
 		existing, _ := config["mcpServers"].(map[string]interface{})
 		for _, key := range knownMemoryProviders {
 			if existing != nil {
@@ -470,7 +465,6 @@ func setupUserMCPServers(force bool) error {
 		}
 	}
 
-	// Ensure the DB parent directory exists
 	dbDir := filepath.Join(home, ".config", "claude-workspace")
 	if err := os.MkdirAll(dbDir, 0755); err != nil {
 		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("could not create %s: %v", dbDir, err))
@@ -483,7 +477,12 @@ func setupUserMCPServers(force bool) error {
 		return fmt.Errorf("writing %s: %w", claudeConfig, err)
 	}
 
-	// Report what was registered vs already present
+	reportMCPRegistration(config, servers)
+	return nil
+}
+
+// reportMCPRegistration prints which servers were added vs already present.
+func reportMCPRegistration(config map[string]interface{}, servers map[string]interface{}) {
 	existing, _ := config["mcpServers"].(map[string]interface{})
 	var added, skipped []string
 	for name := range servers {
@@ -503,8 +502,6 @@ func setupUserMCPServers(force bool) error {
 	if len(skipped) > 0 {
 		fmt.Printf("  Already registered: %s\n", joinStrings(skipped, ", "))
 	}
-
-	return nil
 }
 
 func installBinaryToPath() {
@@ -534,9 +531,9 @@ func installBinaryToPath() {
 			return
 		}
 		// Make executable
-		platform.RunQuiet("sudo", "chmod", "+x", destPath)
+		_ = platform.RunQuiet("sudo", "chmod", "+x", destPath)
 	} else {
-		os.Chmod(destPath, 0755)
+		_ = os.Chmod(destPath, 0755)
 	}
 	fmt.Println("  Installed: claude-workspace is now available globally.")
 }

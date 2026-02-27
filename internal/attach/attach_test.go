@@ -1,6 +1,7 @@
 package attach
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,7 +69,7 @@ func TestSetupGitignore_CreatesFromTemplate(t *testing.T) {
 
 	dir := t.TempDir()
 	claudeDir := filepath.Join(dir, ".claude")
-	os.MkdirAll(claudeDir, 0755)
+	_ = os.MkdirAll(claudeDir, 0755)
 
 	setupGitignore(claudeDir)
 
@@ -92,11 +93,11 @@ func TestSetupGitignore_UpdatesExisting(t *testing.T) {
 
 	dir := t.TempDir()
 	claudeDir := filepath.Join(dir, ".claude")
-	os.MkdirAll(claudeDir, 0755)
+	_ = os.MkdirAll(claudeDir, 0755)
 
 	// Write an existing gitignore missing some entries
 	existing := "# Personal settings\nsettings.local.json\nCLAUDE.local.md\nagent-memory-local/\n!*.example\n"
-	os.WriteFile(filepath.Join(claudeDir, ".gitignore"), []byte(existing), 0644)
+	_ = os.WriteFile(filepath.Join(claudeDir, ".gitignore"), []byte(existing), 0644)
 
 	setupGitignore(claudeDir)
 
@@ -159,7 +160,7 @@ func TestSetupRootGitignore_Idempotent(t *testing.T) {
 	setupRootGitignore(dir)
 	second, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
 
-	if string(first) != string(second) {
+	if !bytes.Equal(first, second) {
 		t.Error("second call should not modify file")
 	}
 }

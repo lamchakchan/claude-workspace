@@ -13,7 +13,7 @@ A preconfigured, batteries-included platform for deploying Claude Code AI agents
 | `.claude/CLAUDE.md` | Project instructions (auto-detected stack) |
 | `.claude/CLAUDE.local.md.example` | Template for personal context |
 | `.claude/agents/*.md` | 5 subagent definitions |
-| `.claude/skills/*/` | 4 skill definitions |
+| `.claude/skills/*/` | 6 skill definitions |
 | `.claude/hooks/*.sh` | 4 safety hook scripts |
 | `.claude/.gitignore` | Ignores local overrides |
 | `.mcp.json` | MCP server configurations |
@@ -46,7 +46,10 @@ claude-workspace attach /path/to/your/project
 # 3. Start coding
 cd /path/to/your/project && claude
 
-# 4. Verify everything works
+# 4. Run /onboarding to complete project setup (detects MCP servers, initializes memory)
+> /onboarding
+
+# 5. Verify everything works
 claude-workspace doctor
 ```
 
@@ -71,4 +74,5 @@ claude-workspace doctor
 | [Config](docs/CONFIG.md) | Settings layering, permission coalescing, MCP scopes, model resolution, env vars, all config file paths |
 | [MCP Configs](docs/MCP-CONFIGS.md) | Ready-to-use MCP server configurations by category (collaboration, databases, APIs, and more) |
 | [Runbook](docs/RUNBOOK.md) | Maintenance, troubleshooting, onboarding, security, rollback procedures |
+| [Skills](docs/SKILLS.md) | Built-in skills reference, usage guide, creating custom skills |
 | [Memory](docs/MEMORY.md) | Memory layers, auto-memory, CLAUDE.md files, Memory MCP, clearing procedures, and gitignore rules |

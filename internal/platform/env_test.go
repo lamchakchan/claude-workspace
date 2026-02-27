@@ -7,14 +7,20 @@ import (
 	"testing"
 )
 
+const (
+	shellZsh  = "zsh"
+	shellBash = "bash"
+	shellFish = "fish"
+)
+
 func TestDetectShellRC_ZshFromEnv(t *testing.T) {
 	t.Setenv("SHELL", "/bin/zsh")
 	home := t.TempDir()
 
 	rcPath, shellName := DetectShellRC(home)
 
-	if shellName != "zsh" {
-		t.Errorf("expected shellName=zsh, got %s", shellName)
+	if shellName != shellZsh {
+		t.Errorf("expected shellName=%s, got %s", shellZsh, shellName)
 	}
 	if filepath.Base(rcPath) != ".zshrc" {
 		t.Errorf("expected .zshrc, got %s", rcPath)
@@ -27,8 +33,8 @@ func TestDetectShellRC_BashFromEnv(t *testing.T) {
 
 	rcPath, shellName := DetectShellRC(home)
 
-	if shellName != "bash" {
-		t.Errorf("expected shellName=bash, got %s", shellName)
+	if shellName != shellBash {
+		t.Errorf("expected shellName=%s, got %s", shellBash, shellName)
 	}
 	if filepath.Base(rcPath) != ".bashrc" {
 		t.Errorf("expected .bashrc, got %s", rcPath)
@@ -41,8 +47,8 @@ func TestDetectShellRC_FishFromEnv(t *testing.T) {
 
 	rcPath, shellName := DetectShellRC(home)
 
-	if shellName != "fish" {
-		t.Errorf("expected shellName=fish, got %s", shellName)
+	if shellName != shellFish {
+		t.Errorf("expected shellName=%s, got %s", shellFish, shellName)
 	}
 	if !strings.HasSuffix(rcPath, filepath.Join(".config", "fish", "config.fish")) {
 		t.Errorf("expected config.fish path, got %s", rcPath)
@@ -54,12 +60,12 @@ func TestDetectShellRC_FallbackFileExists(t *testing.T) {
 	home := t.TempDir()
 
 	// Create .zshrc so file-existence fallback triggers
-	os.WriteFile(filepath.Join(home, ".zshrc"), []byte(""), 0644)
+	_ = os.WriteFile(filepath.Join(home, ".zshrc"), []byte(""), 0644)
 
 	rcPath, shellName := DetectShellRC(home)
 
-	if shellName != "zsh" {
-		t.Errorf("expected shellName=zsh from fallback, got %s", shellName)
+	if shellName != shellZsh {
+		t.Errorf("expected shellName=%s from fallback, got %s", shellZsh, shellName)
 	}
 	if filepath.Base(rcPath) != ".zshrc" {
 		t.Errorf("expected .zshrc, got %s", rcPath)
@@ -72,8 +78,8 @@ func TestDetectShellRC_FallbackDefault(t *testing.T) {
 
 	rcPath, shellName := DetectShellRC(home)
 
-	if shellName != "bash" {
-		t.Errorf("expected shellName=bash as default, got %s", shellName)
+	if shellName != shellBash {
+		t.Errorf("expected shellName=%s as default, got %s", shellBash, shellName)
 	}
 	if filepath.Base(rcPath) != ".bashrc" {
 		t.Errorf("expected .bashrc, got %s", rcPath)
@@ -83,9 +89,9 @@ func TestDetectShellRC_FallbackDefault(t *testing.T) {
 func TestAppendPathToRC_AddsWhenAbsent(t *testing.T) {
 	home := t.TempDir()
 	rcPath := filepath.Join(home, ".bashrc")
-	os.WriteFile(rcPath, []byte("# existing content\n"), 0644)
+	_ = os.WriteFile(rcPath, []byte("# existing content\n"), 0644)
 
-	modified, err := AppendPathToRC(home, "bash", rcPath)
+	modified, err := AppendPathToRC(home, shellBash, rcPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -109,9 +115,9 @@ func TestAppendPathToRC_AddsWhenAbsent(t *testing.T) {
 func TestAppendPathToRC_Idempotent(t *testing.T) {
 	home := t.TempDir()
 	rcPath := filepath.Join(home, ".bashrc")
-	os.WriteFile(rcPath, []byte("export PATH=\"$HOME/.local/bin:$PATH\"\n"), 0644)
+	_ = os.WriteFile(rcPath, []byte("export PATH=\"$HOME/.local/bin:$PATH\"\n"), 0644)
 
-	modified, err := AppendPathToRC(home, "bash", rcPath)
+	modified, err := AppendPathToRC(home, shellBash, rcPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -131,7 +137,7 @@ func TestAppendPathToRC_CreatesFile(t *testing.T) {
 	rcPath := filepath.Join(home, ".bashrc")
 	// Don't create the file — AppendPathToRC should create it
 
-	modified, err := AppendPathToRC(home, "bash", rcPath)
+	modified, err := AppendPathToRC(home, shellBash, rcPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

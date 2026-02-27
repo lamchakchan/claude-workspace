@@ -7,7 +7,7 @@ GO_SOURCES := $(shell find . -name '*.go' -not -path './bin/*' -not -path './.gi
               $(wildcard go.mod go.sum) \
               $(shell find ./_template -type f 2>/dev/null)
 
-.PHONY: build install test clean build-all vet lint golint bench smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast check doc dev-docker dev-vm deploy-docker deploy-vm shell-docker shell-vm destroy-docker destroy-vm dep ensure-go ensure-cue ensure-golangci-lint
+.PHONY: build install test clean build-all vet lint golint golint-gate bench smoke-test smoke-test-keep smoke-test-fast smoke-test-docker smoke-test-docker-fast check doc dev-docker dev-vm deploy-docker deploy-vm shell-docker shell-vm destroy-docker destroy-vm dep ensure-go ensure-cue ensure-golangci-lint
 
 # ---------- dependency targets ----------
 dep: ensure-go ensure-cue ensure-golangci-lint
@@ -90,11 +90,15 @@ smoke-test-docker-fast:
 golint: ensure-golangci-lint
 	golangci-lint run ./...
 
+# Enforced lint (excludes gocyclo advisory warnings)
+golint-gate: ensure-golangci-lint
+	golangci-lint run --disable gocyclo ./...
+
 bench: ensure-go
 	go test -bench=. -benchmem ./...
 
-# Pre-push validation (vet + test + lint + build)
-check: vet test lint build
+# Pre-push validation (vet + test + lint + golint-gate + build)
+check: vet test lint golint-gate build
 	@echo "All checks passed."
 
 # Persistent dev environment (create + provision)

@@ -22,6 +22,7 @@ Lint: `go vet ./...` and `make lint` (CUE-based template validation)
 - internal/sessions/   - `sessions` command: browse and review session prompts
 - internal/memory/     - `memory` command: inspect and manage memory layers (show, export, import)
 - internal/cost/       - `cost` command: usage and cost reporting via ccusage
+- internal/skills/     - `skills` command: list available skills and personal commands
 - internal/statusline/ - `statusline` command: configure Claude Code statusline display
 - _template/project/   - Embedded assets copied into target projects by `attach` (agents, skills, hooks, settings)
 - _template/global/    - Embedded global-level assets (global CLAUDE.md, global settings)

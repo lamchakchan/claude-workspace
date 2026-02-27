@@ -11,48 +11,35 @@ import (
 
 // McpAddModel is the interactive MCP server add form screen.
 type McpAddModel struct {
-	theme Theme
-	form  FormModel
+	theme *Theme
+	form  *FormModel
 }
 
 // NewMcpAdd creates a new MCP add form screen.
-func NewMcpAdd(theme Theme) McpAddModel {
+func NewMcpAdd(theme *Theme) *McpAddModel {
 	fields := []FormField{
 		{Label: "Server name", Placeholder: "e.g. postgres, brave-search", Required: true},
 		{Label: "API key env var", Placeholder: "e.g. DATABASE_URL (leave blank if not needed)"},
 		{Label: "Command", Placeholder: "e.g. npx -y @bytebase/dbhub", Required: true},
 	}
 
-	return McpAddModel{
+	return &McpAddModel{
 		theme: theme,
 		form:  NewForm("Add MCP Server", fields, theme),
 	}
 }
 
-func (m McpAddModel) Init() tea.Cmd {
+func (m *McpAddModel) Init() tea.Cmd {
 	return m.form.Init()
 }
 
-func (m McpAddModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case FormResult:
-		if msg.Cancelled {
-			return m, func() tea.Msg { return PopViewMsg{} }
-		}
-		return m, m.runAdd(msg.Values)
-
-	case tea.KeyPressMsg:
-		if IsQuit(msg) || IsBack(msg) {
-			return m, func() tea.Msg { return PopViewMsg{} }
-		}
-	}
-
-	updated, cmd := m.form.Update(msg)
-	m.form = updated
+func (m *McpAddModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	m.form, cmd = formViewUpdate(m.form, msg, m.runAdd)
 	return m, cmd
 }
 
-func (m McpAddModel) runAdd(values []string) tea.Cmd {
+func (m *McpAddModel) runAdd(values []string) tea.Cmd {
 	name := strings.TrimSpace(values[0])
 	apiKey := strings.TrimSpace(values[1])
 	cmdStr := strings.TrimSpace(values[2])
@@ -73,12 +60,12 @@ func (m McpAddModel) runAdd(values []string) tea.Cmd {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+	return tea.ExecProcess(cmd, func(_ error) tea.Msg {
 		return PopViewMsg{}
 	})
 }
 
-func (m McpAddModel) View() tea.View {
+func (m *McpAddModel) View() tea.View {
 	return tea.NewView(fmt.Sprintf("%s\n%s",
 		m.theme.SectionBanner("Add MCP Server"),
 		m.form.View(),

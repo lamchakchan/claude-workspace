@@ -27,6 +27,21 @@ import (
 // version is set via -ldflags at build time
 var version = "dev"
 
+// commands maps CLI command names to their handler functions.
+var commands = map[string]func([]string) error{
+	"setup":      runSetup,
+	"attach":     runAttach,
+	"enrich":     runEnrich,
+	"sandbox":    runSandbox,
+	"mcp":        runMCP,
+	"upgrade":    runUpgrade,
+	"doctor":     func(_ []string) error { return doctor.Run() },
+	"statusline": func(a []string) error { return statusline.Run(a[1:]) },
+	"memory":     func(a []string) error { return memory.Run(a[1:]) },
+	"sessions":   func(a []string) error { return sessions.Run(a[1:]) },
+	"cost":       func(a []string) error { return cost.Run(a[1:]) },
+}
+
 const helpText = `
 claude-workspace - Claude Code Platform Engineering Kit CLI
 
@@ -128,7 +143,6 @@ func main() {
 	}
 
 	command := args[0]
-
 	switch command {
 	case "--help", "-h":
 		fmt.Print(helpText)
@@ -136,108 +150,76 @@ func main() {
 	case "--version", "-v":
 		fmt.Printf("claude-workspace %s\n", version)
 		os.Exit(0)
-	case "setup":
-		if err := setup.Run(args[1:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	case "attach":
-		var target string
-		if len(args) > 1 {
-			target = args[1]
-		}
-		if err := attach.Run(target, args); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	case "enrich":
-		var target string
-		if len(args) > 1 && args[1][0] != '-' {
-			target = args[1]
-		}
-		if err := enrich.Run(target, args[1:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	case "sandbox":
-		var projectPath, branchName string
-		if len(args) > 1 {
-			projectPath = args[1]
-		}
-		if len(args) > 2 {
-			branchName = args[2]
-		}
-		if err := sandbox.Run(projectPath, branchName); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	case "mcp":
-		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "Usage: claude-workspace mcp <add|remote|list>")
-			os.Exit(1)
-		}
-		subcmd := args[1]
-		switch subcmd {
-		case "add":
-			if err := mcp.Add(args[2:]); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
-			}
-		case "remote":
-			var url string
-			if len(args) > 2 {
-				url = args[2]
-			}
-			if err := mcp.Remote(url, args[3:]); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
-			}
-		case "list":
-			if err := mcp.List(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
-			}
-		default:
-			fmt.Fprintf(os.Stderr, "Unknown mcp subcommand: %s\n", subcmd)
-			fmt.Println("Available: add, remote, list")
-			os.Exit(1)
-		}
-	case "upgrade":
-		if err := upgrade.Run(version, args[1:]); err != nil {
-			if errors.Is(err, upgrade.ErrUpdateAvailable) {
-				os.Exit(1)
-			}
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	case "doctor":
-		if err := doctor.Run(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	case "statusline":
-		if err := statusline.Run(args[1:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	case "memory":
-		if err := memory.Run(args[1:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	case "sessions":
-		if err := sessions.Run(args[1:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	case "cost":
-		if err := cost.Run(args[1:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	default:
+	}
+
+	cmd, ok := commands[command]
+	if !ok {
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
 		fmt.Print(helpText)
 		os.Exit(1)
 	}
+
+	if err := cmd(args); err != nil {
+		if errors.Is(err, upgrade.ErrUpdateAvailable) {
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func runSetup(args []string) error {
+	return setup.Run(args[1:])
+}
+
+func runAttach(args []string) error {
+	var target string
+	if len(args) > 1 {
+		target = args[1]
+	}
+	return attach.Run(target, args)
+}
+
+func runEnrich(args []string) error {
+	var target string
+	if len(args) > 1 && args[1][0] != '-' {
+		target = args[1]
+	}
+	return enrich.Run(target, args[1:])
+}
+
+func runSandbox(args []string) error {
+	var projectPath, branchName string
+	if len(args) > 1 {
+		projectPath = args[1]
+	}
+	if len(args) > 2 {
+		branchName = args[2]
+	}
+	return sandbox.Run(projectPath, branchName)
+}
+
+func runMCP(args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("usage: claude-workspace mcp <add|remote|list>")
+	}
+	subcmd := args[1]
+	switch subcmd {
+	case "add":
+		return mcp.Add(args[2:])
+	case "remote":
+		var url string
+		if len(args) > 2 {
+			url = args[2]
+		}
+		return mcp.Remote(url, args[3:])
+	case "list":
+		return mcp.List()
+	default:
+		return fmt.Errorf("unknown mcp subcommand: %s (available: add, remote, list)", subcmd)
+	}
+}
+
+func runUpgrade(args []string) error {
+	return upgrade.Run(version, args[1:])
 }
