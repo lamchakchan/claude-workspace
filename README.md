@@ -71,4 +71,4 @@ claude-workspace doctor
 | [Config](docs/CONFIG.md) | Settings layering, permission coalescing, MCP scopes, model resolution, env vars, all config file paths |
 | [MCP Configs](docs/MCP-CONFIGS.md) | Ready-to-use MCP server configurations by category (collaboration, databases, APIs, and more) |
 | [Runbook](docs/RUNBOOK.md) | Maintenance, troubleshooting, onboarding, security, rollback procedures |
-| [Memory](docs/MEMORY.md) | Six memory layers, auto-memory, CLAUDE.md files, Memory MCP, clearing procedures, and gitignore rules |
+| [Memory](docs/MEMORY.md) | Memory layers, auto-memory, CLAUDE.md files, Memory MCP, clearing procedures, and gitignore rules |

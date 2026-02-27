@@ -60,7 +60,7 @@ Use your configured memory MCP server's tools (default: `engram`):
 - **save/create** — record stable cross-project facts (user preferences, recurring patterns, architectural decisions)
 - **delete** — prune stale or wrong knowledge
 
-Use memory MCP for cross-project facts only. Project-specific notes belong in auto-memory (`~/.claude/projects/<project>/memory/MEMORY.md`), which is automatically loaded every session. Run `claude-workspace memory` to see your configured provider. See `docs/MEMORY.md` for the full six-layer memory reference.
+Use memory MCP for cross-project facts only. Project-specific notes belong in auto-memory (`~/.claude/projects/<project>/memory/MEMORY.md`), which is automatically loaded every session. Run `claude-workspace memory` to see your configured provider. See `docs/MEMORY.md` for the full memory layer reference.
 
 ## Anti-Patterns to Avoid
 
