@@ -27,7 +27,7 @@ This guide walks you through setting up the platform, attaching it to your first
 You need:
 - **Git** — for version control and worktree sandboxing
 
-Node.js 18+ and npm are required for MCP servers but installed automatically by `claude-workspace setup` if missing. The setup wizard also checks for optional tools like shellcheck, jq, prettier, and tmux.
+Node.js 18+ and npm are required for MCP servers but installed automatically by `claude-workspace setup` if missing. The setup wizard also checks for optional tools like shellcheck, jq, prettier, tmux, golangci-lint, and python3.
 
 ---
 
@@ -73,7 +73,7 @@ claude-workspace setup
 # 5. Install claude-workspace binary to PATH
 # 6. Install Node.js if missing (for MCP servers)
 # 7. Register user-scoped MCP servers (memory, git)
-# 8. Check for optional system tools (shellcheck, jq, prettier, tmux)
+# 8. Check for optional system tools (shellcheck, jq, prettier, tmux, golangci-lint, python3)
 ```
 
 **Alternative: Environment variable**

@@ -362,7 +362,7 @@ claude-workspace skills list
 
 ## claude-workspace statusline
 
-Configure the Claude Code statusline to display live session cost, context usage, and model name.
+Configure the Claude Code statusline to display live session cost, context usage, model name, weekly reset countdown, and service status alerts.
 
 **Synopsis:**
 
@@ -382,16 +382,38 @@ claude-workspace statusline [--force]
 2. `npx -y ccusage statusline` — if `npx` is available
 3. Inline `jq` fallback — if neither runtime is found (requires `jq`)
 
+**Service status alerts:**
+
+When any monitored service is experiencing issues, a colored alert line appears above the normal statusline. Alerts are cached for 5 minutes with a 2-second HTTP timeout. Monitored services:
+
+| Service | API | Format |
+|---------|-----|--------|
+| GitHub | `githubstatus.com/api/v2/status.json` | Atlassian Statuspage |
+| Claude | `status.claude.com/api/v2/status.json` | Atlassian Statuspage |
+| Cloudflare | `cloudflarestatus.com/api/v2/status.json` | Atlassian Statuspage |
+| AWS | `health.aws.amazon.com/public/currentevents` | Custom (event array) |
+| Google Cloud | `status.cloud.google.com/incidents.json` | Custom (incidents) |
+| Azure DevOps | `status.dev.azure.com/_apis/status/health` | Custom (health) |
+
+Requires `python3` (standard on macOS and most Linux); silently omitted if unavailable.
+
 **Behavior:**
 
 - Idempotent by default: skips if `statusLine` is already configured in `~/.claude/settings.json`
 - Creates `~/.claude/settings.json` if it does not yet exist
 - Restart Claude Code after running to activate the statusline
 
-**Example output** (using ccusage):
+**Example output** (using ccusage, all services healthy):
 
 ```
-Opus | $0.23 session / $1.23 today / $0.45 block (2h 45m left) | $0.12/hr | 25,000 (12%)
+Opus | $0.23 session / $1.23 today / $0.45 block (2h 45m left) | $0.12/hr | 25,000 (12%) | resets in 3d
+```
+
+**Example output** (with service issues — multiline, colored):
+
+```
+🚨 GitHub: Major System Outage  ⚠️  Claude: Degraded Performance
+Opus | $0.23 session / $1.23 today / $0.45 block (2h 45m left) | $0.12/hr | 25,000 (12%) | resets in 3d
 ```
 
 **Examples:**

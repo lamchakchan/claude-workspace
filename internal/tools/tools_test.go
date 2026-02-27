@@ -29,8 +29,8 @@ func TestRegistryRequired(t *testing.T) {
 
 func TestRegistryOptional(t *testing.T) {
 	optional := Optional()
-	if len(optional) != 6 {
-		t.Fatalf("expected 6 optional tools, got %d", len(optional))
+	if len(optional) != 7 {
+		t.Fatalf("expected 7 optional tools, got %d", len(optional))
 	}
 	names := make(map[string]bool)
 	for _, tool := range optional {
@@ -39,7 +39,7 @@ func TestRegistryOptional(t *testing.T) {
 			t.Errorf("optional tool %s should not have Required=true", tool.Name)
 		}
 	}
-	for _, name := range []string{"engram", "shellcheck", "jq", "prettier", "tmux", "golangci-lint"} {
+	for _, name := range []string{"engram", "shellcheck", "jq", "prettier", "tmux", "golangci-lint", "python3"} {
 		if !names[name] {
 			t.Errorf("expected optional tool %s to be in registry", name)
 		}
@@ -48,8 +48,8 @@ func TestRegistryOptional(t *testing.T) {
 
 func TestRegistryAll(t *testing.T) {
 	all := All()
-	if len(all) != 8 {
-		t.Fatalf("expected 8 total tools, got %d", len(all))
+	if len(all) != 9 {
+		t.Fatalf("expected 9 total tools, got %d", len(all))
 	}
 }
 
@@ -172,7 +172,7 @@ func TestEngramHasCustomFns(t *testing.T) {
 }
 
 func TestSimpleToolsHaveNoCustomFns(t *testing.T) {
-	for _, fn := range []func() Tool{Shellcheck, JQ, Tmux, GolangciLint} {
+	for _, fn := range []func() Tool{Shellcheck, JQ, Tmux, GolangciLint, Python3} {
 		tool := fn()
 		if tool.InstallFn != nil {
 			t.Errorf("%s should not have a custom InstallFn", tool.Name)
