@@ -48,6 +48,12 @@ jobs:
         with:
           version: 'latest'
 
+      - name: Setup golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --disable gocyclo ./...
+
       - name: Lint templates
         if: always()
         run: make lint
