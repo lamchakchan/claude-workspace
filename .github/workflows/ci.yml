@@ -48,11 +48,14 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Lint Go
+      - name: Setup golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.10
-          args: --output.json.path=/tmp/lint-output.json ./...
+          install-only: true
+
+      - name: Lint Go
+        run: golangci-lint run --output.json.path=/tmp/lint-output.json ./...
 
       - name: Lint Summary
         if: always()
