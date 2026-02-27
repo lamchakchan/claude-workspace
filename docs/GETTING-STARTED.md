@@ -114,7 +114,7 @@ claude-workspace attach /path/to/your/project
 # .claude/CLAUDE.md                  - Project instructions (auto-detected tech stack)
 # .claude/CLAUDE.local.md.example    - Template for personal context
 # .claude/agents/                    - All 5 subagent definitions
-# .claude/skills/                    - All 4 skill definitions
+# .claude/skills/                    - All 6 skill definitions
 # .claude/hooks/                     - All 4 safety hooks
 # .claude/.gitignore                 - Ignores local overrides
 # .mcp.json                         - MCP server configurations
@@ -316,9 +316,11 @@ Skills are reusable workflows that Claude follows when triggered. They're invoke
 | Skill | Trigger | What It Does |
 |-------|---------|--------------|
 | `/plan-and-execute` | Automatically on complex tasks | Enforces plan-first workflow |
+| `/plan-resume` | Returning to in-progress work | Resumes a parked plan from a prior session |
 | `/context-manager` | When context is getting full | Strategies for large codebases |
 | `/pr-workflow` | "Create a PR for these changes" | Guides the full PR process |
 | `/onboarding` | First time in a new project | Maps the codebase and generates CLAUDE.md |
+| `/statusline-setup` | Setting up live metrics | Configures the Claude Code statusline display |
 
 ### Example: Onboarding to a New Project
 
@@ -327,6 +329,8 @@ Skills are reusable workflows that Claude follows when triggered. They're invoke
 ```
 
 Claude will explore the project, detect the tech stack, map the directory structure, and generate/update the project's CLAUDE.md with useful context.
+
+For detailed descriptions of each skill, see [Skills Reference](SKILLS.md).
 
 ---
 

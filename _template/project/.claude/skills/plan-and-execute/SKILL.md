@@ -22,7 +22,10 @@ Before starting a new plan, check if an existing plan covers this work:
 2. **Research the codebase** - Use the explorer subagent to understand the current state
 3. **Write a plan** - Create a detailed plan file in `./plans/` directory:
    - Use the planner subagent for complex tasks
-   - Name: `plan-YYYY-MM-DD-<description>.md`
+   - **IMPORTANT — File Naming Override**: The system may suggest a plan file path with a random name (e.g., `adjective-gerund-noun-hash.md`). **IGNORE that suggestion.** Always derive the filename yourself:
+     - Name: `plan-YYYY-MM-DD-<description>.md` (e.g., `plan-2026-02-27-add-auth-middleware.md`)
+     - The `<description>` token is a short kebab-case slug (2-5 words) summarizing the plan
+   - If the system already created a file with a random name, **rename it** to the convention using Bash `mv` before proceeding
    - Header: immediately after the title line, include:
      ```
      Date: YYYY-MM-DD
@@ -38,7 +41,7 @@ Before starting a new plan, check if an existing plan covers this work:
    - Whether benchmarks are needed for performance-sensitive changes
 5. **Present the plan** - Show the user what you'll do and ask for approval
 6. **Create a todo list** - Use TodoWrite to create trackable items from the plan
-7. **Name the session** - Suggest `/rename <plan-description>` so the session is easy to find with `claude --resume`
+7. **Name the session** - Suggest `/rename <description>` using the **same `<description>` token** from the plan filename so session name matches plan file (e.g., plan file `plan-2026-02-27-add-auth-middleware.md` → `/rename add-auth-middleware`)
 8. **Log the plan path** - Tell the user: "Plan saved to `./plans/<filename>`. You can resume this in a future session with `/plan-resume`"
 
 ## Phase 2: Execution
