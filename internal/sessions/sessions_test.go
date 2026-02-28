@@ -160,9 +160,9 @@ func TestDecodeProjectPath(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := decodeProjectPath(tt.input)
+		got := DecodeProjectPath(tt.input)
 		if got != tt.want {
-			t.Errorf("decodeProjectPath(%q) = %q, want %q", tt.input, got, tt.want)
+			t.Errorf("DecodeProjectPath(%q) = %q, want %q", tt.input, got, tt.want)
 		}
 	}
 }
@@ -289,7 +289,7 @@ func TestParseSessionPrompts(t *testing.T) {
 	}
 	path := writeTestSession(t, dir, id, messages)
 
-	prompts, _, err := parseSessionPrompts(path)
+	prompts, _, err := ParseSessionPrompts(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -318,7 +318,7 @@ func TestParseSessionPrompts_ExtractsSlug(t *testing.T) {
 
 	path := writeTestSession(t, dir, id, messages)
 
-	_, slug, err := parseSessionPrompts(path)
+	_, slug, err := ParseSessionPrompts(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,7 +340,7 @@ func TestScanProjectSessions(t *testing.T) {
 		makeUserRecord("<command-name>/exit</command-name>", "2026-02-24T09:00:00.000Z", "/tmp", false),
 	})
 
-	sessions, err := scanProjectSessions(dir, "test-project")
+	sessions, err := ScanProjectSessions(dir, "test-project")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -366,7 +366,7 @@ func TestScanProjectSessions_IgnoresSubdirectories(t *testing.T) {
 	subDir := filepath.Join(dir, "main-session")
 	_ = os.MkdirAll(filepath.Join(subDir, "subagents"), 0755)
 
-	sessions, err := scanProjectSessions(dir, "test-project")
+	sessions, err := ScanProjectSessions(dir, "test-project")
 	if err != nil {
 		t.Fatal(err)
 	}

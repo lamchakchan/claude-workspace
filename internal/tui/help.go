@@ -61,6 +61,33 @@ func (m *HelpModel) View() tea.View {
 			},
 		},
 		{
+			title: "Path autocomplete",
+			binds: [][2]string{
+				{"↑ / ↓", "Cycle suggestions"},
+				{"tab", "Accept suggestion"},
+			},
+		},
+		{
+			title: "Lists",
+			binds: [][2]string{
+				{"j / k", "Move up / down"},
+				{"pgup / pgdn", "Page up / down"},
+				{"g / G", "Go to top / bottom"},
+				{keyEnter, "Select item"},
+				{"esc / q", "Go back"},
+			},
+		},
+		{
+			title: "Viewers",
+			binds: [][2]string{
+				{"j / k", "Scroll up / down"},
+				{"pgup / pgdn", "Page up / down"},
+				{"g / G", "Go to top / bottom"},
+				{"y", "Copy to clipboard"},
+				{"esc / q", "Close viewer"},
+			},
+		},
+		{
 			title: "Confirmation dialogs",
 			binds: [][2]string{
 				{"y / Y", "Confirm yes"},

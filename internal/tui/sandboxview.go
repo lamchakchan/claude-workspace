@@ -17,7 +17,7 @@ type SandboxModel struct {
 // NewSandbox creates a new sandbox form screen.
 func NewSandbox(theme *Theme) *SandboxModel {
 	fields := []FormField{
-		{Label: "Project path", Placeholder: "e.g. ./my-project or /abs/path", Required: true},
+		{Label: "Project path", Placeholder: "e.g. ./my-project or /abs/path", Required: true, IsPath: true},
 		{Label: "Branch name", Placeholder: "e.g. feature-auth, bugfix-login", Required: true},
 	}
 

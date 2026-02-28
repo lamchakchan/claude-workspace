@@ -40,7 +40,7 @@ func newLauncher(version string, theme *Theme) *launcherModel {
 		{
 			title: "Getting Started",
 			items: []commandItem{
-				{name: "Setup", desc: "First-time setup & API key provisioning", icon: "⚙", command: "setup"},
+				{name: "Setup", desc: "First-time setup & API key provisioning", icon: "⚙ ", command: "setup"},
 				{name: "Attach", desc: "Overlay platform config onto a project", icon: "📎", command: "attach"},
 				{name: "Enrich", desc: "Re-generate CLAUDE.md with AI analysis", icon: "✨", command: "enrich"},
 				{name: "Sandbox", desc: "Create a sandboxed branch worktree", icon: "🔀", command: "sandbox"},
@@ -57,7 +57,7 @@ func newLauncher(version string, theme *Theme) *launcherModel {
 			title: "Inspect & Manage",
 			items: []commandItem{
 				{name: "Doctor", desc: "Check platform configuration health", icon: "🩺", command: "doctor"},
-				{name: "Skills", desc: "List available skills and personal commands", icon: "🛠", command: "skills"},
+				{name: "Skills", desc: "List available skills and personal commands", icon: "🛠 ", command: "skills"},
 				{name: "Sessions", desc: "Browse and review session prompts", icon: "💬", command: "sessions"},
 				{name: "Memory", desc: "Inspect and manage memory layers", icon: "🧠", command: "memory"},
 				{name: "Cost", desc: "View usage and costs", icon: "💰", command: "cost"},
@@ -66,7 +66,7 @@ func newLauncher(version string, theme *Theme) *launcherModel {
 		{
 			title: "Maintenance",
 			items: []commandItem{
-				{name: "Upgrade", desc: "Upgrade claude-workspace and CLI", icon: "⬆", command: "upgrade"},
+				{name: "Upgrade", desc: "Upgrade claude-workspace and CLI", icon: "⬆ ", command: "upgrade"},
 				{name: "Statusline", desc: "Configure Claude Code statusline", icon: "📊", command: "statusline"},
 			},
 		},
@@ -117,11 +117,11 @@ func (m *launcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch msg.String() {
-		case "up", "k":
+		case keyUp, "k":
 			if m.cursor > 0 {
 				m.cursor--
 			}
-		case "down", "j":
+		case keyDown, "j":
 			if m.cursor < m.total-1 {
 				m.cursor++
 			}
@@ -154,17 +154,27 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd {
 		if len(item.args) > 0 && item.args[0] == "add" {
 			return pushView(NewMcpAdd(m.theme))
 		}
-		// mcp list — run inline so user returns to launcher
-		return execAndReturn(item.command, item.args)
+		return pushView(NewMcpList(m.theme))
 
-	// Data display: run inline; TUI resumes at launcher when done
-	case "doctor", "skills", "sessions", "memory", "cost":
-		return execAndReturn(item.command, item.args)
+	// In-app viewers for data display commands
+	case "doctor":
+		return pushView(NewDoctor(m.theme))
+	case "skills":
+		return pushView(NewSkills(m.theme))
+	case "sessions":
+		return pushView(NewSessions(m.theme))
+	case "memory":
+		return pushView(NewMemory(m.theme))
+	case "cost":
+		return pushView(NewCost(m.theme))
 
-	// Setup and statusline exit TUI (they may start their own interactive flow)
-	default:
-		return fireCommand(item.command, item.args)
+	// In-app viewers for setup and statusline
+	case "setup":
+		return pushView(NewSetup(m.theme))
+	case "statusline":
+		return pushView(NewStatusline(m.theme))
 	}
+	return nil
 }
 
 func (m *launcherModel) View() tea.View {
@@ -181,6 +191,16 @@ func (m *launcherModel) View() tea.View {
 	b.WriteString(banner)
 	b.WriteString("\n")
 
+	// Compute max name width for column alignment
+	maxName := 0
+	for _, group := range m.groups {
+		for _, item := range group.items {
+			if len(item.name) > maxName {
+				maxName = len(item.name)
+			}
+		}
+	}
+
 	// Command groups
 	flatIdx := 0
 	for _, group := range m.groups {
@@ -190,14 +210,17 @@ func (m *launcherModel) View() tea.View {
 		for _, item := range group.items {
 			selected := flatIdx == m.cursor
 
+			// Pad name to fixed width before styling
+			paddedName := fmt.Sprintf("%-*s", maxName, item.name)
+
 			cursor := "  "
 			icon := lipgloss.NewStyle().Foreground(m.theme.Muted).Render(item.icon)
-			name := item.name
+			name := paddedName
 			desc := lipgloss.NewStyle().Foreground(m.theme.Muted).Render(item.desc)
 
 			if selected {
 				cursor = lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true).Render("> ")
-				name = lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true).Render(item.name)
+				name = lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true).Render(paddedName)
 				icon = lipgloss.NewStyle().Foreground(m.theme.Primary).Render(item.icon)
 			}
 
@@ -221,26 +244,8 @@ func (m *launcherModel) View() tea.View {
 	return tea.NewView(b.String())
 }
 
-// commandMsg is sent when a command should be run via CLI exec after TUI exits.
-type commandMsg struct {
-	command string
-	args    []string
-}
-
-func fireCommand(command string, args []string) tea.Cmd {
-	return func() tea.Msg {
-		return commandMsg{command: command, args: args}
-	}
-}
-
 func pushView(model tea.Model) tea.Cmd {
 	return func() tea.Msg {
 		return PushViewMsg{Model: model}
-	}
-}
-
-func execAndReturn(command string, args []string) tea.Cmd {
-	return func() tea.Msg {
-		return ExecAndReturnMsg{Command: command, Args: args}
 	}
 }

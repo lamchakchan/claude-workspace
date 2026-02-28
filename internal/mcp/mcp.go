@@ -6,6 +6,7 @@ package mcp
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -504,16 +505,24 @@ func Remote(mcpURL string, extraArgs []string) error {
 	return nil
 }
 
-// List lists all configured MCP servers.
+// List lists all configured MCP servers, printing to stdout.
 func List() error {
-	platform.PrintBanner(os.Stdout, "Configured MCP Servers")
-	fmt.Println()
+	return ListTo(os.Stdout)
+}
 
-	_, _ = platform.RunSpawn("claude", "mcp", "list")
+// ListTo lists all configured MCP servers, writing to w.
+func ListTo(w io.Writer) error {
+	platform.PrintBanner(w, "Configured MCP Servers")
+	fmt.Fprintln(w)
+
+	// Capture claude mcp list output
+	if out, err := platform.Output("claude", "mcp", "list"); err == nil && out != "" {
+		fmt.Fprintln(w, out)
+	}
 
 	mcpJSONPath := filepath.Join(".", ".mcp.json")
 	if platform.FileExists(mcpJSONPath) {
-		platform.PrintSection(os.Stdout, "Project .mcp.json")
+		platform.PrintSection(w, "Project .mcp.json")
 		var mcpConfig struct {
 			MCPServers map[string]json.RawMessage `json:"mcpServers"`
 		}
@@ -546,23 +555,23 @@ func List() error {
 					if urlOrType == "" {
 						urlOrType = cfg.Type
 					}
-					fmt.Printf("  %s: %s (remote)%s\n", name, urlOrType, envNote)
+					fmt.Fprintf(w, "  %s: %s (remote)%s\n", name, urlOrType, envNote)
 				} else {
-					fmt.Printf("  %s: %s %s (local)%s\n", name, cfg.Command, strings.Join(cfg.Args, " "), envNote)
+					fmt.Fprintf(w, "  %s: %s %s (local)%s\n", name, cfg.Command, strings.Join(cfg.Args, " "), envNote)
 				}
 			}
 		} else {
-			fmt.Fprintf(os.Stderr, "  %s\n", platform.Red("Could not parse .mcp.json"))
+			fmt.Fprintf(w, "  %s\n", platform.Red("Could not parse .mcp.json"))
 		}
 	}
 
-	platform.PrintSection(os.Stdout, "Quick Add Commands")
-	fmt.Println("  Local server (no auth):     claude-workspace mcp add <name> -- <cmd>")
-	fmt.Println("  Local server (API key):     claude-workspace mcp add <name> --api-key API_KEY -- <cmd>")
-	fmt.Println("  Remote server (OAuth):      claude-workspace mcp remote <url>")
-	fmt.Println("  Remote server (Bearer):     claude-workspace mcp remote <url> --bearer")
-	fmt.Println("  Remote server (client creds): claude-workspace mcp remote <url> --oauth --client-id <id> --client-secret")
-	fmt.Println()
+	platform.PrintSection(w, "Quick Add Commands")
+	fmt.Fprintln(w, "  Local server (no auth):     claude-workspace mcp add <name> -- <cmd>")
+	fmt.Fprintln(w, "  Local server (API key):     claude-workspace mcp add <name> --api-key API_KEY -- <cmd>")
+	fmt.Fprintln(w, "  Remote server (OAuth):      claude-workspace mcp remote <url>")
+	fmt.Fprintln(w, "  Remote server (Bearer):     claude-workspace mcp remote <url> --bearer")
+	fmt.Fprintln(w, "  Remote server (client creds): claude-workspace mcp remote <url> --oauth --client-id <id> --client-secret")
+	fmt.Fprintln(w)
 
 	return nil
 }

@@ -34,18 +34,18 @@ type record struct {
 	} `json:"message"`
 }
 
-// session holds parsed metadata for one session.
-type session struct {
+// Session holds parsed metadata for one session.
+type Session struct {
 	ID        string // filename UUID
 	Slug      string // human-readable name
 	Project   string // decoded project path
 	StartTime time.Time
 	Title     string // first user message, truncated
-	Prompts   []prompt
+	Prompts   []Prompt
 }
 
-// prompt is a single user message in a session.
-type prompt struct {
+// Prompt is a single user message in a session.
+type Prompt struct {
 	Content   string
 	Timestamp time.Time
 }
@@ -91,8 +91,8 @@ func Run(args []string) error {
 	}
 }
 
-// resolveProjectDirs returns the session directories to scan.
-func resolveProjectDirs(projectsDir string, all bool) ([]string, error) {
+// ResolveProjectDirs returns the session directories to scan.
+func ResolveProjectDirs(projectsDir string, all bool) ([]string, error) {
 	if all {
 		entries, err := os.ReadDir(projectsDir)
 		if err != nil {
@@ -119,7 +119,7 @@ func resolveProjectDirs(projectsDir string, all bool) ([]string, error) {
 }
 
 // printSessionTable prints the session list as a formatted table.
-func printSessionTable(w *os.File, sessions []session, all bool) {
+func printSessionTable(w *os.File, sessions []Session, all bool) {
 	if all {
 		platform.PrintBanner(w, "Sessions (all projects)")
 	} else if len(sessions) > 0 {
@@ -160,15 +160,15 @@ func list(limit int, all bool) error {
 		return fmt.Errorf("no Claude Code session data found at %s", projectsDir)
 	}
 
-	projectDirs, err := resolveProjectDirs(projectsDir, all)
+	projectDirs, err := ResolveProjectDirs(projectsDir, all)
 	if err != nil {
 		return err
 	}
 
-	var sessions []session
+	var sessions []Session
 	for _, dir := range projectDirs {
-		projectName := decodeProjectPath(filepath.Base(dir))
-		s, err := scanProjectSessions(dir, projectName)
+		projectName := DecodeProjectPath(filepath.Base(dir))
+		s, err := ScanProjectSessions(dir, projectName)
 		if err != nil {
 			continue
 		}
@@ -223,7 +223,7 @@ func show(idPrefix string) error {
 			}
 			id := strings.TrimSuffix(name, ".jsonl")
 			if strings.HasPrefix(id, idPrefix) {
-				return showSession(filepath.Join(dir, name), id, decodeProjectPath(pe.Name()))
+				return showSession(filepath.Join(dir, name), id, DecodeProjectPath(pe.Name()))
 			}
 		}
 	}
@@ -233,7 +233,7 @@ func show(idPrefix string) error {
 
 // showSession reads and displays all user prompts from a session file.
 func showSession(path, id, project string) error {
-	prompts, slug, err := parseSessionPrompts(path)
+	prompts, slug, err := ParseSessionPrompts(path)
 	if err != nil {
 		return err
 	}
@@ -261,14 +261,14 @@ func showSession(path, id, project string) error {
 	return nil
 }
 
-// scanProjectSessions reads session files from a project directory and returns metadata.
-func scanProjectSessions(dir, projectName string) ([]session, error) {
+// ScanProjectSessions reads session files from a project directory and returns metadata.
+func ScanProjectSessions(dir, projectName string) ([]Session, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
 
-	var sessions []session
+	var sessions []Session
 	for _, e := range entries {
 		name := e.Name()
 		if !strings.HasSuffix(name, ".jsonl") || e.IsDir() {
@@ -292,14 +292,14 @@ func scanProjectSessions(dir, projectName string) ([]session, error) {
 }
 
 // parseSessionMeta reads enough of a session file to extract metadata.
-func parseSessionMeta(path, id, project string) (session, error) {
+func parseSessionMeta(path, id, project string) (Session, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return session{}, err
+		return Session{}, err
 	}
 	defer f.Close()
 
-	s := session{
+	s := Session{
 		ID:      id,
 		Project: project,
 	}
@@ -343,15 +343,15 @@ func parseSessionMeta(path, id, project string) (session, error) {
 	return s, scanner.Err()
 }
 
-// parseSessionPrompts reads all user prompts from a session file.
-func parseSessionPrompts(path string) ([]prompt, string, error) {
+// ParseSessionPrompts reads all user prompts from a session file.
+func ParseSessionPrompts(path string) ([]Prompt, string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, "", err
 	}
 	defer f.Close()
 
-	var prompts []prompt
+	var prompts []Prompt
 	var slug string
 
 	scanner := bufio.NewScanner(f)
@@ -376,7 +376,7 @@ func parseSessionPrompts(path string) ([]prompt, string, error) {
 		}
 
 		ts, _ := time.Parse(time.RFC3339Nano, rec.Timestamp)
-		prompts = append(prompts, prompt{
+		prompts = append(prompts, Prompt{
 			Content:   content,
 			Timestamp: ts,
 		})
@@ -426,8 +426,8 @@ func encodeProjectPath(path string) string {
 	return strings.ReplaceAll(path, "/", "-")
 }
 
-// decodeProjectPath converts Claude's directory encoding back to a path.
-func decodeProjectPath(encoded string) string {
+// DecodeProjectPath converts Claude's directory encoding back to a path.
+func DecodeProjectPath(encoded string) string {
 	// The encoding replaces leading / with -, so "-Users-lam-..." becomes "/Users/lam/..."
 	if len(encoded) > 0 && encoded[0] == '-' {
 		return "/" + strings.ReplaceAll(encoded[1:], "-", "/")

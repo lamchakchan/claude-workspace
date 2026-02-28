@@ -88,7 +88,7 @@ func (m *ConfirmModel) View() string {
 		no = selectedStyle.Render("No")
 	}
 
-	b.WriteString(yes + "  " + no)
+	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Center, yes, "  ", no))
 	b.WriteString("\n\n")
 
 	help := m.theme.HelpKey.Render("←/→") + " " + m.theme.HelpDesc.Render("switch") + "  " +
