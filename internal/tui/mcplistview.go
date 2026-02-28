@@ -1,4 +1,4 @@
-package tui
+package tui //nolint:dupl // viewer wrappers share identical structure by design
 
 import (
 	"bytes"

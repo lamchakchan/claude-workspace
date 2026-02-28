@@ -92,18 +92,19 @@ func loadSessions() tea.Msg {
 	return sessionsLoadedMsg{sessions: allSessions}
 }
 
-func loadSessionPrompts(s sessions.Session) tea.Cmd {
+func loadSessionPrompts(s *sessions.Session) tea.Cmd {
+	sess := *s // copy for goroutine safety
 	return func() tea.Msg {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return sessionPromptsMsg{session: s, err: err.Error()}
+			return sessionPromptsMsg{session: sess, err: err.Error()}
 		}
 		projectsDir := filepath.Join(home, ".claude", "projects")
 
 		// Search all project dirs for this session file
 		projectEntries, err := os.ReadDir(projectsDir)
 		if err != nil {
-			return sessionPromptsMsg{session: s, err: err.Error()}
+			return sessionPromptsMsg{session: sess, err: err.Error()}
 		}
 
 		for _, pe := range projectEntries {
@@ -111,17 +112,17 @@ func loadSessionPrompts(s sessions.Session) tea.Cmd {
 				continue
 			}
 			dir := filepath.Join(projectsDir, pe.Name())
-			path := filepath.Join(dir, s.ID+".jsonl")
+			path := filepath.Join(dir, sess.ID+".jsonl")
 			if platform.FileExists(path) {
 				prompts, slug, err := sessions.ParseSessionPrompts(path)
 				if err != nil {
-					return sessionPromptsMsg{session: s, err: err.Error()}
+					return sessionPromptsMsg{session: sess, err: err.Error()}
 				}
-				return sessionPromptsMsg{session: s, prompts: prompts, slug: slug}
+				return sessionPromptsMsg{session: sess, prompts: prompts, slug: slug}
 			}
 		}
 
-		return sessionPromptsMsg{session: s, err: "session file not found"}
+		return sessionPromptsMsg{session: sess, err: "session file not found"}
 	}
 }
 
@@ -159,21 +160,7 @@ func (m *SessionsModel) clampScroll() {
 func (m *SessionsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// If viewing prompts, delegate to the prompt viewer
 	if m.promptViewer != nil {
-		switch msg := msg.(type) {
-		case tea.KeyPressMsg:
-			if IsBack(msg) || IsQuit(msg) {
-				m.promptViewer = nil
-				return m, nil
-			}
-		case tea.WindowSizeMsg:
-			m.width = msg.Width
-			m.height = msg.Height
-		}
-		if m.promptViewer != nil {
-			_, cmd := m.promptViewer.Update(msg)
-			return m, cmd
-		}
-		return m, nil
+		return m.updatePromptViewer(msg)
 	}
 
 	switch msg := msg.(type) {
@@ -192,62 +179,92 @@ func (m *SessionsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case sessionPromptsMsg:
-		if msg.err != "" {
-			m.err = msg.err
-			return m, nil
-		}
-		content := formatSessionPrompts(msg.session, msg.prompts, msg.slug)
-		m.promptViewer = NewViewer("Session: "+msg.session.Title, content, m.theme)
-		// Forward window size so the viewport initializes correctly
-		if m.width > 0 && m.height > 0 {
-			m.promptViewer.SetSize(m.width, m.height)
-		}
-		return m, nil
+		cmd := m.handlePromptsLoaded(&msg)
+		return m, cmd
 
 	case tea.KeyPressMsg:
 		if IsQuit(msg) || IsBack(msg) {
 			return m, func() tea.Msg { return PopViewMsg{} }
 		}
-
-		switch msg.String() {
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
-			m.clampScroll()
-		case "down", "j":
-			if m.cursor < len(m.sessions)-1 {
-				m.cursor++
-			}
-			m.clampScroll()
-		case "pgup", "b":
-			m.cursor -= m.visibleRows()
-			if m.cursor < 0 {
-				m.cursor = 0
-			}
-			m.clampScroll()
-		case "pgdown", "f":
-			m.cursor += m.visibleRows()
-			if m.cursor > len(m.sessions)-1 {
-				m.cursor = len(m.sessions) - 1
-			}
-			m.clampScroll()
-		case "g":
-			m.cursor = 0
-			m.clampScroll()
-		case "G":
-			if len(m.sessions) > 0 {
-				m.cursor = len(m.sessions) - 1
-			}
-			m.clampScroll()
-		case keyEnter:
-			if len(m.sessions) > 0 {
-				return m, loadSessionPrompts(m.sessions[m.cursor])
-			}
-		}
+		cmd := m.handleSessionKey(msg)
+		return m, cmd
 	}
 
 	return m, nil
+}
+
+// updatePromptViewer delegates to the prompt viewer sub-view.
+func (m *SessionsModel) updatePromptViewer(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		if IsBack(msg) || IsQuit(msg) {
+			m.promptViewer = nil
+			return m, nil
+		}
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+	}
+	if m.promptViewer != nil {
+		_, cmd := m.promptViewer.Update(msg)
+		return m, cmd
+	}
+	return m, nil
+}
+
+// handlePromptsLoaded processes loaded session prompts.
+func (m *SessionsModel) handlePromptsLoaded(msg *sessionPromptsMsg) tea.Cmd {
+	if msg.err != "" {
+		m.err = msg.err
+		return nil
+	}
+	content := formatSessionPrompts(&msg.session, msg.prompts, msg.slug)
+	m.promptViewer = NewViewer("Session: "+msg.session.Title, content, m.theme)
+	if m.width > 0 && m.height > 0 {
+		m.promptViewer.SetSize(m.width, m.height)
+	}
+	return nil
+}
+
+// handleSessionKey handles navigation keys in the session list.
+func (m *SessionsModel) handleSessionKey(msg tea.KeyPressMsg) tea.Cmd {
+	switch msg.String() {
+	case keyUp, "k":
+		if m.cursor > 0 {
+			m.cursor--
+		}
+		m.clampScroll()
+	case keyDown, "j":
+		if m.cursor < len(m.sessions)-1 {
+			m.cursor++
+		}
+		m.clampScroll()
+	case "pgup", "b":
+		m.cursor -= m.visibleRows()
+		if m.cursor < 0 {
+			m.cursor = 0
+		}
+		m.clampScroll()
+	case "pgdown", "f":
+		m.cursor += m.visibleRows()
+		if m.cursor > len(m.sessions)-1 {
+			m.cursor = len(m.sessions) - 1
+		}
+		m.clampScroll()
+	case "g":
+		m.cursor = 0
+		m.clampScroll()
+	case "G":
+		if len(m.sessions) > 0 {
+			m.cursor = len(m.sessions) - 1
+		}
+		m.clampScroll()
+	case keyEnter:
+		if len(m.sessions) > 0 {
+			return loadSessionPrompts(&m.sessions[m.cursor])
+		}
+	}
+	return nil
 }
 
 func (m *SessionsModel) View() tea.View {
@@ -276,7 +293,7 @@ func (m *SessionsModel) View() tea.View {
 	}
 
 	// Table header
-	b.WriteString(fmt.Sprintf("\n  %-10s  %-12s  %s\n", "ID", "DATE", "TITLE"))
+	fmt.Fprintf(&b, "\n  %-10s  %-12s  %s\n", "ID", "DATE", "TITLE")
 	mutedLine := lipgloss.NewStyle().Foreground(m.theme.Muted)
 	b.WriteString(mutedLine.Render(fmt.Sprintf("  %-10s  %-12s  %s", "──────────", "────────────", strings.Repeat("─", 50))))
 	b.WriteString("\n")
@@ -343,7 +360,7 @@ func (m *SessionsModel) View() tea.View {
 	return tea.NewView(b.String())
 }
 
-func formatSessionPrompts(s sessions.Session, prompts []sessions.Prompt, slug string) string {
+func formatSessionPrompts(s *sessions.Session, prompts []sessions.Prompt, slug string) string {
 	var b strings.Builder
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#06B6D4"))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280"))
@@ -355,11 +372,11 @@ func formatSessionPrompts(s sessions.Session, prompts []sessions.Prompt, slug st
 
 	b.WriteString("  " + titleStyle.Render(title) + "\n")
 	b.WriteString("  Project: " + mutedStyle.Render(s.Project) + "\n")
-	b.WriteString(fmt.Sprintf("  Prompts: %s\n\n", mutedStyle.Render(fmt.Sprintf("%d", len(prompts)))))
+	fmt.Fprintf(&b, "  Prompts: %s\n\n", mutedStyle.Render(fmt.Sprintf("%d", len(prompts))))
 
 	for i, p := range prompts {
 		ts := p.Timestamp.Local().Format("15:04:05")
-		b.WriteString(fmt.Sprintf("  %s\n", titleStyle.Render(fmt.Sprintf("[%d] %s", i+1, ts))))
+		fmt.Fprintf(&b, "  %s\n", titleStyle.Render(fmt.Sprintf("[%d] %s", i+1, ts)))
 		for _, line := range strings.Split(p.Content, "\n") {
 			b.WriteString("  " + line + "\n")
 		}

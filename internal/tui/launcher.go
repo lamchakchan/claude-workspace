@@ -117,11 +117,11 @@ func (m *launcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch msg.String() {
-		case "up", "k":
+		case keyUp, "k":
 			if m.cursor > 0 {
 				m.cursor--
 			}
-		case "down", "j":
+		case keyDown, "j":
 			if m.cursor < m.total-1 {
 				m.cursor++
 			}

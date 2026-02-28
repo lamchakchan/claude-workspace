@@ -63,11 +63,11 @@ func loadMemoryLayers() (string, error) {
 		}
 
 		if layer.Lines > 0 {
-			b.WriteString(fmt.Sprintf("    Lines:  %s\n", mutedStyle.Render(fmt.Sprintf("%d", layer.Lines))))
+			fmt.Fprintf(&b, "    Lines:  %s\n", mutedStyle.Render(fmt.Sprintf("%d", layer.Lines)))
 		}
 
 		if len(layer.Files) > 0 {
-			b.WriteString(fmt.Sprintf("    Files:  %s\n", mutedStyle.Render(fmt.Sprintf("%d", len(layer.Files)))))
+			fmt.Fprintf(&b, "    Files:  %s\n", mutedStyle.Render(fmt.Sprintf("%d", len(layer.Files))))
 			for name := range layer.Files {
 				b.WriteString("      - " + mutedStyle.Render(name) + "\n")
 			}

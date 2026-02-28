@@ -94,59 +94,7 @@ func (m *FormModel) Update(msg tea.Msg) (*FormModel, tea.Cmd) {
 	}
 
 	if msg, ok := msg.(tea.KeyPressMsg); ok {
-		switch msg.String() {
-		case keyCtrlC, "esc":
-			m.done = true
-			return m, func() tea.Msg { return FormResult{Cancelled: true} }
-
-		case "tab":
-			// For path fields: if there's a matched suggestion, let textinput
-			// handle tab (accepts the suggestion). Otherwise, advance to next field.
-			if m.Fields[m.cursor].IsPath && m.inputs[m.cursor].CurrentSuggestion() != "" {
-				var cmd tea.Cmd
-				m.inputs[m.cursor], cmd = m.inputs[m.cursor].Update(msg)
-				// After accepting a suggestion, refresh suggestions
-				return m, tea.Batch(cmd, readDirSuggestions(m.cursor, m.inputs[m.cursor].Value()))
-			}
-			m.inputs[m.cursor].Blur()
-			m.cursor = (m.cursor + 1) % len(m.inputs)
-			m.inputs[m.cursor].Focus()
-
-		case "down":
-			// If path field has suggestions, cycle through them
-			if m.Fields[m.cursor].IsPath && len(m.inputs[m.cursor].MatchedSuggestions()) > 0 {
-				var cmd tea.Cmd
-				m.inputs[m.cursor], cmd = m.inputs[m.cursor].Update(msg)
-				return m, cmd
-			}
-			m.inputs[m.cursor].Blur()
-			m.cursor = (m.cursor + 1) % len(m.inputs)
-			m.inputs[m.cursor].Focus()
-
-		case "up":
-			// If path field has suggestions, cycle through them
-			if m.Fields[m.cursor].IsPath && len(m.inputs[m.cursor].MatchedSuggestions()) > 0 {
-				var cmd tea.Cmd
-				m.inputs[m.cursor], cmd = m.inputs[m.cursor].Update(msg)
-				return m, cmd
-			}
-			m.inputs[m.cursor].Blur()
-			m.cursor = (m.cursor - 1 + len(m.inputs)) % len(m.inputs)
-			m.inputs[m.cursor].Focus()
-
-		case "shift+tab":
-			m.inputs[m.cursor].Blur()
-			m.cursor = (m.cursor - 1 + len(m.inputs)) % len(m.inputs)
-			m.inputs[m.cursor].Focus()
-
-		case keyEnter:
-			if m.cursor == len(m.inputs)-1 {
-				return m.submit()
-			}
-			m.inputs[m.cursor].Blur()
-			m.cursor++
-			m.inputs[m.cursor].Focus()
-		}
+		return m.handleFormKey(msg)
 	}
 
 	var cmd tea.Cmd
@@ -160,6 +108,83 @@ func (m *FormModel) Update(msg tea.Msg) (*FormModel, tea.Cmd) {
 	}
 
 	return m, cmd
+}
+
+// handleFormKey processes key presses in the form.
+func (m *FormModel) handleFormKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
+	switch msg.String() {
+	case keyCtrlC, keyEsc:
+		m.done = true
+		return m, func() tea.Msg { return FormResult{Cancelled: true} }
+
+	case keyTab:
+		return m.handleTabKey(msg)
+
+	case keyDown:
+		return m.handleDownKey(msg)
+
+	case keyUp:
+		return m.handleUpKey(msg)
+
+	case keyShiftTab:
+		m.focusPrev()
+
+	case keyEnter:
+		if m.cursor == len(m.inputs)-1 {
+			return m.submit()
+		}
+		m.inputs[m.cursor].Blur()
+		m.cursor++
+		m.inputs[m.cursor].Focus()
+	}
+	return m, nil
+}
+
+// handleTabKey handles tab in the form (path suggestion accept or field advance).
+func (m *FormModel) handleTabKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
+	if m.Fields[m.cursor].IsPath && m.inputs[m.cursor].CurrentSuggestion() != "" {
+		var cmd tea.Cmd
+		m.inputs[m.cursor], cmd = m.inputs[m.cursor].Update(msg)
+		return m, tea.Batch(cmd, readDirSuggestions(m.cursor, m.inputs[m.cursor].Value()))
+	}
+	m.focusNext()
+	return m, nil
+}
+
+// handleDownKey handles down arrow in the form (suggestion cycling or field advance).
+func (m *FormModel) handleDownKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
+	if m.Fields[m.cursor].IsPath && len(m.inputs[m.cursor].MatchedSuggestions()) > 0 {
+		var cmd tea.Cmd
+		m.inputs[m.cursor], cmd = m.inputs[m.cursor].Update(msg)
+		return m, cmd
+	}
+	m.focusNext()
+	return m, nil
+}
+
+// handleUpKey handles up arrow in the form (suggestion cycling or field retreat).
+func (m *FormModel) handleUpKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
+	if m.Fields[m.cursor].IsPath && len(m.inputs[m.cursor].MatchedSuggestions()) > 0 {
+		var cmd tea.Cmd
+		m.inputs[m.cursor], cmd = m.inputs[m.cursor].Update(msg)
+		return m, cmd
+	}
+	m.focusPrev()
+	return m, nil
+}
+
+// focusNext moves focus to the next input field.
+func (m *FormModel) focusNext() {
+	m.inputs[m.cursor].Blur()
+	m.cursor = (m.cursor + 1) % len(m.inputs)
+	m.inputs[m.cursor].Focus()
+}
+
+// focusPrev moves focus to the previous input field.
+func (m *FormModel) focusPrev() {
+	m.inputs[m.cursor].Blur()
+	m.cursor = (m.cursor - 1 + len(m.inputs)) % len(m.inputs)
+	m.inputs[m.cursor].Focus()
 }
 
 func (m *FormModel) submit() (*FormModel, tea.Cmd) {
@@ -301,69 +326,78 @@ func listPathSuggestions(prefix string) []string {
 		return nil
 	}
 
-	// Expand ~ to home directory
-	expanded := prefix
-	if strings.HasPrefix(expanded, "~/") || expanded == "~" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil
-		}
-		expanded = filepath.Join(home, expanded[1:])
+	expanded, tilde := expandTilde(prefix)
+	if expanded == "" {
+		return nil
 	}
 
-	// Determine the directory to read and the partial name to match
-	dir := filepath.Dir(expanded)
-	partial := filepath.Base(expanded)
-
-	// If the prefix ends with /, we're listing inside that directory
-	if strings.HasSuffix(prefix, "/") || strings.HasSuffix(prefix, string(filepath.Separator)) {
-		dir = expanded
-		partial = ""
-	}
+	dir, partial := splitDirPartial(prefix, expanded)
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil
 	}
 
+	return buildSuggestions(entries, prefix, partial, tilde)
+}
+
+// expandTilde expands ~ to the home directory. Returns the expanded path and
+// whether tilde expansion was performed.
+func expandTilde(prefix string) (string, bool) {
+	if strings.HasPrefix(prefix, "~/") || prefix == "~" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", false
+		}
+		return filepath.Join(home, prefix[1:]), true
+	}
+	return prefix, false
+}
+
+// splitDirPartial splits the expanded path into the directory to read and the
+// partial filename to match against.
+func splitDirPartial(prefix, expanded string) (string, string) {
+	if strings.HasSuffix(prefix, "/") || strings.HasSuffix(prefix, string(filepath.Separator)) {
+		return expanded, ""
+	}
+	return filepath.Dir(expanded), filepath.Base(expanded)
+}
+
+// buildSuggestions filters directory entries and builds suggestion strings.
+func buildSuggestions(entries []os.DirEntry, prefix, partial string, tilde bool) []string {
 	showDotfiles := strings.HasPrefix(partial, ".")
+	endsWithSep := strings.HasSuffix(prefix, "/") || strings.HasSuffix(prefix, string(filepath.Separator))
 
 	suggestions := make([]string, 0, len(entries))
 	for _, e := range entries {
 		name := e.Name()
-
-		// Hide dotfiles unless explicitly typing a dot
 		if !showDotfiles && strings.HasPrefix(name, ".") {
 			continue
 		}
-
-		// Filter by partial match
 		if partial != "" && !strings.HasPrefix(name, partial) {
 			continue
 		}
 
-		// Build the full suggestion path matching the original prefix style
-		var suggestion string
-		if strings.HasSuffix(prefix, "/") || strings.HasSuffix(prefix, string(filepath.Separator)) {
-			suggestion = prefix + name
-		} else {
-			suggestion = filepath.Join(filepath.Dir(prefix), name)
-			// Preserve ~ prefix
-			if strings.HasPrefix(prefix, "~/") {
-				home, _ := os.UserHomeDir()
-				if strings.HasPrefix(suggestion, home) {
-					suggestion = "~" + suggestion[len(home):]
-				}
-			}
-		}
-
-		// Append / to directories to make it easy to drill deeper
+		suggestion := buildOneSuggestion(prefix, name, endsWithSep, tilde)
 		if e.IsDir() {
 			suggestion += "/"
 		}
-
 		suggestions = append(suggestions, suggestion)
 	}
-
 	return suggestions
+}
+
+// buildOneSuggestion constructs the full suggestion path for one entry.
+func buildOneSuggestion(prefix, name string, endsWithSep, tilde bool) string {
+	if endsWithSep {
+		return prefix + name
+	}
+	suggestion := filepath.Join(filepath.Dir(prefix), name)
+	if tilde {
+		home, _ := os.UserHomeDir()
+		if strings.HasPrefix(suggestion, home) {
+			suggestion = "~" + suggestion[len(home):]
+		}
+	}
+	return suggestion
 }

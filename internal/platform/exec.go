@@ -64,6 +64,16 @@ func Output(name string, args ...string) (string, error) {
 	return strings.TrimSpace(out.String()), err
 }
 
+// OutputContext is like Output but accepts a context for cancellation.
+func OutputContext(ctx context.Context, name string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = nil
+	err := cmd.Run()
+	return strings.TrimSpace(out.String()), err
+}
+
 // OutputDir executes a command in a specific directory and returns its stdout.
 func OutputDir(dir, name string, args ...string) (string, error) {
 	cmd := exec.Command(name, args...)

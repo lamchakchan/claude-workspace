@@ -104,11 +104,6 @@ func partitionTools(toolList []Tool) (found []string, missing []Tool) {
 	return found, missing
 }
 
-// attemptInstalls tries to install missing tools via system packages and custom installers.
-func attemptInstalls(missing []Tool) {
-	attemptInstallsTo(os.Stdout, missing)
-}
-
 func attemptInstallsTo(w io.Writer, missing []Tool) {
 	pm := platform.DetectPackageManager()
 
@@ -137,11 +132,6 @@ func attemptInstallsTo(w io.Writer, missing []Tool) {
 			}
 		}
 	}
-}
-
-// reportMissing prints instructions for tools that could not be installed.
-func reportMissing(stillMissing []Tool) {
-	reportMissingTo(os.Stdout, stillMissing)
 }
 
 func reportMissingTo(w io.Writer, stillMissing []Tool) {

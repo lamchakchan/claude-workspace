@@ -108,11 +108,6 @@ func runTo(w io.Writer, force, interactive bool) error {
 	return nil
 }
 
-// ensureClaudeCLI checks for and installs the Claude Code CLI.
-func ensureClaudeCLI() error {
-	return ensureClaudeCLITo(os.Stdout)
-}
-
 func ensureClaudeCLITo(w io.Writer) error {
 	npmInfo := DetectNpmClaude()
 	if npmInfo.Detected {
@@ -145,11 +140,6 @@ func ensureClaudeCLITo(w io.Writer) error {
 	return claudeTool.Install()
 }
 
-// ensureNode checks for Node.js and installs it if missing.
-func ensureNode() {
-	ensureNodeTo(os.Stdout)
-}
-
 func ensureNodeTo(w io.Writer) {
 	nodeTool := tools.Node()
 	if nodeTool.IsInstalled() {
@@ -164,10 +154,6 @@ func ensureNodeTo(w io.Writer) {
 	} else if ver, err := platform.Output("node", "--version"); err == nil {
 		fmt.Fprintf(w, "  Node.js installed: %s\n", ver)
 	}
-}
-
-func provisionAPIKey() error {
-	return provisionAPIKeyTo(os.Stdout, true)
 }
 
 func provisionAPIKeyTo(w io.Writer, interactive bool) error {
@@ -205,10 +191,6 @@ func provisionAPIKeyTo(w io.Writer, interactive bool) error {
 	}
 
 	return nil
-}
-
-func setupGlobalSettings(force bool) error {
-	return setupGlobalSettingsTo(os.Stdout, force)
 }
 
 func setupGlobalSettingsTo(w io.Writer, force bool) error {
@@ -393,10 +375,6 @@ func mergeStringList(existing interface{}, defaults []string) []string {
 	return combined
 }
 
-func setupGlobalClaudeMd() error {
-	return setupGlobalClaudeMdTo(os.Stdout)
-}
-
 func setupGlobalClaudeMdTo(w io.Writer) error {
 	claudeMdPath := filepath.Join(claudeHome, "CLAUDE.md")
 
@@ -478,10 +456,6 @@ func MergeUserMCPServers(config map[string]interface{}, servers map[string]inter
 	return merged
 }
 
-func setupUserMCPServers(force bool) error {
-	return setupUserMCPServersTo(os.Stdout, force)
-}
-
 func setupUserMCPServersTo(w io.Writer, force bool) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -528,11 +502,6 @@ func setupUserMCPServersTo(w io.Writer, force bool) error {
 	return nil
 }
 
-// reportMCPRegistration prints which servers were added vs already present.
-func reportMCPRegistration(config map[string]interface{}, servers map[string]interface{}) {
-	reportMCPRegistrationTo(os.Stdout, config, servers)
-}
-
 func reportMCPRegistrationTo(w io.Writer, config map[string]interface{}, servers map[string]interface{}) {
 	existing, _ := config["mcpServers"].(map[string]interface{})
 	var added, skipped []string
@@ -553,10 +522,6 @@ func reportMCPRegistrationTo(w io.Writer, config map[string]interface{}, servers
 	if len(skipped) > 0 {
 		fmt.Fprintf(w, "  Already registered: %s\n", joinStrings(skipped, ", "))
 	}
-}
-
-func installBinaryToPath() {
-	installBinaryToPathTo(os.Stdout)
 }
 
 func installBinaryToPathTo(w io.Writer) {

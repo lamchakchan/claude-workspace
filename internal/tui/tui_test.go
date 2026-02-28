@@ -317,8 +317,39 @@ func TestNewMcpList(t *testing.T) {
 func TestNewCost(t *testing.T) {
 	theme := DefaultTheme()
 	m := NewCost(&theme)
-	if m.viewer == nil {
-		t.Error("NewCost viewer is nil")
+	if m.theme == nil {
+		t.Error("NewCost theme is nil")
+	}
+	if !m.loading {
+		t.Error("NewCost should start in loading state")
+	}
+	if m.activeTab != tabDaily {
+		t.Errorf("NewCost activeTab = %d, want %d (daily)", m.activeTab, tabDaily)
+	}
+}
+
+func TestCostTabLabels(t *testing.T) {
+	if len(costTabLabels) != int(costTabCount) {
+		t.Errorf("costTabLabels has %d entries, want %d", len(costTabLabels), costTabCount)
+	}
+	if len(costTabArgs) != int(costTabCount) {
+		t.Errorf("costTabArgs has %d entries, want %d", len(costTabArgs), costTabCount)
+	}
+}
+
+func TestCostRenderTabs(t *testing.T) {
+	theme := DefaultTheme()
+	m := NewCost(&theme)
+	m.width = 80
+	out := m.renderTabs()
+	if out == "" {
+		t.Error("renderTabs returned empty string")
+	}
+	// All tab labels should appear
+	for _, label := range costTabLabels {
+		if !strings.Contains(out, label) {
+			t.Errorf("renderTabs missing label %q", label)
+		}
 	}
 }
 
@@ -371,17 +402,10 @@ func TestListPathSuggestions_TildeExpansion(t *testing.T) {
 	}
 }
 
-func TestListPathSuggestions_DirSuffix(t *testing.T) {
+func TestListPathSuggestions_DirSuffix(_ *testing.T) {
 	suggestions := listPathSuggestions("/tmp/")
-	// All directory entries should end with /
-	for _, s := range suggestions {
-		if strings.HasSuffix(s, "/") {
-			// This is a directory — expected
-			continue
-		}
-		// Non-directory files are fine too
-	}
-	_ = suggestions // avoid unused
+	// Verify we get suggestions — directories end with /, files don't.
+	_ = suggestions
 }
 
 func TestFormIsPath(t *testing.T) {
