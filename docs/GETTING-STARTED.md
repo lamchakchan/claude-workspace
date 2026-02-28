@@ -76,6 +76,8 @@ claude-workspace setup
 # 8. Check for optional system tools (shellcheck, jq, prettier, tmux, golangci-lint, python3)
 ```
 
+> **Tip:** You can also run `claude-workspace` with no arguments to launch the interactive TUI, which provides guided forms for setup, attach, and all other commands — an alternative to remembering CLI flags. See [CLI Reference - Interactive Mode](CLI.md#claude-workspace-interactive-mode).
+
 **Alternative: Environment variable**
 ```bash
 # Add to your shell profile (~/.bashrc, ~/.zshrc)
@@ -559,6 +561,9 @@ Simply ask Claude to create a team:
 cd /path/to/project
 claude
 # Claude loads all your context automatically
+
+# Or use the interactive launcher for platform commands
+claude-workspace
 ```
 
 ### Typical Workflow

@@ -43,6 +43,9 @@ claude-workspace setup
 # 2. Attach to your project
 claude-workspace attach /path/to/your/project
 
+# Tip: Run claude-workspace with no arguments to launch the interactive TUI
+# — a guided menu for all commands (setup, attach, MCP, cost, and more).
+
 # 3. Start coding
 cd /path/to/your/project && claude
 

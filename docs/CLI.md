@@ -2,6 +2,100 @@
 
 Complete reference for all `claude-workspace` commands, flags, and options.
 
+## claude-workspace (Interactive Mode)
+
+Launch the interactive TUI when no subcommand is given.
+
+**Synopsis:**
+
+```
+claude-workspace
+```
+
+**Requirements:** TTY (interactive terminal). Non-TTY environments print help text instead.
+
+**Behavior:** Opens a full-screen launcher menu organized into four groups:
+
+| Group | Commands |
+|-------|----------|
+| Getting Started | Setup, Attach, Enrich, Sandbox |
+| MCP Servers | Add Server, List Servers |
+| Inspect & Manage | Doctor, Skills, Sessions, Memory, Cost |
+| Maintenance | Upgrade, Statusline |
+
+Select a command to open its dedicated TUI view — form-based views (Attach, Enrich, Sandbox, MCP Add) include path autocomplete with tab completion, while data views (Doctor, Skills, Sessions, Cost) display output inline with scrolling and clipboard copy.
+
+**Environment variables:**
+
+| Variable | Effect |
+|----------|--------|
+| `NO_COLOR` | Disables color output; falls back to help text instead of TUI |
+| `ACCESSIBLE=1` | Same as `NO_COLOR` — skips TUI, prints help text |
+
+**Keyboard shortcuts** (press `?` from any screen to see this reference):
+
+| Context | Key | Action |
+|---------|-----|--------|
+| Navigation | `↑` / `k` | Move up |
+| Navigation | `↓` / `j` | Move down |
+| Navigation | `enter` | Select / confirm |
+| Navigation | `esc` | Go back |
+| Navigation | `q` / `ctrl+c` | Quit |
+| Forms | `tab` / `↓` | Next field |
+| Forms | `shift+tab` / `↑` | Previous field |
+| Forms | `enter` | Next field / submit |
+| Forms | `esc` | Cancel |
+| Path autocomplete | `↑` / `↓` | Cycle suggestions |
+| Path autocomplete | `tab` | Accept suggestion |
+| Lists | `j` / `k` | Move up / down |
+| Lists | `pgup` / `pgdn` | Page up / down |
+| Lists | `g` / `G` | Go to top / bottom |
+| Viewers | `j` / `k` | Scroll up / down |
+| Viewers | `pgup` / `pgdn` | Page up / down |
+| Viewers | `g` / `G` | Go to top / bottom |
+| Viewers | `y` | Copy to clipboard |
+| Confirmation | `y` / `n` | Confirm yes / no |
+| Confirmation | `← / → / tab` | Switch selection |
+| Cost tabs | `1`–`5` | Jump to tab |
+| Cost tabs | `tab` / `h` / `l` | Cycle tabs |
+| Help | `?` | Toggle shortcut reference |
+
+**Example:**
+
+```
+$ claude-workspace
+
+claude-workspace  v0.x.x
+Claude Code Platform Engineering Kit
+
+Getting Started
+> ⚙  Setup         First-time setup & API key provisioning
+  📎 Attach        Overlay platform config onto a project
+  ✨ Enrich        Re-generate CLAUDE.md with AI analysis
+  🔀 Sandbox       Create a sandboxed branch worktree
+
+MCP Servers
+  ➕ Add Server    Add a local or remote MCP server
+  📋 List Servers  Show all configured servers
+
+Inspect & Manage
+  🩺 Doctor        Check platform configuration health
+  🛠  Skills        List available skills and personal commands
+  💬 Sessions      Browse and review session prompts
+  🧠 Memory        Inspect and manage memory layers
+  💰 Cost          View usage and costs
+
+Maintenance
+  ⬆  Upgrade       Upgrade claude-workspace and CLI
+  📊 Statusline    Configure Claude Code statusline
+
+↑/↓ navigate  enter select  ? help  q quit
+```
+
+**See also:** [Getting Started - First-Time Setup](GETTING-STARTED.md#3-first-time-setup)
+
+---
+
 ## claude-workspace setup
 
 First-time setup: installs Claude Code CLI, provisions API keys, configures global settings, installs the binary to PATH, installs Node.js if missing, registers MCP servers, and optionally configures the statusline for cost and context display.
