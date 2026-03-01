@@ -348,6 +348,51 @@ func writeTeamState(t *testing.T, home string, updatedAt time.Time, agents []str
 	_ = os.WriteFile(filepath.Join(home, ".claude", "team-state.json"), data, 0644)
 }
 
+func TestRenderTeamSummary_ActiveTeam(t *testing.T) {
+	home := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(home, ".claude"), 0755)
+	writeTeamState(t, home, time.Now().UTC(), []string{"agent-a", "agent-b"}, 1, 1, 2)
+	got := renderTeamSummary(home)
+	if got == "" {
+		t.Fatal("expected non-empty team summary")
+	}
+	if !strings.Contains(got, "👥") {
+		t.Error("expected team emoji 👥")
+	}
+	if !strings.Contains(got, "▶") {
+		t.Error("expected active agent indicator ▶")
+	}
+	if !strings.Contains(got, "✓") {
+		t.Error("expected completed task indicator ✓")
+	}
+	if !strings.Contains(got, "████") {
+		t.Errorf("expected partial progress bar with ████, got %q", got)
+	}
+}
+
+func TestRenderTeamSummary_Stale(t *testing.T) {
+	home := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(home, ".claude"), 0755)
+	stale := time.Now().Add(-35 * time.Minute).UTC()
+	writeTeamState(t, home, stale, []string{"agent-a"}, 0, 1, 0)
+	if got := renderTeamSummary(home); got != "" {
+		t.Errorf("expected empty for stale state (35min), got %q", got)
+	}
+}
+
+func TestRenderTeamSummary_AllComplete(t *testing.T) {
+	home := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(home, ".claude"), 0755)
+	writeTeamState(t, home, time.Now().UTC(), []string{"agent-a", "agent-b"}, 0, 0, 4)
+	got := renderTeamSummary(home)
+	if got == "" {
+		t.Fatal("expected non-empty team summary")
+	}
+	if !strings.Contains(got, "██████████") {
+		t.Errorf("expected full progress bar ██████████, got %q", got)
+	}
+}
+
 // testModelCostTokens is the expected metrics line after dropping 🔥 but keeping all other segments.
 const testModelCostTokens = "🤖 Opus 4.6 | 💰 $16.84 session | 🧠 5,803 (3%)"
 
