@@ -137,48 +137,72 @@ func copyMCPConfig(projectDir, worktreeDir string) {
 	}
 }
 
+// depInstallers is the ordered list of dependency installers for worktrees.
+// Each installer returns true if it handled the language (even if install failed).
+var depInstallers = []func(string) bool{
+	installJSDeps,
+	installRubyDeps,
+	installPythonDeps,
+	installMavenDeps,
+	installGradleDeps,
+	installDotNetDeps,
+	installElixirDeps,
+	installPHPDeps,
+	installSwiftDeps,
+	installScalaDeps,
+}
+
 func installWorktreeDeps(worktreeDir string) {
 	installed := false
+	for _, install := range depInstallers {
+		if install(worktreeDir) {
+			installed = true
+		}
+	}
+	if !installed {
+		fmt.Println("  No recognized dependency files found. Skipping dependency installation.")
+	}
+}
 
-	// --- JavaScript/TypeScript ---
+func installJSDeps(dir string) bool {
 	switch {
-	case platform.FileExists(filepath.Join(worktreeDir, "bun.lockb")) || platform.FileExists(filepath.Join(worktreeDir, "bun.lock")):
-		if err := platform.RunQuietDir(worktreeDir, "bun", "install"); err == nil {
+	case platform.FileExists(filepath.Join(dir, "bun.lockb")) || platform.FileExists(filepath.Join(dir, "bun.lock")):
+		if err := platform.RunQuietDir(dir, "bun", "install"); err == nil {
 			platform.PrintSuccess(os.Stdout, "Dependencies installed (bun)")
 		} else {
 			platform.PrintWarningLine(os.Stdout, "Could not install bun dependencies")
 		}
-		installed = true
-	case platform.FileExists(filepath.Join(worktreeDir, "package-lock.json")):
-		if err := platform.RunQuietDir(worktreeDir, "npm", "ci"); err == nil {
+	case platform.FileExists(filepath.Join(dir, "package-lock.json")):
+		if err := platform.RunQuietDir(dir, "npm", "ci"); err == nil {
 			platform.PrintSuccess(os.Stdout, "Dependencies installed (npm)")
 		} else {
 			platform.PrintWarningLine(os.Stdout, "Could not install npm dependencies")
 		}
-		installed = true
-	case platform.FileExists(filepath.Join(worktreeDir, "yarn.lock")):
-		if err := platform.RunQuietDir(worktreeDir, "yarn", "install", "--frozen-lockfile"); err == nil {
+	case platform.FileExists(filepath.Join(dir, "yarn.lock")):
+		if err := platform.RunQuietDir(dir, "yarn", "install", "--frozen-lockfile"); err == nil {
 			platform.PrintSuccess(os.Stdout, "Dependencies installed (yarn)")
 		} else {
 			platform.PrintWarningLine(os.Stdout, "Could not install yarn dependencies")
 		}
-		installed = true
-	case platform.FileExists(filepath.Join(worktreeDir, "pnpm-lock.yaml")):
-		if err := platform.RunQuietDir(worktreeDir, "pnpm", "install", "--frozen-lockfile"); err == nil {
+	case platform.FileExists(filepath.Join(dir, "pnpm-lock.yaml")):
+		if err := platform.RunQuietDir(dir, "pnpm", "install", "--frozen-lockfile"); err == nil {
 			platform.PrintSuccess(os.Stdout, "Dependencies installed (pnpm)")
 		} else {
 			platform.PrintWarningLine(os.Stdout, "Could not install pnpm dependencies")
 		}
-		installed = true
-	case platform.FileExists(filepath.Join(worktreeDir, "package.json")):
+	case platform.FileExists(filepath.Join(dir, "package.json")):
 		fmt.Println("  No lockfile found. Run your package manager to install dependencies.")
-		installed = true
+	default:
+		return false
 	}
+	return true
+}
 
-	// --- Ruby ---
-	if platform.FileExists(filepath.Join(worktreeDir, "Gemfile.lock")) {
+func installRubyDeps(dir string) bool {
+	switch {
+	case platform.FileExists(filepath.Join(dir, "Gemfile.lock")):
 		if platform.Exists("bundle") {
-			if err := platform.RunQuietDir(worktreeDir, "bundle", "install"); err == nil {
+			if err := platform.RunQuietDir(dir, "bundle", "install"); err == nil {
 				platform.PrintSuccess(os.Stdout, "Dependencies installed (bundler)")
 			} else {
 				platform.PrintWarningLine(os.Stdout, "Could not install bundler dependencies")
@@ -186,34 +210,35 @@ func installWorktreeDeps(worktreeDir string) {
 		} else {
 			platform.PrintWarningLine(os.Stdout, "Gemfile.lock found but bundler not installed")
 		}
-		installed = true
-	} else if platform.FileExists(filepath.Join(worktreeDir, "Gemfile")) {
+	case platform.FileExists(filepath.Join(dir, "Gemfile")):
 		fmt.Println("  Gemfile found but no Gemfile.lock. Run `bundle install` to install dependencies.")
-		installed = true
+	default:
+		return false
 	}
+	return true
+}
 
-	// --- Python ---
-	if platform.FileExists(filepath.Join(worktreeDir, "poetry.lock")) {
+func installPythonDeps(dir string) bool {
+	switch {
+	case platform.FileExists(filepath.Join(dir, "poetry.lock")):
 		if platform.Exists("poetry") {
-			if err := platform.RunQuietDir(worktreeDir, "poetry", "install"); err == nil {
+			if err := platform.RunQuietDir(dir, "poetry", "install"); err == nil {
 				platform.PrintSuccess(os.Stdout, "Dependencies installed (poetry)")
 			} else {
 				platform.PrintWarningLine(os.Stdout, "Could not install poetry dependencies")
 			}
 		}
-		installed = true
-	} else if platform.FileExists(filepath.Join(worktreeDir, "uv.lock")) {
+	case platform.FileExists(filepath.Join(dir, "uv.lock")):
 		if platform.Exists("uv") {
-			if err := platform.RunQuietDir(worktreeDir, "uv", "sync"); err == nil {
+			if err := platform.RunQuietDir(dir, "uv", "sync"); err == nil {
 				platform.PrintSuccess(os.Stdout, "Dependencies installed (uv)")
 			} else {
 				platform.PrintWarningLine(os.Stdout, "Could not install uv dependencies")
 			}
 		}
-		installed = true
-	} else if platform.FileExists(filepath.Join(worktreeDir, "requirements.txt")) {
+	case platform.FileExists(filepath.Join(dir, "requirements.txt")):
 		if platform.Exists("pip") {
-			if err := platform.RunQuietDir(worktreeDir, "pip", "install", "-r", "requirements.txt"); err == nil {
+			if err := platform.RunQuietDir(dir, "pip", "install", "-r", "requirements.txt"); err == nil {
 				platform.PrintSuccess(os.Stdout, "Dependencies installed (pip)")
 			} else {
 				platform.PrintWarningLine(os.Stdout, "Could not install pip dependencies")
@@ -221,110 +246,123 @@ func installWorktreeDeps(worktreeDir string) {
 		} else {
 			fmt.Println("  requirements.txt found. Run `pip install -r requirements.txt` to install dependencies.")
 		}
-		installed = true
+	default:
+		return false
 	}
+	return true
+}
 
-	// --- Java Maven ---
-	if platform.FileExists(filepath.Join(worktreeDir, "pom.xml")) {
-		if platform.Exists("mvn") {
-			if err := platform.RunQuietDir(worktreeDir, "mvn", "dependency:resolve", "-q"); err == nil {
-				platform.PrintSuccess(os.Stdout, "Dependencies resolved (Maven)")
-			} else {
-				platform.PrintWarningLine(os.Stdout, "Could not resolve Maven dependencies")
-			}
+func installMavenDeps(dir string) bool {
+	if !platform.FileExists(filepath.Join(dir, "pom.xml")) {
+		return false
+	}
+	if platform.Exists("mvn") {
+		if err := platform.RunQuietDir(dir, "mvn", "dependency:resolve", "-q"); err == nil {
+			platform.PrintSuccess(os.Stdout, "Dependencies resolved (Maven)")
 		} else {
-			fmt.Println("  pom.xml found but mvn not installed.")
+			platform.PrintWarningLine(os.Stdout, "Could not resolve Maven dependencies")
 		}
-		installed = true
+	} else {
+		fmt.Println("  pom.xml found but mvn not installed.")
 	}
+	return true
+}
 
-	// --- Java/Kotlin Gradle ---
-	if platform.FileExists(filepath.Join(worktreeDir, "build.gradle")) || platform.FileExists(filepath.Join(worktreeDir, "build.gradle.kts")) {
-		wrapper := filepath.Join(worktreeDir, "gradlew")
-		if platform.FileExists(wrapper) {
-			if err := platform.RunQuietDir(worktreeDir, "./gradlew", "dependencies", "--quiet"); err == nil {
-				platform.PrintSuccess(os.Stdout, "Dependencies resolved (Gradle)")
-			} else {
-				platform.PrintWarningLine(os.Stdout, "Could not resolve Gradle dependencies")
-			}
-		} else if platform.Exists("gradle") {
-			if err := platform.RunQuietDir(worktreeDir, "gradle", "dependencies", "--quiet"); err == nil {
-				platform.PrintSuccess(os.Stdout, "Dependencies resolved (Gradle)")
-			} else {
-				platform.PrintWarningLine(os.Stdout, "Could not resolve Gradle dependencies")
-			}
+func installGradleDeps(dir string) bool {
+	if !platform.FileExists(filepath.Join(dir, "build.gradle")) && !platform.FileExists(filepath.Join(dir, "build.gradle.kts")) {
+		return false
+	}
+	switch {
+	case platform.FileExists(filepath.Join(dir, "gradlew")):
+		if err := platform.RunQuietDir(dir, "./gradlew", "dependencies", "--quiet"); err == nil {
+			platform.PrintSuccess(os.Stdout, "Dependencies resolved (Gradle)")
 		} else {
-			fmt.Println("  Gradle project found but no gradlew wrapper or gradle binary.")
+			platform.PrintWarningLine(os.Stdout, "Could not resolve Gradle dependencies")
 		}
-		installed = true
-	}
-
-	// --- C# .NET ---
-	csprojMatches, _ := filepath.Glob(filepath.Join(worktreeDir, "*.csproj"))
-	slnMatches, _ := filepath.Glob(filepath.Join(worktreeDir, "*.sln"))
-	if len(csprojMatches) > 0 || len(slnMatches) > 0 {
-		if platform.Exists("dotnet") {
-			if err := platform.RunQuietDir(worktreeDir, "dotnet", "restore"); err == nil {
-				platform.PrintSuccess(os.Stdout, "Dependencies restored (dotnet)")
-			} else {
-				platform.PrintWarningLine(os.Stdout, "Could not restore dotnet dependencies")
-			}
+	case platform.Exists("gradle"):
+		if err := platform.RunQuietDir(dir, "gradle", "dependencies", "--quiet"); err == nil {
+			platform.PrintSuccess(os.Stdout, "Dependencies resolved (Gradle)")
+		} else {
+			platform.PrintWarningLine(os.Stdout, "Could not resolve Gradle dependencies")
 		}
-		installed = true
+	default:
+		fmt.Println("  Gradle project found but no gradlew wrapper or gradle binary.")
 	}
+	return true
+}
 
-	// --- Elixir ---
-	if platform.FileExists(filepath.Join(worktreeDir, "mix.exs")) {
-		if platform.Exists("mix") {
-			if err := platform.RunQuietDir(worktreeDir, "mix", "deps.get"); err == nil {
-				platform.PrintSuccess(os.Stdout, "Dependencies installed (mix)")
-			} else {
-				platform.PrintWarningLine(os.Stdout, "Could not install mix dependencies")
-			}
+func installDotNetDeps(dir string) bool {
+	csprojMatches, _ := filepath.Glob(filepath.Join(dir, "*.csproj"))
+	slnMatches, _ := filepath.Glob(filepath.Join(dir, "*.sln"))
+	if len(csprojMatches) == 0 && len(slnMatches) == 0 {
+		return false
+	}
+	if platform.Exists("dotnet") {
+		if err := platform.RunQuietDir(dir, "dotnet", "restore"); err == nil {
+			platform.PrintSuccess(os.Stdout, "Dependencies restored (dotnet)")
+		} else {
+			platform.PrintWarningLine(os.Stdout, "Could not restore dotnet dependencies")
 		}
-		installed = true
 	}
+	return true
+}
 
-	// --- PHP ---
-	if platform.FileExists(filepath.Join(worktreeDir, "composer.lock")) {
+func installElixirDeps(dir string) bool {
+	if !platform.FileExists(filepath.Join(dir, "mix.exs")) {
+		return false
+	}
+	if platform.Exists("mix") {
+		if err := platform.RunQuietDir(dir, "mix", "deps.get"); err == nil {
+			platform.PrintSuccess(os.Stdout, "Dependencies installed (mix)")
+		} else {
+			platform.PrintWarningLine(os.Stdout, "Could not install mix dependencies")
+		}
+	}
+	return true
+}
+
+func installPHPDeps(dir string) bool {
+	switch {
+	case platform.FileExists(filepath.Join(dir, "composer.lock")):
 		if platform.Exists("composer") {
-			if err := platform.RunQuietDir(worktreeDir, "composer", "install"); err == nil {
+			if err := platform.RunQuietDir(dir, "composer", "install"); err == nil {
 				platform.PrintSuccess(os.Stdout, "Dependencies installed (composer)")
 			} else {
 				platform.PrintWarningLine(os.Stdout, "Could not install composer dependencies")
 			}
 		}
-		installed = true
-	} else if platform.FileExists(filepath.Join(worktreeDir, "composer.json")) {
+	case platform.FileExists(filepath.Join(dir, "composer.json")):
 		fmt.Println("  composer.json found but no composer.lock. Run `composer install` to install dependencies.")
-		installed = true
+	default:
+		return false
 	}
+	return true
+}
 
-	// --- Swift ---
-	if platform.FileExists(filepath.Join(worktreeDir, "Package.swift")) {
-		if platform.Exists("swift") {
-			if err := platform.RunQuietDir(worktreeDir, "swift", "package", "resolve"); err == nil {
-				platform.PrintSuccess(os.Stdout, "Dependencies resolved (Swift PM)")
-			} else {
-				platform.PrintWarningLine(os.Stdout, "Could not resolve Swift package dependencies")
-			}
+func installSwiftDeps(dir string) bool {
+	if !platform.FileExists(filepath.Join(dir, "Package.swift")) {
+		return false
+	}
+	if platform.Exists("swift") {
+		if err := platform.RunQuietDir(dir, "swift", "package", "resolve"); err == nil {
+			platform.PrintSuccess(os.Stdout, "Dependencies resolved (Swift PM)")
+		} else {
+			platform.PrintWarningLine(os.Stdout, "Could not resolve Swift package dependencies")
 		}
-		installed = true
 	}
+	return true
+}
 
-	// --- Scala ---
-	if platform.FileExists(filepath.Join(worktreeDir, "build.sbt")) {
-		if platform.Exists("sbt") {
-			if err := platform.RunQuietDir(worktreeDir, "sbt", "update"); err == nil {
-				platform.PrintSuccess(os.Stdout, "Dependencies resolved (sbt)")
-			} else {
-				platform.PrintWarningLine(os.Stdout, "Could not resolve sbt dependencies")
-			}
+func installScalaDeps(dir string) bool {
+	if !platform.FileExists(filepath.Join(dir, "build.sbt")) {
+		return false
+	}
+	if platform.Exists("sbt") {
+		if err := platform.RunQuietDir(dir, "sbt", "update"); err == nil {
+			platform.PrintSuccess(os.Stdout, "Dependencies resolved (sbt)")
+		} else {
+			platform.PrintWarningLine(os.Stdout, "Could not resolve sbt dependencies")
 		}
-		installed = true
 	}
-
-	if !installed {
-		fmt.Println("  No recognized dependency files found. Skipping dependency installation.")
-	}
+	return true
 }

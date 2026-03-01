@@ -556,7 +556,7 @@ func TestGenerateClaudeMdScaffold_AllLanguages(t *testing.T) {
 		},
 		{
 			name: "Unknown project",
-			setup: func(dir string) {
+			setup: func(_ string) {
 				// empty directory
 			},
 			wantStack: "Unknown",
