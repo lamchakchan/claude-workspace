@@ -19,7 +19,7 @@
     "engram": "claude-workspace memory configure --provider engram"
   },
   "notes": {
-    "mcp-memory-libsql": "Default provider. Auto-registered by claude-workspace setup. Runs via npx — no extra install beyond Node.js. libsql-backed knowledge graph. Data: ~/.config/claude-workspace/memory.db. Tools: mcp__mcp-memory-libsql__search_nodes, create_entities, read_graph, create_relations, delete_entity.",
-    "engram": "Optional legacy provider. Go binary with FTS5 full-text search and SQLite persistence. Install: brew install gentleman-programming/tap/engram. Data: ~/.engram/engram.db. Switch: claude-workspace memory configure --provider engram."
+    "mcp-memory-libsql": "Recommended scope: user (cross-project persistent memory, personal to your machine). Auto-registered at user scope by claude-workspace setup. Runs via npx — no extra install beyond Node.js. libsql-backed knowledge graph. Data: ~/.config/claude-workspace/memory.db. Tools: mcp__mcp-memory-libsql__search_nodes, create_entities, read_graph, create_relations, delete_entity.",
+    "engram": "Recommended scope: user (cross-project persistent memory, personal to your machine). Optional legacy provider. Go binary with FTS5 full-text search and SQLite persistence. Install: brew install gentleman-programming/tap/engram. Data: ~/.engram/engram.db. Switch: claude-workspace memory configure --provider engram."
   }
 }

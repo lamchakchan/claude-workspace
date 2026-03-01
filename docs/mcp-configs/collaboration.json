@@ -33,17 +33,17 @@
     }
   },
   "setup_commands": {
-    "github": "claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github",
-    "github_pat": "claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github --bearer",
-    "notion": "claude-workspace mcp remote https://mcp.notion.com/mcp --name notion",
-    "linear": "claude-workspace mcp remote https://mcp.linear.app/sse --name linear",
-    "jira": "claude-workspace mcp add jira --api-key JIRA_API_TOKEN -- npx -y @anthropic/claude-code-jira-server"
+    "github": "claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github --scope user",
+    "github_pat": "claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github --scope user --bearer",
+    "notion": "claude-workspace mcp remote https://mcp.notion.com/mcp --name notion --scope user",
+    "linear": "claude-workspace mcp remote https://mcp.linear.app/sse --name linear --scope user",
+    "jira": "claude-workspace mcp add jira --scope user --api-key JIRA_API_TOKEN -- npx -y @anthropic/claude-code-jira-server"
   },
   "notes": {
-    "github": "Uses OAuth - authenticate via /mcp in Claude Code after adding",
-    "github_pat": "Uses PAT - you will be prompted to enter your GitHub Personal Access Token securely",
-    "notion": "Uses OAuth - authenticate via /mcp in Claude Code after adding",
-    "linear": "Uses OAuth - authenticate via /mcp in Claude Code after adding",
-    "jira": "You will be prompted to enter JIRA_API_TOKEN securely. Also set JIRA_URL and JIRA_EMAIL env vars."
+    "github": "Recommended scope: user (personal OAuth credentials, used across all projects). Uses OAuth - authenticate via /mcp in Claude Code after adding",
+    "github_pat": "Recommended scope: user (personal access token). Uses PAT - you will be prompted to enter your GitHub Personal Access Token securely",
+    "notion": "Recommended scope: user (personal Notion workspace access). Uses OAuth - authenticate via /mcp in Claude Code after adding",
+    "linear": "Recommended scope: user (personal Linear credentials). Uses OAuth - authenticate via /mcp in Claude Code after adding",
+    "jira": "Recommended scope: user (personal API token, JIRA_URL and JIRA_EMAIL are environment variables). You will be prompted to enter JIRA_API_TOKEN securely. Also set JIRA_URL and JIRA_EMAIL env vars."
   }
 }

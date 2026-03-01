@@ -10,9 +10,9 @@
     }
   },
   "setup_commands": {
-    "brave-search": "claude-workspace mcp add brave-search --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search"
+    "brave-search": "claude-workspace mcp add brave-search --scope user --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search"
   },
   "notes": {
-    "brave-search": "You will be prompted to enter your BRAVE_API_KEY securely. Get a free API key at https://brave.com/search/api/"
+    "brave-search": "Recommended scope: user (personal API key, useful across all projects). You will be prompted to enter your BRAVE_API_KEY securely. Get a free API key at https://brave.com/search/api/"
   }
 }

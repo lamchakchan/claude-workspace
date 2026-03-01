@@ -32,13 +32,13 @@
     }
   },
   "setup_commands": {
-    "postgresql": "claude-workspace mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
-    "mysql": "claude-workspace mcp add mysql --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
-    "sqlite": "claude-workspace mcp add sqlite -- npx -y @anthropic/claude-code-sqlite-server ./db.sqlite"
+    "postgresql": "claude-workspace mcp add postgres --scope local --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
+    "mysql": "claude-workspace mcp add mysql --scope local --api-key DATABASE_URL -- npx -y @bytebase/dbhub",
+    "sqlite": "claude-workspace mcp add sqlite --scope local -- npx -y @anthropic/claude-code-sqlite-server ./db.sqlite"
   },
   "notes": {
-    "postgresql": "You will be prompted to enter DATABASE_URL securely (e.g., postgresql://user:pass@host:5432/db)",
-    "mysql": "You will be prompted to enter DATABASE_URL securely (e.g., mysql://user:pass@host:3306/db)",
-    "sqlite": "No API key needed - SQLite uses a local file path"
+    "postgresql": "Recommended scope: local (connection string is environment-specific and contains credentials). You will be prompted to enter DATABASE_URL securely (e.g., postgresql://user:pass@host:5432/db)",
+    "mysql": "Recommended scope: local (connection string is environment-specific and contains credentials). You will be prompted to enter DATABASE_URL securely (e.g., mysql://user:pass@host:3306/db)",
+    "sqlite": "Recommended scope: local (file path is personal to your machine). No API key needed - SQLite uses a local file path"
   }
 }
