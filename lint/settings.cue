@@ -31,7 +31,7 @@ import (
 	PreToolUse?:    [...#HookMatcher]
 	PostToolUse?:   [...#HookMatcher]
 	Notification?:  [...#HookMatcher]
-	Stop?:          [...#HookMatcher]
+	Stop?:          [...#HookOptionalMatcher]
 	TaskCompleted?: [...#HookOptionalMatcher]
 	TeammateIdle?:  [...#HookOptionalMatcher]
 }

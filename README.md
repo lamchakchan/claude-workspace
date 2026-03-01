@@ -79,3 +79,4 @@ claude-workspace doctor
 | [Runbook](docs/RUNBOOK.md) | Maintenance, troubleshooting, onboarding, security, rollback procedures |
 | [Skills](docs/SKILLS.md) | Built-in skills reference, usage guide, creating custom skills |
 | [Memory](docs/MEMORY.md) | Memory layers, auto-memory, CLAUDE.md files, Memory MCP, clearing procedures, and gitignore rules |
+| [Statusline](docs/STATUSLINE.md) | Live session statusline: indicators, data sources, call flow, output examples, and setup |

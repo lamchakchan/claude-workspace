@@ -2,86 +2,55 @@
 
 ## Project
 Name: claude-workspace
-Purpose: A preconfigured, batteries-included platform for deploying Claude Code AI agents across organizations
-Tech Stack: Go 1.24, embed FS, Bubble Tea v2 (TUI), shell scripts, CUE (template linting)
-Build: `make build` (or `go build ./...` for quick single-platform build)
+Purpose: A platform engineering kit for deploying Claude Code AI agents across organizations
+Tech Stack: Go 1.24, Charm TUI (bubbletea/bubbles/lipgloss), embed FS
+Build: `make build` (cross-compiles darwin/linux, amd64/arm64)
 Test: `go test ./...`
-Lint: `go vet ./...` and `make lint` (CUE-based template validation)
+Lint: `go vet ./...` and `golangci-lint run ./...` and `make lint` (CUE template validation)
 
 ## Key Directories
-- internal/            - All application packages (one package per CLI command)
-- internal/platform/   - Shared utilities: file ops, color output, JSON helpers, exec, env detection, CLAUDE.md generation, package manager detection
-- internal/tui/        - Interactive TUI: Bubble Tea v2 app with launcher, views for every command, theming, bar charts, stepper, viewer, and form components
-- internal/tui/views/  - Reusable TUI sub-views: confirm dialogs, form inputs, MCP add wizard, messages, upgrade flow
-- internal/attach/     - `attach` command: overlays platform config onto target projects
-- internal/enrich/     - `enrich` command: re-generate .claude/CLAUDE.md with AI analysis
-- internal/setup/      - `setup` command: first-time setup, API key provisioning, npm detection
-- internal/mcp/        - `mcp` command: add/list/remote MCP server configurations
-- internal/sandbox/    - `sandbox` command: git worktree creation for parallel development
-- internal/tools/      - Tool registry: defines required (claude, node) and optional tools
-- internal/doctor/     - `doctor` command: health checks for platform configuration
-- internal/upgrade/    - `upgrade` command: self-update via GitHub releases
-- internal/sessions/   - `sessions` command: browse and review session prompts
-- internal/memory/     - `memory` command: inspect and manage memory layers (show, export, import)
-- internal/cost/       - `cost` command: usage and cost reporting via ccusage
-- internal/skills/     - `skills` command: list available skills and personal commands
-- internal/statusline/ - `statusline` command: configure Claude Code statusline display
-- _template/project/   - Embedded assets copied into target projects by `attach` (agents, skills, hooks, settings)
-- _template/global/    - Embedded global-level assets (global CLAUDE.md, global settings)
-- docs/                - Documentation: architecture, CLI reference, getting started, config, MCP configs, runbook, memory
-- scripts/             - Shell scripts: smoke tests, dev environment management, CI helpers, template linting, dependency auto-install, shared libraries
-- lint/                - CUE schemas for validating template JSON files (agents, skills, settings, MCP configs)
-- plans/               - Implementation plans directory (created by attach in target projects)
+- internal/          - All application packages (one per CLI subcommand)
+- internal/platform/ - Shared utility layer (exec, fs, json, color, env, assets, pkgmgr, claudemd)
+- internal/tui/      - Interactive TUI menu (bubbletea-based)
+- internal/tools/    - Tool registry with detection for Node, Claude CLI, etc.
+- _template/         - Embedded templates (source of truth for attach/setup output)
+- docs/              - User documentation (architecture, CLI reference, config, runbook)
+- scripts/           - Build, test, CI, and dev environment scripts
+- lint/              - CUE schemas for validating template files (agents, skills, settings, MCP)
+- plans/             - Implementation plan documents
 
 ## Conventions
-- One package per CLI subcommand under `internal/` with a `Run()` entry point
-- Each package has a corresponding `_test.go` file
-- Version injected via `-ldflags "-X main.version=$(VERSION)"` at build time
-- Embedded filesystem via `//go:embed all:_template` in `assets.go`; split into `platform.FS` (project) and `platform.GlobalFS` (global) in `main.go`
-- CLI argument parsing uses a `commands` map in `main.go`, no external flag library
-- When invoked with no arguments on a TTY, the TUI launches (Bubble Tea v2); non-TTY falls back to help text
-- Error handling: return errors up to `main()`, which prints to stderr and exits with code 1
-- `internal/platform/` is the shared utility layer; other packages import it but not each other
-- Cross-platform builds: darwin/arm64, darwin/amd64, linux/arm64, linux/amd64 via Makefile
-- Shell scripts (.sh) get 0755 permissions when extracted; all other files get 0644
-- TUI uses a navigation stack pattern (`appModel.stack`) with push/pop for view transitions
-- Scripts share common functions via `lib.sh`, `lib-phases.sh`, and `lib-provision.sh` in `scripts/`
-- `make dep` auto-installs Go and CUE if missing; individual targets (test, vet, lint, build) also ensure their deps before running
-
-## Quality Standards
-- `internal/platform/` is the shared utility layer — always check there before creating new helpers
-- Pre-allocate slices with `make([]T, 0, cap)` when size is known or estimable
-- Wrap errors with `%w` at boundaries; return errors to caller, print at `main()` only
-- Run `go vet ./...` before declaring changes complete; use `golangci-lint run` if available
-- Include `Benchmark*` functions for code that processes data in loops, handles I/O, or does serialization
-- Run benchmarks with `go test -bench=. -benchmem` to measure allocations
+- Each `internal/` subpackage has one main file named after the package with a public `Run()` entry point
+- Packages may expose `RunTo(w io.Writer)` for testability
+- Error wrapping uses `fmt.Errorf("context: %w", err)` with lowercase gerund context phrases
+- Errors are returned upward; only `main.go` prints to stderr and calls `os.Exit`
+- No `init()` functions; all initialization is explicit in `main()`
+- Imports organized in 3 groups: stdlib, external deps, internal packages (alpha-sorted within each)
+- Table-driven tests using `tt` loop variable, standard library only (no testify)
+- Test naming: `TestFunc` for happy path, `TestFunc_EdgeCase` with underscore-separated variants
+- Pre-allocate slices with `make([]T, 0, cap)` when size is estimable
+- Use `strings.Builder` for string concatenation
+- Minimal external dependencies by design — avoid adding new ones
+- `_template/` must stay in sync with root `.claude/` and `.mcp.json` (except auto-memory dirs)
+- Cross-platform: always build/test for darwin+linux, amd64+arm64
+- Package manager agnostic: support brew/apt/dnf/pacman/apk via `platform.DetectPackageManager()`
 
 ## Important Files
-- `main.go` - CLI entry point, command routing, embedded FS wiring, TUI launch
-- `assets.go` - `//go:embed` directive that bundles `_template/` into the binary
-- `internal/tui/app.go` - Root TUI model with navigation stack, Run() entry point
-- `internal/tui/launcher.go` - TUI home screen with command list
-- `internal/tui/theme.go` - Centralized TUI theming (colors, styles) with NO_COLOR/ACCESSIBLE support
-- `internal/platform/assets.go` - Asset extraction (copy/symlink) and embedded FS access
-- `internal/platform/claudemd.go` - CLAUDE.md scaffold generation, tech stack detection, and AI enrichment via claude CLI
-- `internal/platform/exec.go` - Shell command execution helpers used across packages
-- `internal/platform/fs.go` - File system utilities (FileExists, etc.)
-- `internal/platform/pkgmgr.go` - Package manager detection (npm, bun, etc.)
-- `internal/attach/attach.go` - Core logic for overlaying platform config onto projects
-- `internal/enrich/enrich.go` - Standalone CLAUDE.md enrichment command (scaffold + AI analysis)
-- `internal/tools/registry.go` - Tool registry defining required (claude, node) vs optional dependencies
-- `Makefile` - Build targets, cross-compilation, smoke tests, dev environment management
-- `install.sh` - Curl-pipe installer for end users
-- `scripts/install-deps.sh` - Auto-detection and installation of Go and CUE toolchains (reads go.mod for version)
+- main.go            - CLI entrypoint, command routing, embedded FS wiring
+- assets.go          - `//go:embed all:_template` directive for embedded templates
+- Makefile           - Build, test, lint, smoke-test, dev environment targets
+- internal/platform/exec.go     - Command execution helpers (Run, Output, RunWithSpinner)
+- internal/platform/fs.go       - Filesystem utilities (CopyFile, WalkFiles, SymlinkFile)
+- internal/platform/claudemd.go - Project detection and CLAUDE.md scaffold generation
+- internal/platform/color.go    - ANSI color and structured print helpers (PrintBanner, PrintStep, etc.)
+- internal/platform/assets.go   - Embedded FS extraction (ExtractTo, ReadAsset)
+- internal/attach/attach.go     - Core `attach` command (copies/symlinks templates to target project)
+- internal/tools/registry.go    - Tool registry pattern with Required/Optional/All accessors
 
 ## Important Notes
-- The `_template/project/` directory must stay in sync with the root `.claude/` folder; changes to agents, skills, hooks, or settings in one must be mirrored to the other (exception: auto-memory files under `.claude/` are NOT mirrored)
-- The `_template/global/` directory contains global-level assets (e.g., global CLAUDE.md, global settings) embedded separately from project assets
-- `make build` produces four cross-platform binaries and creates a local symlink; `make check` runs vet + test + lint + golint + build as pre-push validation
-- `make smoke-test` runs end-to-end tests in a temp directory; `--docker` and `--vm` variants available via `scripts/dev-env.sh`
-- The binary embeds all template assets at compile time — changes to `_template/` require rebuilding
-- AI enrichment (`enrich` command and `attach` without `--no-enrich`) shells out to `claude -p --model opus` to analyze the target project and generate a detailed CLAUDE.md; requires a valid API key
-- The `lint/` directory contains CUE schemas that validate template JSON files; run `make lint` or `bash scripts/lint-templates.sh`
-- TUI depends on Bubble Tea v2, Bubbles v2, and Lip Gloss v2 (Charm ecosystem); these are the main external dependencies alongside `golang.org/x/term`
-- The `upgrade` package has three files: `upgrade.go` (orchestration), `selfupdate.go` (binary self-update), `github.go` (GitHub release API)
-- The `memory` package has three files: `memory.go` (CLI routing), `layers.go` (layer inspection), `export.go` (JSON export/import)
+- Version is injected via `-ldflags "-X main.version=$(VERSION)"` at build time
+- Embedded FS vars `platform.FS` and `platform.GlobalFS` are set by `main.go` before any command runs
+- Print helpers in `platform/color.go` take `io.Writer` as first param for testability
+- The `tools/` package uses a registry pattern: individual files (claude.go, node.go) return `Tool` structs
+- `make check` runs full pre-push validation: vet + test + lint + golint + build
+- `make smoke-test` runs integration tests; `--docker` variant tests in containers

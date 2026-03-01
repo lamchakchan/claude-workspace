@@ -555,9 +555,9 @@ func ListTo(w io.Writer) error {
 					if urlOrType == "" {
 						urlOrType = cfg.Type
 					}
-					fmt.Fprintf(w, "  %s: %s (remote)%s\n", name, urlOrType, envNote)
+					fmt.Fprintf(w, "  %s: %s (http, scope: project)%s\n", name, urlOrType, envNote)
 				} else {
-					fmt.Fprintf(w, "  %s: %s %s (local)%s\n", name, cfg.Command, strings.Join(cfg.Args, " "), envNote)
+					fmt.Fprintf(w, "  %s: %s %s (stdio, scope: project)%s\n", name, cfg.Command, strings.Join(cfg.Args, " "), envNote)
 				}
 			}
 		} else {
@@ -566,11 +566,14 @@ func ListTo(w io.Writer) error {
 	}
 
 	platform.PrintSection(w, "Quick Add Commands")
-	fmt.Fprintln(w, "  Local server (no auth):     claude-workspace mcp add <name> -- <cmd>")
-	fmt.Fprintln(w, "  Local server (API key):     claude-workspace mcp add <name> --api-key API_KEY -- <cmd>")
-	fmt.Fprintln(w, "  Remote server (OAuth):      claude-workspace mcp remote <url>")
-	fmt.Fprintln(w, "  Remote server (Bearer):     claude-workspace mcp remote <url> --bearer")
+	fmt.Fprintln(w, "  Local server (no auth):       claude-workspace mcp add <name> -- <cmd>")
+	fmt.Fprintln(w, "  Local server (API key):       claude-workspace mcp add <name> --api-key API_KEY -- <cmd>")
+	fmt.Fprintln(w, "  User-scoped server:           claude-workspace mcp add <name> --scope user -- <cmd>")
+	fmt.Fprintln(w, "  Remote server (OAuth):        claude-workspace mcp remote <url>")
+	fmt.Fprintln(w, "  Remote server (Bearer):       claude-workspace mcp remote <url> --bearer")
 	fmt.Fprintln(w, "  Remote server (client creds): claude-workspace mcp remote <url> --oauth --client-id <id> --client-secret")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  Scopes: local (default, per-project) | user (cross-project) | project (shared via .mcp.json)")
 	fmt.Fprintln(w)
 
 	return nil

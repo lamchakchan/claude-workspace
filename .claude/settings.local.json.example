@@ -1,18 +1,17 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-
-  "_comment": "Copy this to .claude/settings.local.json and customize. This file is gitignored.",
-
+  "_comment": "Copy to .claude/settings.local.json and customize. This file is gitignored.",
   "permissions": {
     "allow": [],
     "deny": [],
     "additionalDirectories": []
   },
-
   "env": {
-    "_comment_model": "Override model for your personal use if needed",
+    "_comment_model": "Override model: ANTHROPIC_MODEL=claude-opus-4-6",
     "ANTHROPIC_MODEL": "",
     "_comment_subagent": "Override subagent model (sonnet, haiku, opus)",
     "CLAUDE_CODE_SUBAGENT_MODEL": ""
-  }
+  },
+  "_comment_mcp": "Set to true to auto-connect all .mcp.json servers without prompts",
+  "enableAllProjectMcpServers": true
 }

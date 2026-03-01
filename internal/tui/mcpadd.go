@@ -21,6 +21,7 @@ func NewMcpAdd(theme *Theme) *McpAddModel {
 		{Label: "Server name", Placeholder: "e.g. postgres, brave-search", Required: true},
 		{Label: "API key env var", Placeholder: "e.g. DATABASE_URL (leave blank if not needed)"},
 		{Label: "Command", Placeholder: "e.g. npx -y @bytebase/dbhub", Required: true},
+		{Label: "Scope", Choices: []string{"local", "user", "project"}},
 	}
 
 	return &McpAddModel{
@@ -43,8 +44,9 @@ func (m *McpAddModel) runAdd(values []string) tea.Cmd {
 	name := strings.TrimSpace(values[0])
 	apiKey := strings.TrimSpace(values[1])
 	cmdStr := strings.TrimSpace(values[2])
+	scope := values[3]
 
-	args := []string{"mcp", "add", name}
+	args := []string{"mcp", "add", name, "--scope", scope}
 	if apiKey != "" {
 		args = append(args, "--api-key", apiKey)
 	}

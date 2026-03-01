@@ -6,13 +6,16 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
+
+	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
 
 func TestWriteWrapperScript_CreatesExecutableScript(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "statusline.sh")
 
-	if err := writeWrapperScript(path); err != nil {
+	if err := writeWrapperScript(path, []byte("#!/usr/bin/env bash\necho hi\n")); err != nil {
 		t.Fatalf("writeWrapperScript: %v", err)
 	}
 
@@ -25,17 +28,11 @@ func TestWriteWrapperScript_CreatesExecutableScript(t *testing.T) {
 	}
 }
 
-func TestWriteWrapperScript_ContainsRequiredSections(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "statusline.sh")
-
-	if err := writeWrapperScript(path); err != nil {
-		t.Fatalf("writeWrapperScript: %v", err)
-	}
-
-	content, err := os.ReadFile(path)
+func TestStatuslineTemplate_ContainsRequiredSections(t *testing.T) {
+	// Read the shell script template from disk to verify its content.
+	content, err := os.ReadFile("../../_template/global/statusline.sh")
 	if err != nil {
-		t.Fatalf("reading script: %v", err)
+		t.Fatalf("reading statusline template: %v", err)
 	}
 	body := string(content)
 
@@ -47,28 +44,27 @@ func TestWriteWrapperScript_ContainsRequiredSections(t *testing.T) {
 		{"bun runtime", "bun x ccusage statusline"},
 		{"npx runtime", "npx -y ccusage statusline"},
 		{"jq fallback", "jq -r"},
-		{"reset countdown", "subscriptionCreatedAt"},
-		{"python3 invocation", "python3"},
-		{"output combination", "resets"},
-		{"service status section", "Service status alerts"},
-		{"github status URL", "githubstatus.com/api/v2/status.json"},
-		{"claude status URL", "status.claude.com/api/v2/status.json"},
-		{"cloudflare status URL", "cloudflarestatus.com/api/v2/status.json"},
-		{"aws health URL", "health.aws.amazon.com/public/currentevents"},
-		{"google cloud URL", "status.cloud.google.com/incidents.json"},
-		{"azure devops URL", "status.dev.azure.com/_apis/status/health"},
-		{"status_alerts variable", "status_alerts"},
-		{"urllib import", "urllib.request"},
-		{"ansi color codes", "\\033[1;31m"},
+		{"ccusage error guard", "head -1"},
+		{"ccusage error fallback", "❌"},
+		{"claude-workspace render call", "claude-workspace statusline render"},
+		{"base flag passed", "--base="},
+		{"tput cols", "tput cols"},
+		{"graceful fallback", "command -v claude-workspace"},
 	}
 	for _, c := range checks {
 		if !strings.Contains(body, c.contain) {
-			t.Errorf("script missing %s (expected to contain %q)", c.desc, c.contain)
+			t.Errorf("template missing %s (expected to contain %q)", c.desc, c.contain)
 		}
 	}
 }
 
 func TestConfigure_WritesScriptAndSettings(t *testing.T) {
+	// Provide a minimal GlobalFS so configureTo can read the template.
+	platform.GlobalFS = fstest.MapFS{
+		"statusline.sh": {Data: []byte("#!/usr/bin/env bash\necho test\n"), Mode: 0755},
+	}
+	t.Cleanup(func() { platform.GlobalFS = nil })
+
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
