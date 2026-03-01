@@ -1,6 +1,7 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags "-s -w -X main.version=$(VERSION)"
 BINARY := claude-workspace
+INSTALL_DIR ?= /usr/local/bin
 
 # Sources that invalidate the build: all .go files, go.mod/sum, and embedded template assets
 GO_SOURCES := $(shell find . -name '*.go' -not -path './bin/*' -not -path './.git/*') \
@@ -25,7 +26,12 @@ ensure-golangci-lint:
 build: build-all
 
 install: build
-	sudo cp $(BINARY) /usr/local/bin/$(BINARY)
+	@if [ -w "$(INSTALL_DIR)" ]; then \
+		cp $(BINARY) $(INSTALL_DIR)/$(BINARY); \
+	else \
+		echo "sudo cp $(BINARY) $(INSTALL_DIR)/$(BINARY)"; \
+		sudo cp $(BINARY) $(INSTALL_DIR)/$(BINARY); \
+	fi
 
 test: ensure-go
 	go test ./...
