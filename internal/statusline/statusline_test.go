@@ -67,6 +67,10 @@ func TestWriteWrapperScript_ContainsRequiredSections(t *testing.T) {
 		{"team task in_progress field", "in_progress"},
 		{"team staleness check", "updated_at"},
 		{"team progress bar chars", "█"},
+		{"cc compact detection", "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"},
+		{"cc compact reserve calc", "cc_reserve"},
+		{"width-aware fallback", "compact fallback"},
+		{"tput cols", "tput cols"},
 	}
 	for _, c := range checks {
 		if !strings.Contains(body, c.contain) {

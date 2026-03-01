@@ -222,6 +222,47 @@ if [[ -n "$base" && -n "$reset" ]]; then
 elif [[ -n "$base" ]]; then
     result="${base%$'\n'}"
 fi
+
+# Width-aware result: CC right-aligns 'Context left until auto-compact: X%' on the same
+# terminal line as our last output line when context_window.used_percentage >=
+# CLAUDE_AUTOCOMPACT_PCT_OVERRIDE. Detect this and shorten the result to fit.
+if [[ -n "$result" ]]; then
+    result=$(INPUT="$input" RESULT="$result" RESET="$reset" \
+             AUTOCOMPACT_PCT="${CLAUDE_AUTOCOMPACT_PCT_OVERRIDE:-95}" \
+             COLS="$(tput cols 2>/dev/null || echo 120)" python3 - <<'PYEOF' 2>/dev/null
+import json, os, re
+data   = json.loads(os.environ.get('INPUT', '{}') or '{}')
+result = os.environ.get('RESULT', '')
+reset  = os.environ.get('RESET', '')
+cols   = int(os.environ.get('COLS', '120') or '120')
+thr    = float(os.environ.get('AUTOCOMPACT_PCT', '95') or '95')
+ansi   = re.compile(r'\x1b\[[0-9;]*m')
+used   = float((data.get('context_window') or {}).get('used_percentage') or 0)
+
+# Compute how many columns CC's compact indicator will consume on this line
+cc_reserve = 0
+if used >= thr:
+    left      = round(100 - used)
+    cc_reserve = len(f'  Context left until auto-compact: {left}%')
+
+max_w = max(cols - cc_reserve, 20)
+if len(ansi.sub('', result)) <= max_w:
+    print(result, end='')
+    raise SystemExit
+
+# Too long — compact fallback: model | $cost | reset (no ANSI, predictable width)
+cost    = float((data.get('cost') or {}).get('total_cost_usd') or 0)
+model   = str((data.get('model') or {}).get('display_name') or '')
+compact = f'{model} | ${cost:.2f}'
+if reset:
+    compact += f' | {reset}'
+if len(compact) > max_w:
+    compact = compact[:max_w - 1] + '…'
+print(compact, end='')
+PYEOF
+    || echo "$result")
+fi
+
 out=""
 [[ -n "$status_alerts" ]] && out+="$(printf '%b' "$status_alerts")"$'\n'
 [[ -n "$team_line" ]]    && out+="$team_line"$'\n'
