@@ -60,6 +60,11 @@ func TestWriteWrapperScript_ContainsRequiredSections(t *testing.T) {
 		{"status_alerts variable", "status_alerts"},
 		{"urllib import", "urllib.request"},
 		{"ansi color codes", "\\033[1;31m"},
+		{"team segment marker", "team-state.json"},
+		{"team agent emoji", "👥"},
+		{"team task in_progress field", "in_progress"},
+		{"team staleness check", "updated_at"},
+		{"team progress bar chars", "█"},
 	}
 	for _, c := range checks {
 		if !strings.Contains(body, c.contain) {

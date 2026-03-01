@@ -129,20 +129,100 @@ if alerts:
 PYEOF
 )
 
-# Combine and output — alerts on line 1, base statusline on line 2
+# Team agent summary (reads ~/.claude/team-state.json written by TeammateIdle hook)
+team_line=$(python3 <<'PYEOF' 2>/dev/null
+import json, os, pathlib, datetime
+
+GRN = "\033[1;32m"
+YLW = "\033[1;33m"
+GRY = "\033[0;37m"
+BLD = "\033[1m"
+RST = "\033[0m"
+
+state_path = pathlib.Path.home() / '.claude' / 'team-state.json'
+if not state_path.exists():
+    exit()
+try:
+    state = json.loads(state_path.read_text())
+except Exception:
+    exit()
+
+# Suppress if older than 30 minutes
+try:
+    updated = datetime.datetime.strptime(
+        state.get('updated_at', ''), '%Y-%m-%dT%H:%M:%SZ'
+    ).replace(tzinfo=datetime.timezone.utc)
+    if (datetime.datetime.now(datetime.timezone.utc) - updated).total_seconds() > 1800:
+        exit()
+except Exception:
+    exit()
+
+agents = state.get('agents_seen', [])
+tasks  = state.get('tasks', {})
+pending     = tasks.get('pending',     0)
+in_progress = tasks.get('in_progress', 0)
+completed   = tasks.get('completed',   0)
+total = pending + in_progress + completed
+
+if total == 0 and not agents:
+    exit()
+
+# Team name: probe ~/.claude/teams/ for config files
+team_name = 'team'
+teams_dir = pathlib.Path.home() / '.claude' / 'teams'
+try:
+    candidates = list(teams_dir.glob('*/config.json')) + list(teams_dir.glob('*.json'))
+    if candidates:
+        cfg_file = max(candidates, key=lambda p: p.stat().st_mtime)
+        cfg = json.loads(cfg_file.read_text())
+        if cfg_file.name == 'config.json':
+            team_name = cfg.get('name', cfg_file.parent.name)
+        else:
+            team_name = cfg.get('name', cfg_file.stem)
+except Exception:
+    pass
+
+# Agent dots: green ▶ for active (proxy: in_progress count), yellow ⏸ for idle
+n = len(agents)
+active = min(in_progress, n) if n > 0 else 0
+idle_n = n - active
+dots = ' '.join([GRN + '▶' + RST] * active + [YLW + '⏸' + RST] * idle_n)
+
+# Progress bar (10 chars)
+filled = round(10 * completed / total) if total > 0 else 0
+bar = GRN + '█' * filled + RST + GRY + '░' * (10 - filled) + RST
+
+# Count labels
+counts = (
+    GRN + '▶' + str(in_progress) + RST + '  ' +
+    YLW + '⏸' + str(pending)     + RST + '  ' +
+    GRY + '✓' + str(completed)   + RST
+)
+
+parts = ['👥 ' + BLD + team_name + RST]
+if dots:
+    parts.append('[' + dots + ']')
+parts.append(bar)
+if total > 0:
+    parts.append(str(completed) + '/' + str(total) + ' tasks')
+parts.append(counts)
+
+print('  '.join(parts))
+PYEOF
+)
+
+# Combine and output — alerts on line 1, team summary on line 2, base statusline on line 3
 result=""
 if [[ -n "$base" && -n "$reset" ]]; then
     result="${base%$'\n'} | $reset"
 elif [[ -n "$base" ]]; then
     result="${base%$'\n'}"
 fi
-if [[ -n "$status_alerts" && -n "$result" ]]; then
-    printf '%b\n%s\n' "$status_alerts" "$result"
-elif [[ -n "$status_alerts" ]]; then
-    printf '%b\n' "$status_alerts"
-elif [[ -n "$result" ]]; then
-    printf '%s\n' "$result"
-fi
+out=""
+[[ -n "$status_alerts" ]] && out+="$(printf '%b' "$status_alerts")"$'\n'
+[[ -n "$team_line" ]]    && out+="$team_line"$'\n'
+[[ -n "$result" ]]       && out+="$result"$'\n'
+[[ -n "$out" ]]          && printf '%s' "${out%$'\n'}" && echo
 `
 
 // Run is the entry point for the statusline command.
