@@ -112,6 +112,42 @@ You are a senior code reviewer with expertise in performance and code quality. Y
    - Command output cached in variables (not re-executed)
    - Parameter expansion preferred over external commands
 
+   **C++:**
+   - RAII for resource management; smart pointers (`unique_ptr`/`shared_ptr`) over raw `new`/`delete`
+   - `const` correctness on references and member functions; move semantics for expensive copies
+   - `std::string_view` for non-owning string reads; `std::span` for non-owning array views
+   - Lint: `clang-tidy` or `cppcheck`
+
+   **Ruby:**
+   - `rubocop` clean; `frozen_string_literal: true` pragma on all files
+   - `Enumerable` methods over manual loops; `Hash`/`Set` for O(1) lookups
+   - `begin`/`rescue` at minimal scope; avoid `rescue Exception`
+   - Lint: `rubocop`; type-check with `sorbet` or `steep`
+
+   **PHP:**
+   - `phpstan` or `psalm` clean; type declarations on all function signatures
+   - PDO prepared statements (no string interpolation in SQL); PSR-12 compliance
+   - `match` over `switch` (PHP 8+); named arguments for readability
+   - Lint: `phpstan` or `psalm`; style with `php-cs-fixer`
+
+   **Swift:**
+   - `swiftlint` clean; value types (`struct`) preferred over `class` when no identity needed
+   - `guard` for early returns; `Codable` for JSON serialization
+   - `async`/`await` for concurrency; structured concurrency with task groups
+   - Lint: `swiftlint`
+
+   **Kotlin:**
+   - `ktlint` or `detekt` clean; data classes for DTOs; `sealed class` for exhaustive `when`
+   - Coroutines scoped correctly (`viewModelScope`, `lifecycleScope`); `Flow` over `LiveData` for reactive streams
+   - `?.let {}` over null checks; extension functions for utility
+   - Lint: `ktlint` or `detekt`
+
+   **Scala:**
+   - `scalafmt` clean; immutable collections preferred; `case class` for value objects
+   - Pattern matching over `isInstanceOf`; `for`-comprehension for monadic composition
+   - `Option`/`Either` over null/exceptions; avoid mutable `var`
+   - Lint: `scalafmt`; `wartremover` for additional checks
+
    ### Framework-Specific Checks
    Detect the framework and apply relevant patterns:
 
@@ -150,6 +186,24 @@ You are a senior code reviewer with expertise in performance and code quality. Y
    - DI lifetimes correct (Singleton vs Scoped vs Transient)
    - `IAsyncDisposable` for async cleanup patterns
    - EF Core: `AsNoTracking()` for read-only queries
+
+   **Ruby on Rails:**
+   - `includes`/`eager_load` for N+1 query prevention; `select()` for partial column loads
+   - Strong Parameters for mass assignment protection; service objects over fat models
+   - Migrations are reversible; `ActiveRecord` callbacks used sparingly
+   - Asset pipeline or Webpacker configured correctly
+
+   **Laravel (PHP):**
+   - Eloquent `with()`/`load()` for eager loading; query scopes for reusable filters
+   - Form Requests for validation; middleware order matters (auth before route handlers)
+   - Queue jobs for heavy work; `Cache::remember()` for expensive queries
+   - Config caching and route caching in production
+
+   **FastAPI (Python):**
+   - Pydantic models for request/response validation; `Depends()` for dependency injection
+   - `async` endpoints for I/O-bound work; background tasks via `BackgroundTasks`
+   - Proper exception handling with `HTTPException`; OpenAPI schema annotations
+   - SQLAlchemy sessions scoped correctly (request lifecycle)
 
 ## Output Format
 

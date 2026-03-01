@@ -303,4 +303,294 @@ func TestGenerateClaudeMdScaffold(t *testing.T) {
 	if !strings.Contains(scaffold, "Test: `go test ./...`") {
 		t.Error("scaffold should include Go test command")
 	}
+	if !strings.Contains(scaffold, "Lint: `go vet ./...`") {
+		t.Error("scaffold should include Go lint command")
+	}
+}
+
+func TestGenerateClaudeMdScaffold_AllLanguages(t *testing.T) {
+	tests := []struct {
+		name      string
+		setup     func(dir string)
+		wantStack string
+		wantBuild string
+		wantTest  string
+		wantLint  string
+	}{
+		{
+			name: "Rust project",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "Cargo.toml"), []byte("[package]"), 0644)
+			},
+			wantStack: "Rust",
+			wantBuild: "cargo build",
+			wantTest:  "cargo test",
+			wantLint:  "cargo clippy",
+		},
+		{
+			name: "Python pyproject.toml",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]"), 0644)
+			},
+			wantStack: "Python",
+			wantTest:  "pytest",
+			wantLint:  "ruff check .",
+		},
+		{
+			name: "Python requirements.txt",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "requirements.txt"), []byte("flask==2.0"), 0644)
+			},
+			wantStack: "Python",
+			wantTest:  "pytest",
+			wantLint:  "ruff check .",
+		},
+		{
+			name: "Java Maven",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "pom.xml"), []byte("<project><groupId>com.example</groupId></project>"), 0644)
+			},
+			wantStack: "Java, Maven",
+			wantBuild: "mvn package -q",
+			wantTest:  "mvn test -q",
+			wantLint:  "mvn checkstyle:check -q",
+		},
+		{
+			name: "Java Maven with Spring Boot",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "pom.xml"), []byte("<project><parent><artifactId>spring-boot-starter-parent</artifactId></parent></project>"), 0644)
+			},
+			wantStack: "Java, Spring Boot, Maven",
+			wantBuild: "mvn package -q",
+			wantTest:  "mvn test -q",
+			wantLint:  "mvn checkstyle:check -q",
+		},
+		{
+			name: "Java Gradle",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "build.gradle"), []byte("apply plugin: 'java'"), 0644)
+			},
+			wantStack: "Java, Gradle",
+			wantBuild: "./gradlew build",
+			wantTest:  "./gradlew test",
+			wantLint:  "checkstyle",
+		},
+		{
+			name: "Java Gradle with Spring Boot",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "build.gradle"), []byte("plugins { id 'org.springframework.boot' }\ndependencies { implementation 'spring-boot' }"), 0644)
+			},
+			wantStack: "Java, Spring Boot, Gradle",
+			wantBuild: "./gradlew build",
+			wantTest:  "./gradlew test",
+			wantLint:  "checkstyle",
+		},
+		{
+			name: "Kotlin Gradle",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "build.gradle.kts"), []byte("plugins { kotlin(\"jvm\") }"), 0644)
+				_ = os.MkdirAll(filepath.Join(dir, "src"), 0755)
+				_ = os.WriteFile(filepath.Join(dir, "src", "Main.kt"), []byte("fun main() {}"), 0644)
+			},
+			wantStack: "Kotlin, Gradle",
+			wantBuild: "./gradlew build",
+			wantTest:  "./gradlew test",
+			wantLint:  "ktlint",
+		},
+		{
+			name: "Ruby",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "Gemfile"), []byte("source 'https://rubygems.org'"), 0644)
+			},
+			wantStack: "Ruby",
+			wantTest:  "bundle exec rake test",
+			wantLint:  "rubocop",
+		},
+		{
+			name: "Ruby on Rails",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "Gemfile"), []byte("gem 'rails'"), 0644)
+				_ = os.MkdirAll(filepath.Join(dir, "config"), 0755)
+				_ = os.WriteFile(filepath.Join(dir, "config", "routes.rb"), []byte("Rails.application.routes.draw do\nend"), 0644)
+			},
+			wantStack: "Ruby, Rails",
+			wantTest:  "bundle exec rake test",
+			wantLint:  "rubocop",
+		},
+		{
+			name: "C# .NET via csproj",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "MyApp.csproj"), []byte("<Project></Project>"), 0644)
+			},
+			wantStack: "C#, .NET",
+			wantBuild: "dotnet build",
+			wantTest:  "dotnet test",
+			wantLint:  "dotnet format --verify-no-changes",
+		},
+		{
+			name: "C# .NET via sln",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "MyApp.sln"), []byte("Microsoft Visual Studio Solution"), 0644)
+			},
+			wantStack: "C#, .NET",
+			wantBuild: "dotnet build",
+			wantTest:  "dotnet test",
+			wantLint:  "dotnet format --verify-no-changes",
+		},
+		{
+			name: "Elixir",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "mix.exs"), []byte("defmodule MyApp.MixProject do\nend"), 0644)
+			},
+			wantStack: "Elixir",
+			wantBuild: "mix compile",
+			wantTest:  "mix test",
+			wantLint:  "mix credo",
+		},
+		{
+			name: "Elixir Phoenix",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "mix.exs"), []byte("defmodule MyApp.MixProject do\nend"), 0644)
+				_ = os.MkdirAll(filepath.Join(dir, "lib"), 0755)
+				_ = os.WriteFile(filepath.Join(dir, "lib", "endpoint.ex"), []byte("defmodule Endpoint do\nend"), 0644)
+			},
+			wantStack: "Elixir, Phoenix",
+			wantBuild: "mix compile",
+			wantTest:  "mix test",
+			wantLint:  "mix credo",
+		},
+		{
+			name: "PHP",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "composer.json"), []byte("{}"), 0644)
+			},
+			wantStack: "PHP",
+			wantTest:  "./vendor/bin/phpunit",
+			wantLint:  "phpstan analyse",
+		},
+		{
+			name: "PHP Laravel",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "composer.json"), []byte("{}"), 0644)
+				_ = os.WriteFile(filepath.Join(dir, "artisan"), []byte("#!/usr/bin/env php"), 0644)
+			},
+			wantStack: "PHP, Laravel",
+			wantTest:  "./vendor/bin/phpunit",
+			wantLint:  "phpstan analyse",
+		},
+		{
+			name: "Swift",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "Package.swift"), []byte("// swift-tools-version:5.9"), 0644)
+			},
+			wantStack: "Swift",
+			wantBuild: "swift build",
+			wantTest:  "swift test",
+			wantLint:  "swiftlint",
+		},
+		{
+			name: "Scala",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "build.sbt"), []byte("name := \"myapp\""), 0644)
+			},
+			wantStack: "Scala",
+			wantBuild: "sbt compile",
+			wantTest:  "sbt test",
+			wantLint:  "scalafmt --check",
+		},
+		{
+			name: "C++ CMake",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "CMakeLists.txt"), []byte("cmake_minimum_required(VERSION 3.14)"), 0644)
+			},
+			wantStack: "C++, CMake",
+			wantBuild: "cmake --build build",
+			wantTest:  "ctest --test-dir build",
+			wantLint:  "clang-tidy",
+		},
+		{
+			name: "C++ Bazel",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "MODULE.bazel"), []byte("module()"), 0644)
+				_ = os.WriteFile(filepath.Join(dir, "main.cpp"), []byte("int main() {}"), 0644)
+			},
+			wantStack: "C++, Bazel",
+			wantBuild: "bazel build //...",
+			wantTest:  "bazel test //...",
+		},
+		{
+			name: "Bazel without C++",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "MODULE.bazel"), []byte("module()"), 0644)
+			},
+			wantStack: "Bazel",
+			wantBuild: "bazel build //...",
+			wantTest:  "bazel test //...",
+		},
+		{
+			name: "Bazel via WORKSPACE",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "WORKSPACE"), []byte(""), 0644)
+			},
+			wantStack: "Bazel",
+			wantBuild: "bazel build //...",
+			wantTest:  "bazel test //...",
+		},
+		{
+			name: "C++ Make",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "Makefile"), []byte("all:\n\tg++ main.cpp"), 0644)
+				_ = os.WriteFile(filepath.Join(dir, "main.cpp"), []byte("int main() {}"), 0644)
+			},
+			wantStack: "C++, Make",
+			wantBuild: "make",
+			wantTest:  "make test",
+			wantLint:  "clang-tidy",
+		},
+		{
+			name: "Makefile without C++ sources",
+			setup: func(dir string) {
+				_ = os.WriteFile(filepath.Join(dir, "Makefile"), []byte("all:\n\techo hi"), 0644)
+			},
+			wantStack: "Unknown",
+		},
+		{
+			name: "Unknown project",
+			setup: func(dir string) {
+				// empty directory
+			},
+			wantStack: "Unknown",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			tt.setup(dir)
+
+			scaffold := GenerateClaudeMdScaffold(dir)
+
+			if !strings.Contains(scaffold, "Tech Stack: "+tt.wantStack) {
+				t.Errorf("want Tech Stack: %s, got scaffold:\n%s", tt.wantStack, scaffold)
+			}
+
+			if tt.wantBuild != "" {
+				if !strings.Contains(scaffold, "Build: `"+tt.wantBuild+"`") {
+					t.Errorf("want Build: `%s` in scaffold", tt.wantBuild)
+				}
+			}
+
+			if tt.wantTest != "" {
+				if !strings.Contains(scaffold, "Test: `"+tt.wantTest+"`") {
+					t.Errorf("want Test: `%s` in scaffold", tt.wantTest)
+				}
+			}
+
+			if tt.wantLint != "" {
+				if !strings.Contains(scaffold, "Lint: `"+tt.wantLint+"`") {
+					t.Errorf("want Lint: `%s` in scaffold", tt.wantLint)
+				}
+			}
+		})
+	}
 }

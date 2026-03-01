@@ -58,6 +58,36 @@ Follow the platform conventions, use subagents for delegation, and plan before i
 - Quote all variables; `set -euo pipefail`; parameter expansion over external commands
 - Cache command outputs in variables; avoid calling the same command twice
 
+**C++:**
+- RAII and smart pointers (`unique_ptr`/`shared_ptr`) over raw `new`/`delete`; `const` references for read-only params
+- Move semantics for expensive-to-copy objects; `std::string_view` for non-owning string reads
+- Lint: `clang-tidy` or `cppcheck`
+
+**Ruby:**
+- `Enumerable` methods over manual iteration; `Hash`/`Set` for O(1) lookups; `freeze` string literals
+- `begin`/`rescue` at minimal scope; avoid `rescue Exception`; prefer keyword arguments for clarity
+- Lint: `rubocop`; type-check with `sorbet` or `steep`
+
+**PHP:**
+- Type declarations on all function signatures; PDO prepared statements (no string interpolation in SQL)
+- PSR-4 autoloading; `match` over `switch` (PHP 8+); named arguments for readability
+- Lint: `phpstan` or `psalm`; style with `php-cs-fixer`
+
+**Swift:**
+- Value types (`struct`) over reference types when no identity needed; `guard` for early returns
+- `Codable` for JSON; `async`/`await` for concurrency; structured concurrency with task groups
+- Lint: `swiftlint`
+
+**Kotlin:**
+- Data classes for DTOs; `sealed class` for exhaustive `when`; coroutines over callbacks
+- `?.let {}` over null checks; extension functions for utility; `Flow` for reactive streams
+- Lint: `ktlint` or `detekt`
+
+**Scala:**
+- Immutable collections preferred; pattern matching over `isInstanceOf`; `case class` for value objects
+- `for`-comprehension for monadic composition; `Option`/`Either` over null/exceptions
+- Lint: `scalafmt`; `wartremover` for additional checks
+
 ## Git Conventions
 - Work on feature branches, never main/master
 - Commit messages: imperative mood, explain "why"

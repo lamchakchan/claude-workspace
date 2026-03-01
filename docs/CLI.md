@@ -176,7 +176,7 @@ claude-workspace enrich [project-path] [--scaffold-only]
 
 1. Resolves the project directory (defaults to the current working directory if omitted).
 2. Creates `.claude/` if it does not exist.
-3. If `.claude/CLAUDE.md` is missing, generates a static scaffold (auto-detects tech stack from `go.mod`, `package.json`, `Cargo.toml`, `pyproject.toml`).
+3. If `.claude/CLAUDE.md` is missing, generates a static scaffold (auto-detects tech stack from `go.mod`, `package.json`, `Cargo.toml`, `pyproject.toml`, `requirements.txt`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `Gemfile`, `*.csproj`, `*.sln`, `mix.exs`, `composer.json`, `Package.swift`, `build.sbt`, `CMakeLists.txt`, `MODULE.bazel`, `WORKSPACE`, `Makefile`).
 4. Unless `--scaffold-only`, runs `claude -p` with Opus to analyze the project and overwrite `.claude/CLAUDE.md` with enriched content (directories, conventions, important files). Falls back gracefully if the Claude CLI is unavailable or errors.
 
 **Examples:**

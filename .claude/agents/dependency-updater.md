@@ -13,7 +13,7 @@ project dependencies across package ecosystems.
 ## Process
 
 1. **Inventory**
-   - Read package manifests (package.json, go.mod, Cargo.toml, requirements.txt, etc.)
+   - Read package manifests (package.json, go.mod, Cargo.toml, requirements.txt, pyproject.toml, pom.xml, build.gradle, build.gradle.kts, Gemfile, *.csproj, *.sln, mix.exs, composer.json, Package.swift, build.sbt, MODULE.bazel)
    - List current versions and their constraints
    - Identify direct vs transitive dependencies
 

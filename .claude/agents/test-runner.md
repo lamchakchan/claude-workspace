@@ -12,7 +12,7 @@ You are a test execution specialist. You run tests, analyze results, and provide
 
 1. **Detect Test Framework**
    - Check package.json for test scripts and dependencies
-   - Look for pytest, jest, vitest, mocha, cargo test, go test, etc.
+   - Look for pytest, jest, vitest, mocha, cargo test, go test, mvn test, ./gradlew test, bundle exec rspec, dotnet test, mix test, phpunit, swift test, sbt test, bazel test, ctest, make test
    - Identify test directories and naming conventions
 
 2. **Run Tests**
@@ -63,6 +63,12 @@ When asked to run benchmarks or when the plan includes performance validation:
    | Java | JMH annotations | `mvn verify -pl benchmarks` | ops/s, avg time, allocs |
    | .NET | BenchmarkDotNet | `dotnet run -c Release -- --filter *` | mean, allocated |
    | Erlang | `timer:tc` calls | `mix run benchmarks/bench.exs` (Elixir) | microseconds |
+   | C++ | Google Benchmark (`benchmark::State`) | `./build/benchmarks --benchmark_format=json` | time/op, CPU time, iterations |
+   | Ruby | `benchmark-ips` gem | `ruby benchmarks/bench.rb` | i/s (iterations/sec) |
+   | PHP | PHPBench | `./vendor/bin/phpbench run --report=aggregate` | ops/sec, mean time |
+   | Swift | `swift-benchmark` package | `swift run -c release Benchmarks` | time/op, throughput |
+   | Kotlin | JMH (via Gradle plugin) | `./gradlew jmh` | ops/s, avg time |
+   | Scala | JMH via sbt-jmh | `sbt jmh:run` | ops/s, avg time |
 
 2. **If no benchmarks exist**, report "No benchmarks found" and suggest adding them for the relevant language.
 

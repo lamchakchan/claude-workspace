@@ -81,6 +81,57 @@ func collectJSDeps(pkg map[string]json.RawMessage) map[string]bool {
 	return allDeps
 }
 
+// hasCppSources checks if C++ source files exist in the project root or src/ directory.
+func hasCppSources(projectDir string) bool {
+	for _, pattern := range []string{"*.cpp", "*.cc", "*.cxx", "src/*.cpp", "src/*.cc", "src/*.cxx"} {
+		matches, _ := filepath.Glob(filepath.Join(projectDir, pattern))
+		if len(matches) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// hasKotlinSources checks if Kotlin source files exist in the project.
+func hasKotlinSources(projectDir string) bool {
+	for _, pattern := range []string{"*.kt", "src/**/*.kt", "src/*.kt"} {
+		matches, _ := filepath.Glob(filepath.Join(projectDir, pattern))
+		if len(matches) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// hasGlobMatch checks if any file matches the given glob pattern in the project directory.
+func hasGlobMatch(projectDir, pattern string) bool {
+	matches, _ := filepath.Glob(filepath.Join(projectDir, pattern))
+	return len(matches) > 0
+}
+
+// fileContains checks if a file contains a given substring.
+func fileContains(path, substr string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(data), substr)
+}
+
+// detectSpringBoot checks if a Maven or Gradle project uses Spring Boot.
+func detectSpringBoot(projectDir string) bool {
+	if FileExists(filepath.Join(projectDir, "pom.xml")) && fileContains(filepath.Join(projectDir, "pom.xml"), "spring-boot") {
+		return true
+	}
+	for _, f := range []string{"build.gradle", "build.gradle.kts"} {
+		path := filepath.Join(projectDir, f)
+		if FileExists(path) && fileContains(path, "spring-boot") {
+			return true
+		}
+	}
+	return false
+}
+
 // GenerateClaudeMdScaffold builds the static scaffold content for a project.
 // Returns the markdown string (caller handles file I/O and force logic).
 func GenerateClaudeMdScaffold(projectDir string) string {
@@ -88,8 +139,11 @@ func GenerateClaudeMdScaffold(projectDir string) string {
 	techStack := "Unknown"
 	buildCmd := ""
 	testCmd := ""
+	lintCmd := ""
 
-	// Try to detect from package.json
+	// Detection order: general first, more specific later (last match wins).
+
+	// --- JavaScript/TypeScript (package.json) ---
 	pkgPath := filepath.Join(projectDir, "package.json")
 	if FileExists(pkgPath) {
 		var pkg map[string]json.RawMessage
@@ -105,27 +159,150 @@ func GenerateClaudeMdScaffold(projectDir string) string {
 			if _, ok := scripts["test"]; ok {
 				testCmd = "npm test"
 			}
+			if _, ok := scripts["lint"]; ok {
+				lintCmd = "npm run lint"
+			}
 		}
 	}
 
-	// Try Cargo.toml
+	// --- Rust (Cargo.toml) ---
 	if FileExists(filepath.Join(projectDir, "Cargo.toml")) {
 		techStack = "Rust"
 		buildCmd = "cargo build"
 		testCmd = "cargo test"
+		lintCmd = "cargo clippy"
 	}
 
-	// Try go.mod
+	// --- Python (pyproject.toml or requirements.txt) ---
+	if FileExists(filepath.Join(projectDir, "pyproject.toml")) {
+		techStack = "Python"
+		testCmd = "pytest"
+		lintCmd = "ruff check ."
+	} else if FileExists(filepath.Join(projectDir, "requirements.txt")) {
+		techStack = "Python"
+		testCmd = "pytest"
+		lintCmd = "ruff check ."
+	}
+
+	// --- Go (go.mod) ---
 	if FileExists(filepath.Join(projectDir, "go.mod")) {
 		techStack = "Go"
 		buildCmd = "go build ./..."
 		testCmd = "go test ./..."
+		lintCmd = "go vet ./..."
 	}
 
-	// Try pyproject.toml
-	if FileExists(filepath.Join(projectDir, "pyproject.toml")) {
-		techStack = "Python"
-		testCmd = "pytest"
+	// --- Java Maven (pom.xml) ---
+	if FileExists(filepath.Join(projectDir, "pom.xml")) {
+		if detectSpringBoot(projectDir) {
+			techStack = "Java, Spring Boot, Maven"
+		} else {
+			techStack = "Java, Maven"
+		}
+		buildCmd = "mvn package -q"
+		testCmd = "mvn test -q"
+		lintCmd = "mvn checkstyle:check -q"
+	}
+
+	// --- Java/Kotlin Gradle (build.gradle or build.gradle.kts) ---
+	if FileExists(filepath.Join(projectDir, "build.gradle")) || FileExists(filepath.Join(projectDir, "build.gradle.kts")) {
+		if hasKotlinSources(projectDir) {
+			techStack = "Kotlin, Gradle"
+			lintCmd = "ktlint"
+		} else if detectSpringBoot(projectDir) {
+			techStack = "Java, Spring Boot, Gradle"
+			lintCmd = "checkstyle"
+		} else {
+			techStack = "Java, Gradle"
+			lintCmd = "checkstyle"
+		}
+		buildCmd = "./gradlew build"
+		testCmd = "./gradlew test"
+	}
+
+	// --- Ruby (Gemfile) ---
+	if FileExists(filepath.Join(projectDir, "Gemfile")) {
+		if FileExists(filepath.Join(projectDir, "config", "routes.rb")) {
+			techStack = "Ruby, Rails"
+		} else {
+			techStack = "Ruby"
+		}
+		testCmd = "bundle exec rake test"
+		lintCmd = "rubocop"
+	}
+
+	// --- C# / .NET (*.csproj or *.sln) ---
+	if hasGlobMatch(projectDir, "*.csproj") || hasGlobMatch(projectDir, "*.sln") {
+		techStack = "C#, .NET"
+		buildCmd = "dotnet build"
+		testCmd = "dotnet test"
+		lintCmd = "dotnet format --verify-no-changes"
+	}
+
+	// --- Elixir (mix.exs) ---
+	if FileExists(filepath.Join(projectDir, "mix.exs")) {
+		if FileExists(filepath.Join(projectDir, "lib", "endpoint.ex")) || FileExists(filepath.Join(projectDir, "lib", "router.ex")) {
+			techStack = "Elixir, Phoenix"
+		} else {
+			techStack = "Elixir"
+		}
+		buildCmd = "mix compile"
+		testCmd = "mix test"
+		lintCmd = "mix credo"
+	}
+
+	// --- PHP (composer.json) ---
+	if FileExists(filepath.Join(projectDir, "composer.json")) {
+		if FileExists(filepath.Join(projectDir, "artisan")) {
+			techStack = "PHP, Laravel"
+		} else {
+			techStack = "PHP"
+		}
+		testCmd = "./vendor/bin/phpunit"
+		lintCmd = "phpstan analyse"
+	}
+
+	// --- Swift (Package.swift) ---
+	if FileExists(filepath.Join(projectDir, "Package.swift")) {
+		techStack = "Swift"
+		buildCmd = "swift build"
+		testCmd = "swift test"
+		lintCmd = "swiftlint"
+	}
+
+	// --- Scala (build.sbt) ---
+	if FileExists(filepath.Join(projectDir, "build.sbt")) {
+		techStack = "Scala"
+		buildCmd = "sbt compile"
+		testCmd = "sbt test"
+		lintCmd = "scalafmt --check"
+	}
+
+	// --- C++ with CMake ---
+	if FileExists(filepath.Join(projectDir, "CMakeLists.txt")) {
+		techStack = "C++, CMake"
+		buildCmd = "cmake --build build"
+		testCmd = "ctest --test-dir build"
+		lintCmd = "clang-tidy"
+	}
+
+	// --- Bazel (MODULE.bazel or WORKSPACE) ---
+	if FileExists(filepath.Join(projectDir, "MODULE.bazel")) || FileExists(filepath.Join(projectDir, "WORKSPACE")) {
+		if hasCppSources(projectDir) {
+			techStack = "C++, Bazel"
+		} else {
+			techStack = "Bazel"
+		}
+		buildCmd = "bazel build //..."
+		testCmd = "bazel test //..."
+	}
+
+	// --- C++ with Makefile (only if C++ source files exist) ---
+	if FileExists(filepath.Join(projectDir, "Makefile")) && hasCppSources(projectDir) {
+		techStack = "C++, Make"
+		buildCmd = "make"
+		testCmd = "make test"
+		lintCmd = "clang-tidy"
 	}
 
 	var sb strings.Builder
@@ -138,6 +315,9 @@ func GenerateClaudeMdScaffold(projectDir string) string {
 	}
 	if testCmd != "" {
 		fmt.Fprintf(&sb, "Test: `%s`\n", testCmd)
+	}
+	if lintCmd != "" {
+		fmt.Fprintf(&sb, "Lint: `%s`\n", lintCmd)
 	}
 	sb.WriteString(`
 ## Conventions

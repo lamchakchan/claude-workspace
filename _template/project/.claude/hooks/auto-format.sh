@@ -65,6 +65,51 @@ case "$EXT" in
       yamlfmt "$FILE_PATH" 2>/dev/null || true
     fi
     ;;
+  java)
+    if command -v google-java-format &>/dev/null; then
+      google-java-format --replace "$FILE_PATH" 2>/dev/null || true
+    fi
+    ;;
+  rb)
+    if command -v rubocop &>/dev/null; then
+      rubocop -a --fail-level error "$FILE_PATH" 2>/dev/null || true
+    fi
+    ;;
+  cs)
+    if command -v dotnet &>/dev/null; then
+      dotnet format --include "$FILE_PATH" 2>/dev/null || true
+    fi
+    ;;
+  cpp|cc|cxx|h|hpp)
+    if command -v clang-format &>/dev/null; then
+      clang-format -i "$FILE_PATH" 2>/dev/null || true
+    fi
+    ;;
+  ex|exs)
+    if command -v mix &>/dev/null; then
+      mix format "$FILE_PATH" 2>/dev/null || true
+    fi
+    ;;
+  php)
+    if command -v php-cs-fixer &>/dev/null; then
+      php-cs-fixer fix "$FILE_PATH" --quiet 2>/dev/null || true
+    fi
+    ;;
+  kt|kts)
+    if command -v ktlint &>/dev/null; then
+      ktlint -F "$FILE_PATH" 2>/dev/null || true
+    fi
+    ;;
+  swift)
+    if command -v swift-format &>/dev/null; then
+      swift-format -i "$FILE_PATH" 2>/dev/null || true
+    fi
+    ;;
+  scala)
+    if command -v scalafmt &>/dev/null; then
+      scalafmt "$FILE_PATH" 2>/dev/null || true
+    fi
+    ;;
 esac
 
 exit 0
