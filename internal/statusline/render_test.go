@@ -355,65 +355,136 @@ func writeTeamState(t *testing.T, home string, updatedAt time.Time, agents []str
 	_ = os.WriteFile(filepath.Join(home, ".claude", "team-state.json"), data, 0644)
 }
 
-// --- compactResult ---
+// --- ccReserveWidth ---
 
-func TestCompactResult_NoReserve_AlwaysReturnsFull(t *testing.T) {
-	// When context usage is below the threshold, no CC indicator is shown.
-	// The full result is returned as-is regardless of terminal width.
-	long := strings.Repeat("A very long ANSI-free result ", 10)
-	inputJSON := []byte(`{"context_window":{"used_percentage":50},"cost":{"total_cost_usd":0.01},"model":{"display_name":"M"}}`)
-	got := compactResult(long, "", inputJSON, 20, 95.0) // cols=20 but no CC reserve
-	if got != long {
-		t.Errorf("expected full result unchanged (no CC reserve), got %q", got)
+func TestCCReserveWidth_BelowThreshold(t *testing.T) {
+	inputJSON := []byte(`{"context_window":{"used_percentage":50}}`)
+	if got := ccReserveWidth(inputJSON, 95.0); got != 0 {
+		t.Errorf("expected 0 below threshold, got %d", got)
 	}
 }
 
-func TestCompactResult_Reserve_FitsWidth(t *testing.T) {
-	// CC indicator active (used=96 >= 95); result fits within available width → unchanged.
-	inputJSON := []byte(`{"context_window":{"used_percentage":96},"cost":{"total_cost_usd":0.01},"model":{"display_name":"M"}}`)
-	// maxW = 80 - len("  Context left until auto-compact: 4%") = 80 - 38 = 42
-	// "M | $0.01" = 9 chars, well under 42.
+func TestCCReserveWidth_AtThreshold(t *testing.T) {
+	inputJSON := []byte(`{"context_window":{"used_percentage":96}}`)
+	got := ccReserveWidth(inputJSON, 95.0)
+	// "  Context left until auto-compact: 4%" = 37 chars
+	if got != 37 {
+		t.Errorf("expected 37, got %d", got)
+	}
+}
+
+// --- compactResult ---
+
+func TestCompactResult_FitsMaxW_ReturnsUnchanged(t *testing.T) {
+	// When result fits within maxW, return unchanged regardless of length.
+	long := strings.Repeat("A very long ANSI-free result ", 10)
+	inputJSON := []byte(`{"cost":{"total_cost_usd":0.01},"model":{"display_name":"M"}}`)
+	got := compactResult(long, "", inputJSON, 1000) // maxW=1000, everything fits
+	if got != long {
+		t.Errorf("expected full result unchanged, got %q", got)
+	}
+}
+
+func TestCompactResult_FitsWidth(t *testing.T) {
+	// Result fits within maxW → unchanged.
+	inputJSON := []byte(`{"cost":{"total_cost_usd":0.01},"model":{"display_name":"M"}}`)
 	short := "M | $0.01"
-	got := compactResult(short, "", inputJSON, 80, 95.0)
+	got := compactResult(short, "", inputJSON, 42) // maxW=42, "M | $0.01" = 9 chars
 	if got != short {
 		t.Errorf("expected result unchanged, got %q", got)
 	}
 }
 
-func TestCompactResult_Reserve_DropResetPreservesBase(t *testing.T) {
-	// CC indicator active; full line too wide but base (without reset) fits → reset dropped.
-	// maxW = 80 - 38 = 42; base = 29 chars ≤ 42; result = base + " | resets in 3d" = 44 chars > 42.
-	inputJSON := []byte(`{"context_window":{"used_percentage":96},"cost":{"total_cost_usd":0.01},"model":{"display_name":"M"}}`)
+func TestCompactResult_DropResetPreservesBase(t *testing.T) {
+	// Full line too wide but base (without reset) fits → reset dropped.
+	// base = 29 chars ≤ 42; result = base + " | resets in 3d" = 44 chars > 42.
+	inputJSON := []byte(`{"cost":{"total_cost_usd":0.01},"model":{"display_name":"M"}}`)
 	base := "M | $0.01 session / $10 daily" // 29 visible chars
 	result := base + " | resets in 3d"      // 44 chars > maxW=42
-	got := compactResult(result, "resets in 3d", inputJSON, 80, 95.0)
+	got := compactResult(result, "resets in 3d", inputJSON, 42)
 	if got != base {
 		t.Errorf("expected base with reset dropped, got %q", got)
 	}
 }
 
-func TestCompactResult_Reserve_CompactFallback(t *testing.T) {
-	// CC indicator active; even base is too wide → compact fallback with no ANSI codes.
-	inputJSON := []byte(`{"context_window":{"used_percentage":96},"cost":{"total_cost_usd":0.01},"model":{"display_name":"Mod"}}`)
-	// maxW = 80 - 38 = 42; 100 visible X chars >> 42 → compact fallback.
-	ansiResult := strings.Repeat(ansiGreen+"X"+ansiReset, 100)
-	got := compactResult(ansiResult, "resets in 2d", inputJSON, 80, 95.0)
-	if strings.Contains(got, "\033[") {
-		t.Errorf("compact fallback should not contain ANSI codes, got %q", got)
-	}
-	if len([]rune(got)) > 42 {
-		t.Errorf("compact result too long (%d runes > 42): %q", len([]rune(got)), got)
+func TestCompactResult_DropHourlyRate(t *testing.T) {
+	// After dropping reset, hourly rate segment (🔥) is dropped next.
+	inputJSON := []byte(`{"cost":{"total_cost_usd":16.84},"model":{"display_name":"Opus 4.6"}}`)
+	base := "🤖 Opus 4.6 | 💰 $16.84 session | 🔥 $4.88/hr | 🧠 5,803 (3%)"
+	want := "🤖 Opus 4.6 | 💰 $16.84 session | 🧠 5,803 (3%)"
+	maxW := displayWidth(want) // exact fit after dropping 🔥
+	got := compactResult(base, "", inputJSON, maxW)
+	if got != want {
+		t.Errorf("expected hourly rate dropped:\n  want: %q\n  got:  %q", want, got)
 	}
 }
 
-func TestCompactResult_Reserve_WideCharsDisplayWidth(t *testing.T) {
-	// CC indicator active; result has wide emoji (2 cols each).
-	// 20 emojis (40 display cols) + 20 ASCII (20 display cols) = 40 runes, 60 display cols.
-	// maxW = 80 - 38 = 42; 60 display cols > 42 → triggers compaction (step 3).
-	// Rune-count-only check would pass (40 ≤ 42) — this test catches that regression.
-	inputJSON := []byte(`{"context_window":{"used_percentage":96},"cost":{"total_cost_usd":0.01},"model":{"display_name":"M"}}`)
+func TestCompactResult_DropBlockCost(t *testing.T) {
+	// After dropping hourly rate, block cost sub-segment is dropped.
+	inputJSON := []byte(`{"cost":{"total_cost_usd":16.84},"model":{"display_name":"Opus 4.6"}}`)
+	base := "🤖 Opus 4.6 | 💰 $16.84 session / $18.35 today / $18.35 block (1h 1m left) | 🧠 5,803 (3%)"
+	want := "🤖 Opus 4.6 | 💰 $16.84 session / $18.35 today | 🧠 5,803 (3%)"
+	maxW := displayWidth(want)
+	got := compactResult(base, "", inputJSON, maxW)
+	if got != want {
+		t.Errorf("expected block cost dropped:\n  want: %q\n  got:  %q", want, got)
+	}
+}
+
+func TestCompactResult_DropDailyCost(t *testing.T) {
+	// After dropping block cost, daily cost sub-segment is dropped.
+	inputJSON := []byte(`{"cost":{"total_cost_usd":16.84},"model":{"display_name":"Opus 4.6"}}`)
+	base := "🤖 Opus 4.6 | 💰 $16.84 session / $18.35 today | 🧠 5,803 (3%)"
+	want := "🤖 Opus 4.6 | 💰 $16.84 session | 🧠 5,803 (3%)"
+	maxW := displayWidth(want)
+	got := compactResult(base, "", inputJSON, maxW)
+	if got != want {
+		t.Errorf("expected daily cost dropped:\n  want: %q\n  got:  %q", want, got)
+	}
+}
+
+func TestCompactResult_AbbreviateSession(t *testing.T) {
+	// After dropping daily cost, "session" is abbreviated to "sess".
+	inputJSON := []byte(`{"cost":{"total_cost_usd":16.84},"model":{"display_name":"Opus 4.6"}}`)
+	base := "🤖 Opus 4.6 | 💰 $16.84 session | 🧠 5,803 (3%)"
+	want := "🤖 Opus 4.6 | 💰 $16.84 sess | 🧠 5,803 (3%)"
+	maxW := displayWidth(want)
+	got := compactResult(base, "", inputJSON, maxW)
+	if got != want {
+		t.Errorf("expected session abbreviated:\n  want: %q\n  got:  %q", want, got)
+	}
+}
+
+func TestCompactResult_DropTokens(t *testing.T) {
+	// After abbreviating, tokens/context segment (🧠) is dropped.
+	inputJSON := []byte(`{"cost":{"total_cost_usd":16.84},"model":{"display_name":"Opus 4.6"}}`)
+	base := "🤖 Opus 4.6 | 💰 $16.84 sess | 🧠 5,803 (3%)"
+	want := "🤖 Opus 4.6 | 💰 $16.84 sess"
+	maxW := displayWidth(want)
+	got := compactResult(base, "", inputJSON, maxW)
+	if got != want {
+		t.Errorf("expected tokens dropped:\n  want: %q\n  got:  %q", want, got)
+	}
+}
+
+func TestCompactResult_CompactFallback(t *testing.T) {
+	// Everything too wide → compact fallback with no ANSI codes.
+	inputJSON := []byte(`{"cost":{"total_cost_usd":0.01},"model":{"display_name":"Mod"}}`)
+	ansiResult := strings.Repeat(ansiGreen+"X"+ansiReset, 100)
+	got := compactResult(ansiResult, "resets in 2d", inputJSON, 42)
+	// Fallback tries "Mod | $0.01 | resets in 2d" (26 chars) which fits in 42
+	want := "Mod | $0.01 | resets in 2d"
+	if got != want {
+		t.Errorf("expected compact fallback %q, got %q", want, got)
+	}
+}
+
+func TestCompactResult_WideCharsDisplayWidth(t *testing.T) {
+	// Result has wide emoji (2 cols each).
+	// 20 emojis (40 display cols) + 20 ASCII (20 display cols) = 60 display cols > maxW 42.
+	inputJSON := []byte(`{"cost":{"total_cost_usd":0.01},"model":{"display_name":"M"}}`)
 	wideResult := strings.Repeat("🤖", 20) + strings.Repeat("X", 20)
-	got := compactResult(wideResult, "", inputJSON, 80, 95.0)
+	got := compactResult(wideResult, "", inputJSON, 42)
 	if got == wideResult {
 		t.Error("expected compaction: display width 60 > maxW 42, but result returned unchanged")
 	}
@@ -422,18 +493,126 @@ func TestCompactResult_Reserve_WideCharsDisplayWidth(t *testing.T) {
 	}
 }
 
-func TestCompactResult_Reserve_TruncatedWithEllipsis(t *testing.T) {
-	// CC indicator active; compact fallback itself exceeds maxW (min 20) → truncated with "…".
-	// used=99, left=1, reserve=len("  Context left until auto-compact: 1%")=38, cols=25 → maxW=max(25-38,20)=20.
+func TestCompactResult_TruncatedWithEllipsis(t *testing.T) {
+	// Compact fallback itself exceeds maxW (min 20) → truncated with "…".
 	// compact = "Claude Sonnet 4.6 | $0.00" = 25 chars > 20 → truncated.
-	inputJSON := []byte(`{"context_window":{"used_percentage":99},"cost":{"total_cost_usd":0.0},"model":{"display_name":"Claude Sonnet 4.6"}}`)
+	inputJSON := []byte(`{"cost":{"total_cost_usd":0.0},"model":{"display_name":"Claude Sonnet 4.6"}}`)
 	long := strings.Repeat("A", 100)
-	got := compactResult(long, "", inputJSON, 25, 95.0)
+	got := compactResult(long, "", inputJSON, 20)
 	if !strings.HasSuffix(got, "…") {
 		t.Errorf("expected trailing ellipsis, got %q", got)
 	}
 	if len([]rune(got)) > 20 {
 		t.Errorf("truncated result too long: %d runes, got %q", len([]rune(got)), got)
+	}
+}
+
+// --- compactAlerts ---
+
+func TestCompactAlerts_FitsUnchanged(t *testing.T) {
+	alerts := "⚠️ " + ansiYellow + "CF: Minor issue" + ansiReset
+	got := compactAlerts(alerts, 200)
+	if got != alerts {
+		t.Errorf("expected unchanged, got %q", got)
+	}
+}
+
+func TestCompactAlerts_DropDurations(t *testing.T) {
+	alerts := "⚠️ " + ansiYellow + "Cloudflare: Minor Service Outage (63h 31m)" + ansiReset
+	// Full stripped display width ≈ 47 cols; without duration ≈ 36 cols.
+	// Use maxW=40 so full doesn't fit but duration-stripped does.
+	got := compactAlerts(alerts, 40)
+	if strings.Contains(got, "63h") {
+		t.Errorf("expected duration removed, got %q", got)
+	}
+	if !strings.Contains(got, "Cloudflare") {
+		t.Errorf("expected service name preserved, got %q", got)
+	}
+}
+
+func TestCompactAlerts_AbbreviateServices(t *testing.T) {
+	alerts := "⚠️ " + ansiYellow + "Cloudflare: Minor Service Outage (63h 31m)" + ansiReset
+	// Very narrow: must abbreviate after dropping duration
+	got := compactAlerts(alerts, 30)
+	if strings.Contains(got, "63h") {
+		t.Errorf("expected duration removed, got %q", got)
+	}
+	if strings.Contains(got, "Cloudflare") {
+		t.Errorf("expected Cloudflare abbreviated, got %q", got)
+	}
+}
+
+func TestCompactAlerts_Truncate(t *testing.T) {
+	alerts := "⚠️ " + ansiYellow + "Cloudflare: Minor Service Outage (63h 31m)" + ansiReset
+	got := compactAlerts(alerts, 22)
+	if !strings.HasSuffix(got, "…") {
+		t.Errorf("expected trailing ellipsis, got %q", got)
+	}
+}
+
+func TestCompactAlerts_MultipleAlerts(t *testing.T) {
+	// Two alerts joined with double-space (as check() produces)
+	alerts := "🚨 " + ansiRed + "GitHub: Major outage (1h 2m)" + ansiReset +
+		"  " +
+		"⚠️ " + ansiYellow + "Cloudflare: Minor Service Outage (63h 31m)" + ansiReset
+	// At maxW=65, durations are stripped (both alerts visible without abbreviation)
+	got := compactAlerts(alerts, 65)
+	if strings.Contains(got, "1h 2m") || strings.Contains(got, "63h") {
+		t.Errorf("expected all durations removed, got %q", got)
+	}
+	if !strings.Contains(got, "GitHub") || !strings.Contains(got, "Cloudflare") {
+		t.Errorf("expected both service names preserved, got %q", got)
+	}
+}
+
+// --- filterSegments ---
+
+func TestFilterSegments(t *testing.T) {
+	segments := []string{"🤖 Opus", "💰 $16.84 session", "🔥 $4.88/hr", "🧠 5,803 (3%)"}
+	got := filterSegments(segments, "🔥")
+	if len(got) != 3 {
+		t.Fatalf("expected 3 segments, got %d: %v", len(got), got)
+	}
+	for _, s := range got {
+		if strings.Contains(s, "🔥") {
+			t.Errorf("expected 🔥 segment removed, got %v", got)
+		}
+	}
+}
+
+// --- dropCostSub ---
+
+func TestDropCostSub_Block(t *testing.T) {
+	segments := []string{"🤖 Opus", "💰 $16.84 session / $18.35 today / $18.35 block (1h left)", "🧠 5,803"}
+	got := dropCostSub(segments, "block")
+	if len(got) != 3 {
+		t.Fatalf("expected 3 segments, got %d: %v", len(got), got)
+	}
+	if strings.Contains(got[1], "block") {
+		t.Errorf("expected block sub-segment removed from %q", got[1])
+	}
+	if !strings.Contains(got[1], "session") || !strings.Contains(got[1], "today") {
+		t.Errorf("expected session and today preserved in %q", got[1])
+	}
+}
+
+func TestDropCostSub_Today(t *testing.T) {
+	segments := []string{"🤖 Opus", "💰 $16.84 session / $18.35 today", "🧠 5,803"}
+	got := dropCostSub(segments, "today")
+	if strings.Contains(got[1], "today") {
+		t.Errorf("expected today sub-segment removed from %q", got[1])
+	}
+	if !strings.Contains(got[1], "session") {
+		t.Errorf("expected session preserved in %q", got[1])
+	}
+}
+
+func TestDropCostSub_NoCostSegment(t *testing.T) {
+	// No 💰 segment — should return unchanged
+	segments := []string{"Model", "$0.01", "10% ctx"}
+	got := dropCostSub(segments, "block")
+	if len(got) != 3 {
+		t.Fatalf("expected 3 segments unchanged, got %d: %v", len(got), got)
 	}
 }
 

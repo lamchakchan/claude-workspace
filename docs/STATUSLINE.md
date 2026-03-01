@@ -351,35 +351,85 @@ Session ends or state is older than 30 minutes — line omitted entirely.
 
 ## Width Compaction
 
-When the assembled metrics line is too wide for the terminal, the Go binary falls back to a compact plain-text format.
+When Claude Code's "Context left until auto-compact: N%" indicator is active (context usage ≥ 95%), it occupies the right side of the **first line** of statusline output. The Go binary detects this and compacts the affected line to avoid overlap.
 
-### Algorithm
+### First-Line Routing
+
+CC places its autocompact indicator on the first output line. The compaction logic determines which of our lines is first and applies width reservation only to that line:
+
+| First line | CC reserve applied to | Metrics line width |
+|------------|----------------------|-------------------|
+| Alerts (service incidents active) | Alerts line | Full terminal width (no reserve) |
+| Team summary (no alerts) | Team line (not compacted) | Full terminal width |
+| Metrics (no alerts, no team) | Metrics line | `cols - ccReserve` |
+
+This means when service alerts are present, the metrics line gets the full terminal width because CC's indicator shares the alerts line, not the metrics line.
+
+### Metrics Line: Progressive Degradation
+
+When the metrics line needs compaction, it degrades through 8 steps, stopping at the first that fits within `maxW`:
+
+| Step | Action | Example result |
+|------|--------|---------------|
+| 0 | Full result (base + reset) | `🤖 Opus 4.6 \| 💰 $16.84 session / $18.35 today / $18.35 block (1h 1m left) \| 🔥 $4.88/hr \| 🧠 5,803 (3%) \| resets today` |
+| 1 | Drop reset suffix | `🤖 Opus 4.6 \| 💰 $16.84 session / $18.35 today / $18.35 block (1h 1m left) \| 🔥 $4.88/hr \| 🧠 5,803 (3%)` |
+| 2 | Drop hourly rate (🔥) | `🤖 Opus 4.6 \| 💰 $16.84 session / $18.35 today / $18.35 block (1h 1m left) \| 🧠 5,803 (3%)` |
+| 3 | Drop block cost sub-segment | `🤖 Opus 4.6 \| 💰 $16.84 session / $18.35 today \| 🧠 5,803 (3%)` |
+| 4 | Drop daily cost sub-segment | `🤖 Opus 4.6 \| 💰 $16.84 session \| 🧠 5,803 (3%)` |
+| 5 | Abbreviate "session" → "sess" | `🤖 Opus 4.6 \| 💰 $16.84 sess \| 🧠 5,803 (3%)` |
+| 6 | Drop tokens/context (🧠) | `🤖 Opus 4.6 \| 💰 $16.84 sess` |
+| 7 | Plain model + $cost fallback | `Opus 4.6 \| $16.84 \| resets today` |
+| 8 | Truncate with "…" | `Opus 4.6 \| $16.…` |
+
+### Alerts Line Compaction
+
+When the alerts line is the first line and CC's indicator is active, alerts are also compacted:
+
+| Step | Action | Example result |
+|------|--------|---------------|
+| 0 | Full alerts | `⚠️ Cloudflare: Minor Service Outage (63h 31m)` |
+| 1 | Drop duration parentheticals | `⚠️ Cloudflare: Minor Service Outage` |
+| 2 | Abbreviate service names | `⚠️ CF: Minor Service Outage` |
+| 3 | Truncate with "…" | `⚠️ CF: Minor Servi…` |
+
+Service name abbreviations: Cloudflare → CF, Google Cloud → GCP, Azure DevOps → Azure, Active Incidents → Incidents.
+
+### Algorithm Summary
 
 1. Read terminal width from `$COLS` (default 120)
 2. Check `context_window.used_percentage` from session JSON
 3. If `used_percentage >= threshold` (default 95%, overridable via `$CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`):
-   - Reserve `len("  Context left until auto-compact: N%")` characters for Claude Code's own indicator
-4. Compute `maxW = cols - reserve` (minimum 20)
-5. Strip ANSI escape codes and measure visible character length
-6. If fits → return original (with ANSI color codes intact)
-7. If too wide → compact fallback: `<model> | $<cost> | <reset>`
-8. If compact fallback is still too wide → truncate with `…`
+   - Compute `ccReserve = len("  Context left until auto-compact: N%")`
+   - Determine which output line is first (alerts → team → metrics)
+   - Apply compaction only to the first line; other lines get full terminal width
+4. If CC indicator is not active: no compaction at all (full content, terminal wraps if needed)
 
 ### Examples
 
-**Full line fits (wide terminal):**
+**Full line fits (wide terminal, CC idle):**
 ```
 Opus | $0.23 session / $1.23 today / $0.45 block (2h 45m left) | $0.12/hr | 25,000 (12%) | resets in 3d
 ```
 
-**Compact fallback (narrow terminal or high context usage):**
+**Progressive degradation (CC active, metrics is first line, ~100 cols):**
 ```
-Claude Opus 4.6 | $0.23 | resets in 3d
+🤖 Opus 4.6 | 💰 $16.84 session / $18.35 today | 🧠 5,803 (3%)
 ```
 
-**Truncated (very narrow terminal):**
+**Alerts compacted (CC active, alerts is first line):**
 ```
-Claude Opus 4.…
+⚠️ CF: Minor Service Outage
+🤖 Opus 4.6 | 💰 $16.84 session / $18.35 today / $18.35 block (1h 1m left) | 🔥 $4.88/hr | 🧠 5,803 (3%) | resets today
+```
+
+**Plain fallback (very narrow):**
+```
+Opus 4.6 | $16.84 | resets today
+```
+
+**Truncated (extremely narrow):**
+```
+Opus 4.6 | $16.…
 ```
 
 ---

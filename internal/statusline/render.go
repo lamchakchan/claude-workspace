@@ -25,6 +25,9 @@ const (
 
 var ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
+// durationStripRE matches parenthesized durations like " (63h 31m)" or " (14m)" in alert strings.
+var durationStripRE = regexp.MustCompile(`\s+\(\d+[hm][\d hm]*\)`)
+
 // isWide reports whether r occupies 2 terminal columns.
 // Covers emoji (U+1F000+), Miscellaneous Symbols (⚠ etc.), CJK, Hangul, and fullwidth forms.
 func isWide(r rune) bool {
@@ -52,6 +55,7 @@ func displayWidth(s string) int {
 }
 
 // truncateDisplay truncates s to at most maxCols display columns, appending "…" if needed.
+// s must not contain ANSI escape sequences; strip them before calling.
 func truncateDisplay(s string, maxCols int) string {
 	if displayWidth(s) <= maxCols {
 		return s
@@ -136,21 +140,36 @@ func Render(r io.Reader, w io.Writer, base, colsStr, autocompactPct string) erro
 		result = result + " | " + reset
 	}
 
-	// Width compaction
-	if result != "" {
-		cols := 120
-		if colsStr != "" {
-			if n, err2 := strconv.Atoi(colsStr); err2 == nil && n > 0 {
-				cols = n
-			}
+	// Parse terminal width and autocompact threshold
+	cols := 120
+	if colsStr != "" {
+		if n, err2 := strconv.Atoi(colsStr); err2 == nil && n > 0 {
+			cols = n
 		}
-		threshold := 95.0
-		if autocompactPct != "" {
-			if f, err2 := strconv.ParseFloat(autocompactPct, 64); err2 == nil {
-				threshold = f
-			}
+	}
+	threshold := 95.0
+	if autocompactPct != "" {
+		if f, err2 := strconv.ParseFloat(autocompactPct, 64); err2 == nil {
+			threshold = f
 		}
-		result = compactResult(result, reset, inputJSON, cols, threshold)
+	}
+
+	// Width compaction: CC places its autocompact indicator on the first output line.
+	// Only compact the line that shares space with the indicator.
+	ccReserve := ccReserveWidth(inputJSON, threshold)
+	if ccReserve > 0 {
+		firstLineMaxW := cols - ccReserve
+		if firstLineMaxW < 20 {
+			firstLineMaxW = 20
+		}
+		switch {
+		case alerts != "":
+			alerts = compactAlerts(alerts, firstLineMaxW)
+		case team != "":
+			// Team line not compacted (heavy ANSI/emoji formatting)
+		default:
+			result = compactResult(result, reset, inputJSON, firstLineMaxW)
+		}
 	}
 
 	for _, line := range []string{alerts, team, result} {
@@ -503,20 +522,106 @@ func resolveTeamName(home string) string {
 	return strings.TrimSuffix(filepath.Base(newest), ".json")
 }
 
-// compactResult returns result unchanged in normal operation.
-// Compaction is only applied when Claude Code's "Context left until auto-compact" indicator
-// is active (context usage >= threshold), because that indicator occupies the right side of
-// the status bar line, potentially overlapping our content.
-//
-// When compaction is needed it tries three steps:
-//  1. Full result (base + reset) fits → return as-is.
-//  2. Base without reset fits → drop reset, preserving ccusage session/daily data.
-//  3. Everything too wide → plain model+cost+reset fallback, truncated with "…".
-func compactResult(result, reset string, inputJSON []byte, cols int, threshold float64) string {
+// ccReserveWidth returns the terminal columns reserved by CC's autocompact indicator,
+// or 0 if the indicator is not active (context usage below threshold).
+func ccReserveWidth(inputJSON []byte, threshold float64) int {
 	var data struct {
 		ContextWindow struct {
 			UsedPercentage float64 `json:"used_percentage"`
 		} `json:"context_window"`
+	}
+	if len(inputJSON) > 0 {
+		_ = json.Unmarshal(inputJSON, &data)
+	}
+	if data.ContextWindow.UsedPercentage < threshold {
+		return 0
+	}
+	left := int(math.Round(100 - data.ContextWindow.UsedPercentage))
+	return len(fmt.Sprintf("  Context left until auto-compact: %d%%", left))
+}
+
+// filterSegments returns a copy of segments with any element containing substr removed.
+func filterSegments(segments []string, substr string) []string {
+	result := make([]string, 0, len(segments))
+	for _, s := range segments {
+		if !strings.Contains(s, substr) {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
+// dropCostSub removes a "/" sub-segment containing keyword from the cost segment (the one with 💰).
+// For example, dropCostSub(segments, "block") removes the "/ $X.XX block (Xh Xm left)" part.
+func dropCostSub(segments []string, keyword string) []string {
+	result := make([]string, len(segments))
+	copy(result, segments)
+	for i, s := range result {
+		if !strings.Contains(s, "💰") {
+			continue
+		}
+		subs := strings.Split(s, " / ")
+		filtered := make([]string, 0, len(subs))
+		for _, sub := range subs {
+			if !strings.Contains(sub, keyword) {
+				filtered = append(filtered, sub)
+			}
+		}
+		result[i] = strings.Join(filtered, " / ")
+		break
+	}
+	return result
+}
+
+// compactAlerts progressively compacts the alerts line to fit within maxW display columns.
+// Steps: (1) drop durations, (2) abbreviate service names, (3) truncate with ellipsis.
+func compactAlerts(alerts string, maxW int) string {
+	if maxW <= 0 {
+		return alerts
+	}
+	stripped := ansiRE.ReplaceAllString(alerts, "")
+	if displayWidth(stripped) <= maxW {
+		return alerts
+	}
+
+	// Step 1: Drop duration parentheticals
+	cur := durationStripRE.ReplaceAllString(alerts, "")
+	stripped = ansiRE.ReplaceAllString(cur, "")
+	if displayWidth(stripped) <= maxW {
+		return cur
+	}
+
+	// Step 2: Abbreviate service names
+	replacer := strings.NewReplacer(
+		"Cloudflare", "CF",
+		"Google Cloud", "GCP",
+		"Azure DevOps", "Azure",
+		"Active Incidents", "Incidents",
+	)
+	cur = replacer.Replace(cur)
+	stripped = ansiRE.ReplaceAllString(cur, "")
+	if displayWidth(stripped) <= maxW {
+		return cur
+	}
+
+	// Step 3: Truncate (plain text, no ANSI)
+	return truncateDisplay(stripped, maxW)
+}
+
+// compactResult progressively degrades the metrics line to fit within maxW display columns.
+//
+// Degradation steps:
+//  0. Full result (base + reset) fits → return as-is.
+//  1. Drop reset suffix.
+//  2. Drop hourly rate segment (🔥).
+//  3. Drop block cost sub-segment from 💰.
+//  4. Drop daily cost sub-segment from 💰.
+//  5. Abbreviate "session" → "sess".
+//  6. Drop tokens/context segment (🧠).
+//  7. Plain model + $cost fallback (with reset if it fits).
+//  8. Truncate with "…".
+func compactResult(result, reset string, inputJSON []byte, maxW int) string {
+	var data struct {
 		Cost struct {
 			TotalCostUSD float64 `json:"total_cost_usd"`
 		} `json:"cost"`
@@ -528,45 +633,81 @@ func compactResult(result, reset string, inputJSON []byte, cols int, threshold f
 		_ = json.Unmarshal(inputJSON, &data)
 	}
 
-	// No CC autocompact indicator active — return full result, let terminal wrap if needed.
-	used := data.ContextWindow.UsedPercentage
-	if used < threshold {
-		return result
-	}
-
-	// CC indicator is active: reserve its width and compact our content to fit alongside it.
-	left := int(math.Round(100 - used))
-	ccReserve := len(fmt.Sprintf("  Context left until auto-compact: %d%%", left))
-	maxW := cols - ccReserve
 	if maxW < 20 {
 		maxW = 20
 	}
 
-	// Step 1: full result fits — return as-is.
-	stripped := ansiRE.ReplaceAllString(result, "")
-	if displayWidth(stripped) <= maxW {
+	fits := func(s string) bool {
+		return displayWidth(ansiRE.ReplaceAllString(s, "")) <= maxW
+	}
+
+	// Step 0: Full result fits
+	if fits(result) {
 		return result
 	}
 
-	// Step 2: try dropping the reset suffix to preserve ccusage session/daily data.
-	base := result
+	// Step 1: Drop reset suffix
+	cur := result
 	if reset != "" {
-		suffix := " | " + reset
-		if strings.HasSuffix(result, suffix) {
-			base = result[:len(result)-len(suffix)]
+		if trimmed := strings.TrimSuffix(cur, " | "+reset); trimmed != cur {
+			cur = trimmed
 		}
 	}
-	if base != result {
-		strippedBase := ansiRE.ReplaceAllString(base, "")
-		if displayWidth(strippedBase) <= maxW {
-			return base
-		}
+	if fits(cur) {
+		return cur
 	}
 
-	// Step 3: everything too wide — plain model+cost+reset fallback.
-	compact := fmt.Sprintf("%s | $%.2f", data.Model.DisplayName, data.Cost.TotalCostUSD)
-	if reset != "" {
-		compact += " | " + reset
+	// Steps 2-6: Segment-based progressive degradation
+	segments := strings.Split(cur, " | ")
+
+	// Step 2: Drop hourly rate (🔥)
+	segments = filterSegments(segments, "🔥")
+	if joined := strings.Join(segments, " | "); fits(joined) {
+		return joined
 	}
+
+	// Step 3: Drop block cost sub-segment
+	segments = dropCostSub(segments, "block")
+	if joined := strings.Join(segments, " | "); fits(joined) {
+		return joined
+	}
+
+	// Step 4: Drop daily cost sub-segment
+	segments = dropCostSub(segments, "today")
+	if joined := strings.Join(segments, " | "); fits(joined) {
+		return joined
+	}
+
+	// Step 5: Abbreviate "session" → "sess"
+	for i, s := range segments {
+		segments[i] = strings.Replace(s, " session", " sess", 1)
+	}
+	if joined := strings.Join(segments, " | "); fits(joined) {
+		return joined
+	}
+
+	// Step 6: Drop tokens/context (🧠)
+	segments = filterSegments(segments, "🧠")
+	if joined := strings.Join(segments, " | "); fits(joined) {
+		return joined
+	}
+
+	// Step 7: Plain model + $cost fallback (optionally with reset)
+	model := data.Model.DisplayName
+	if model == "" {
+		model = "Claude"
+	}
+	compact := fmt.Sprintf("%s | $%.2f", model, data.Cost.TotalCostUSD)
+	if reset != "" {
+		withReset := compact + " | " + reset
+		if fits(withReset) {
+			return withReset
+		}
+	}
+	if fits(compact) {
+		return compact
+	}
+
+	// Step 8: Truncate with "…"
 	return truncateDisplay(compact, maxW)
 }
