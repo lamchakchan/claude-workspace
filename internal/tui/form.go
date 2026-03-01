@@ -17,7 +17,8 @@ type FormField struct {
 	Placeholder string
 	Password    bool
 	Required    bool
-	IsPath      bool // enables path autocomplete with tab completion
+	IsPath      bool     // enables path autocomplete with tab completion
+	Choices     []string // if non-nil, renders as a cycle picker instead of a text input
 }
 
 // FormResult is sent when the user submits or cancels the form.
@@ -34,17 +35,19 @@ type pathSuggestionsMsg struct {
 
 // FormModel is a generic multi-field text input form component.
 type FormModel struct {
-	Title  string
-	Fields []FormField
-	inputs []textinput.Model
-	cursor int // focused field index
-	done   bool
-	theme  *Theme
+	Title     string
+	Fields    []FormField
+	inputs    []textinput.Model
+	choiceIdx []int // selected index per field; only meaningful when Field.Choices != nil
+	cursor    int   // focused field index
+	done      bool
+	theme     *Theme
 }
 
 // NewForm creates a new form with the given fields.
 func NewForm(title string, fields []FormField, theme *Theme) *FormModel {
 	inputs := make([]textinput.Model, len(fields))
+	choiceIdx := make([]int, len(fields))
 	for i, f := range fields {
 		ti := textinput.New()
 		ti.Placeholder = f.Placeholder
@@ -54,31 +57,36 @@ func NewForm(title string, fields []FormField, theme *Theme) *FormModel {
 		if f.IsPath {
 			ti.ShowSuggestions = true
 		}
-		if i == 0 {
+		if i == 0 && len(f.Choices) == 0 {
 			ti.Focus()
 		}
 		inputs[i] = ti
 	}
 
 	return &FormModel{
-		Title:  title,
-		Fields: fields,
-		inputs: inputs,
-		theme:  theme,
+		Title:     title,
+		Fields:    fields,
+		inputs:    inputs,
+		choiceIdx: choiceIdx,
+		theme:     theme,
 	}
 }
 
 // Values returns the current values of all fields.
 func (m *FormModel) Values() []string {
-	vals := make([]string, len(m.inputs))
-	for i := range m.inputs {
-		vals[i] = m.inputs[i].Value()
+	vals := make([]string, len(m.Fields))
+	for i, f := range m.Fields {
+		if len(f.Choices) > 0 {
+			vals[i] = f.Choices[m.choiceIdx[i]]
+		} else {
+			vals[i] = m.inputs[i].Value()
+		}
 	}
 	return vals
 }
 
 func (m *FormModel) Init() tea.Cmd {
-	if len(m.inputs) > 0 {
+	if len(m.Fields) > 0 && len(m.Fields[0].Choices) == 0 {
 		return textinput.Blink
 	}
 	return nil
@@ -95,6 +103,11 @@ func (m *FormModel) Update(msg tea.Msg) (*FormModel, tea.Cmd) {
 
 	if msg, ok := msg.(tea.KeyPressMsg); ok {
 		return m.handleFormKey(msg)
+	}
+
+	// Select fields handle all input via key events; don't route other messages to them.
+	if len(m.Fields[m.cursor].Choices) > 0 {
+		return m, nil
 	}
 
 	var cmd tea.Cmd
@@ -117,6 +130,20 @@ func (m *FormModel) handleFormKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
 		m.done = true
 		return m, func() tea.Msg { return FormResult{Cancelled: true} }
 
+	case keyLeft:
+		if len(m.Fields[m.cursor].Choices) > 0 {
+			n := len(m.Fields[m.cursor].Choices)
+			m.choiceIdx[m.cursor] = (m.choiceIdx[m.cursor] - 1 + n) % n
+		}
+		return m, nil
+
+	case keyRight:
+		if len(m.Fields[m.cursor].Choices) > 0 {
+			n := len(m.Fields[m.cursor].Choices)
+			m.choiceIdx[m.cursor] = (m.choiceIdx[m.cursor] + 1) % n
+		}
+		return m, nil
+
 	case keyTab:
 		return m.handleTabKey(msg)
 
@@ -130,12 +157,16 @@ func (m *FormModel) handleFormKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
 		m.focusPrev()
 
 	case keyEnter:
-		if m.cursor == len(m.inputs)-1 {
+		if m.cursor == len(m.Fields)-1 {
 			return m.submit()
 		}
-		m.inputs[m.cursor].Blur()
+		if len(m.Fields[m.cursor].Choices) == 0 {
+			m.inputs[m.cursor].Blur()
+		}
 		m.cursor++
-		m.inputs[m.cursor].Focus()
+		if len(m.Fields[m.cursor].Choices) == 0 {
+			m.inputs[m.cursor].Focus()
+		}
 	}
 	return m, nil
 }
@@ -175,22 +206,32 @@ func (m *FormModel) handleUpKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
 
 // focusNext moves focus to the next input field.
 func (m *FormModel) focusNext() {
-	m.inputs[m.cursor].Blur()
-	m.cursor = (m.cursor + 1) % len(m.inputs)
-	m.inputs[m.cursor].Focus()
+	if len(m.Fields[m.cursor].Choices) == 0 {
+		m.inputs[m.cursor].Blur()
+	}
+	m.cursor = (m.cursor + 1) % len(m.Fields)
+	if len(m.Fields[m.cursor].Choices) == 0 {
+		m.inputs[m.cursor].Focus()
+	}
 }
 
 // focusPrev moves focus to the previous input field.
 func (m *FormModel) focusPrev() {
-	m.inputs[m.cursor].Blur()
-	m.cursor = (m.cursor - 1 + len(m.inputs)) % len(m.inputs)
-	m.inputs[m.cursor].Focus()
+	if len(m.Fields[m.cursor].Choices) == 0 {
+		m.inputs[m.cursor].Blur()
+	}
+	m.cursor = (m.cursor - 1 + len(m.Fields)) % len(m.Fields)
+	if len(m.Fields[m.cursor].Choices) == 0 {
+		m.inputs[m.cursor].Focus()
+	}
 }
 
 func (m *FormModel) submit() (*FormModel, tea.Cmd) {
 	for i, f := range m.Fields {
-		if f.Required && strings.TrimSpace(m.inputs[i].Value()) == "" {
-			m.inputs[m.cursor].Blur()
+		if f.Required && len(f.Choices) == 0 && strings.TrimSpace(m.inputs[i].Value()) == "" {
+			if len(m.Fields[m.cursor].Choices) == 0 {
+				m.inputs[m.cursor].Blur()
+			}
 			m.cursor = i
 			m.inputs[i].Focus()
 			return m, nil
@@ -210,20 +251,34 @@ func (m *FormModel) View() string {
 
 	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Secondary)
 
+	activeChoiceStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary)
+	mutedChoiceStyle := lipgloss.NewStyle().Foreground(m.theme.Muted)
+
 	for i, f := range m.Fields {
 		label := labelStyle.Render(f.Label)
 		if f.Required {
 			label += lipgloss.NewStyle().Foreground(m.theme.Error).Render(" *")
 		}
 		b.WriteString(label + "\n")
-		b.WriteString("  " + m.inputs[i].View() + "\n")
 
-		// Render suggestion dropdown for focused path fields
-		if i == m.cursor && f.IsPath {
-			matches := m.inputs[i].MatchedSuggestions()
-			if len(matches) > 0 {
-				selectedIdx := m.inputs[i].CurrentSuggestionIndex()
-				b.WriteString(m.renderSuggestionList(matches, selectedIdx))
+		if len(f.Choices) > 0 {
+			// Render as a cycle picker: < choice >
+			choice := f.Choices[m.choiceIdx[i]]
+			if i == m.cursor {
+				b.WriteString("  " + activeChoiceStyle.Render("< "+choice+" >") + "\n")
+			} else {
+				b.WriteString("  " + mutedChoiceStyle.Render("  "+choice+"  ") + "\n")
+			}
+		} else {
+			b.WriteString("  " + m.inputs[i].View() + "\n")
+
+			// Render suggestion dropdown for focused path fields
+			if i == m.cursor && f.IsPath {
+				matches := m.inputs[i].MatchedSuggestions()
+				if len(matches) > 0 {
+					selectedIdx := m.inputs[i].CurrentSuggestionIndex()
+					b.WriteString(m.renderSuggestionList(matches, selectedIdx))
+				}
 			}
 		}
 
@@ -232,14 +287,21 @@ func (m *FormModel) View() string {
 
 	b.WriteString("\n")
 
-	// Build help text with path-aware hints
-	if m.Fields[m.cursor].IsPath {
+	// Build help text based on the focused field type
+	switch {
+	case len(m.Fields[m.cursor].Choices) > 0:
+		help := m.theme.HelpKey.Render("←/→") + " " + m.theme.HelpDesc.Render("cycle") + "  " +
+			m.theme.HelpKey.Render("tab") + " " + m.theme.HelpDesc.Render("next field") + "  " +
+			m.theme.HelpKey.Render(keyEnter) + " " + m.theme.HelpDesc.Render("submit") + "  " +
+			m.theme.HelpKey.Render("esc") + " " + m.theme.HelpDesc.Render("cancel")
+		b.WriteString(help)
+	case m.Fields[m.cursor].IsPath:
 		help := m.theme.HelpKey.Render("↑/↓") + " " + m.theme.HelpDesc.Render("select") + "  " +
 			m.theme.HelpKey.Render("tab") + " " + m.theme.HelpDesc.Render("accept") + "  " +
 			m.theme.HelpKey.Render(keyEnter) + " " + m.theme.HelpDesc.Render("submit") + "  " +
 			m.theme.HelpKey.Render("esc") + " " + m.theme.HelpDesc.Render("cancel")
 		b.WriteString(help)
-	} else {
+	default:
 		help := m.theme.HelpKey.Render("tab") + " " + m.theme.HelpDesc.Render("next field") + "  " +
 			m.theme.HelpKey.Render(keyEnter) + " " + m.theme.HelpDesc.Render("submit") + "  " +
 			m.theme.HelpKey.Render("esc") + " " + m.theme.HelpDesc.Render("cancel")

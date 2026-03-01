@@ -12,6 +12,8 @@ const (
 	keyShiftTab = "shift+tab"
 	keyDown     = "down"
 	keyUp       = "up"
+	keyLeft     = "left"
+	keyRight    = "right"
 )
 
 // IsQuit returns true if the key message is a quit key (q or ctrl+c).

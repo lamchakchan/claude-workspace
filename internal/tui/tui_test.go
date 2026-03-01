@@ -100,8 +100,106 @@ func TestFormValues(t *testing.T) {
 func TestNewMcpAdd(t *testing.T) {
 	theme := DefaultTheme()
 	m := NewMcpAdd(&theme)
-	if len(m.form.Fields) != 3 {
-		t.Errorf("McpAdd fields = %d, want 3", len(m.form.Fields))
+	if len(m.form.Fields) != 4 {
+		t.Errorf("McpAdd fields = %d, want 4", len(m.form.Fields))
+	}
+	// Scope field (index 3) must be a select field with the three valid scopes.
+	scopeField := m.form.Fields[3]
+	if len(scopeField.Choices) != 3 {
+		t.Errorf("scope field choices = %d, want 3", len(scopeField.Choices))
+	}
+	// Default choice must be "local".
+	vals := m.form.Values()
+	if vals[3] != "local" {
+		t.Errorf("default scope = %q, want %q", vals[3], "local")
+	}
+}
+
+func TestSelectField_DefaultValue(t *testing.T) {
+	theme := DefaultTheme()
+	fields := []FormField{
+		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+	}
+	form := NewForm("Test", fields, &theme)
+	vals := form.Values()
+	if vals[0] != "local" {
+		t.Errorf("default choice = %q, want %q", vals[0], "local")
+	}
+}
+
+func TestSelectField_RightCycles(t *testing.T) {
+	theme := DefaultTheme()
+	fields := []FormField{
+		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+	}
+	form := NewForm("Test", fields, &theme)
+
+	right := tea.KeyPressMsg{Code: tea.KeyRight}
+	form, _ = form.handleFormKey(right)
+	if got := form.Values()[0]; got != "user" {
+		t.Errorf("after 1 right: choice = %q, want %q", got, "user")
+	}
+
+	form, _ = form.handleFormKey(right)
+	if got := form.Values()[0]; got != "project" {
+		t.Errorf("after 2 right: choice = %q, want %q", got, "project")
+	}
+}
+
+func TestSelectField_RightWraps(t *testing.T) {
+	theme := DefaultTheme()
+	fields := []FormField{
+		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+	}
+	form := NewForm("Test", fields, &theme)
+
+	right := tea.KeyPressMsg{Code: tea.KeyRight}
+	for range 3 {
+		form, _ = form.handleFormKey(right)
+	}
+	// After 3 right presses on 3 choices, should wrap back to "local".
+	if got := form.Values()[0]; got != "local" {
+		t.Errorf("after wrap: choice = %q, want %q", got, "local")
+	}
+}
+
+func TestSelectField_LeftWraps(t *testing.T) {
+	theme := DefaultTheme()
+	fields := []FormField{
+		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+	}
+	form := NewForm("Test", fields, &theme)
+
+	// Left from index 0 should wrap to last choice.
+	left := tea.KeyPressMsg{Code: tea.KeyLeft}
+	form, _ = form.handleFormKey(left)
+	if got := form.Values()[0]; got != "project" {
+		t.Errorf("after left wrap: choice = %q, want %q", got, "project")
+	}
+}
+
+func TestSelectField_AdjacentTextFieldUnaffected(t *testing.T) {
+	theme := DefaultTheme()
+	fields := []FormField{
+		{Label: "Name"},
+		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+	}
+	form := NewForm("Test", fields, &theme)
+
+	// Advance focus to the select field.
+	tab := tea.KeyPressMsg{Code: tea.KeyTab}
+	form, _ = form.handleFormKey(tab)
+
+	// Cycle the select field.
+	right := tea.KeyPressMsg{Code: tea.KeyRight}
+	form, _ = form.handleFormKey(right)
+
+	vals := form.Values()
+	if vals[0] != "" {
+		t.Errorf("text field value = %q, want empty", vals[0])
+	}
+	if vals[1] != "user" {
+		t.Errorf("select field after right = %q, want %q", vals[1], "user")
 	}
 }
 
