@@ -22,9 +22,8 @@ const (
 	ansiBold   = "\033[1m"
 	ansiReset  = "\033[0m"
 
-	severityMajor   = "major"
-	severityMinor   = "minor"
-	defaultTeamName = "team"
+	severityMajor = "major"
+	severityMinor = "minor"
 )
 
 var ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*m`)
@@ -35,7 +34,7 @@ var durationStripRE = regexp.MustCompile(`\s+\(\d+[hm][\d hm]*\)`)
 // isWide reports whether r occupies 2 terminal columns.
 // Covers emoji (U+1F000+), Miscellaneous Symbols (⚠ etc.), CJK, Hangul, and fullwidth forms.
 func isWide(r rune) bool {
-	return r >= 0x1F000 || // All emoji blocks (🤖💰🔥🧠🚨👥 …)
+	return r >= 0x1F000 || // All emoji blocks (🤖💰🔥🧠🚨 …)
 		(r >= 0x2600 && r <= 0x26FF) || // Miscellaneous Symbols (⚠⛔♻ …)
 		(r >= 0x2E80 && r <= 0x303F) || // CJK Radicals supplement through CJK Symbols
 		(r >= 0x3040 && r <= 0x33FF) || // Japanese/Korean scripts
@@ -136,8 +135,6 @@ func Render(r io.Reader, w io.Writer, base, colsStr, autocompactPct string) erro
 
 	reset := computeWeeklyReset(home)
 	alerts := newServiceChecker(cacheDir, nil).check()
-	team := renderTeamSummary(home)
-
 	// Combine base + reset
 	result := strings.TrimRight(base, "\n")
 	if result != "" && reset != "" {
@@ -169,14 +166,12 @@ func Render(r io.Reader, w io.Writer, base, colsStr, autocompactPct string) erro
 		switch {
 		case alerts != "":
 			alerts = compactAlerts(alerts, firstLineMaxW)
-		case team != "":
-			// Team line not compacted (heavy ANSI/emoji formatting)
 		default:
 			result = compactResult(result, reset, inputJSON, firstLineMaxW)
 		}
 	}
 
-	for _, line := range []string{alerts, team, result} {
+	for _, line := range []string{alerts, result} {
 		if line != "" {
 			fmt.Fprintln(w, line)
 		}
@@ -445,126 +440,6 @@ func (sc *serviceChecker) checkAzureDevOps() string {
 		msg = "Issues detected"
 	}
 	return alertColor(sev, "Azure DevOps: "+msg)
-}
-
-// renderTeamSummary reads ~/.claude/team-state.json and returns an ANSI team line, or "".
-func renderTeamSummary(home string) string {
-	data, err := os.ReadFile(filepath.Join(home, ".claude", "team-state.json"))
-	if err != nil {
-		return ""
-	}
-	var state struct {
-		UpdatedAt  string   `json:"updated_at"`
-		AgentsSeen []string `json:"agents_seen"`
-		Tasks      struct {
-			Pending    int `json:"pending"`
-			InProgress int `json:"in_progress"`
-			Completed  int `json:"completed"`
-		} `json:"tasks"`
-	}
-	if err := json.Unmarshal(data, &state); err != nil {
-		return ""
-	}
-
-	if state.UpdatedAt != "" {
-		if updated, err := time.Parse("2006-01-02T15:04:05Z", state.UpdatedAt); err == nil {
-			if time.Since(updated.UTC()) > 30*time.Minute {
-				return ""
-			}
-		}
-	}
-
-	agents := state.AgentsSeen
-	pending := state.Tasks.Pending
-	inProgress := state.Tasks.InProgress
-	completed := state.Tasks.Completed
-	total := pending + inProgress + completed
-	if total == 0 && len(agents) == 0 {
-		return ""
-	}
-
-	teamName := resolveTeamName(home)
-
-	n := len(agents)
-	active := inProgress
-	if active > n {
-		active = n
-	}
-	var dotParts []string
-	for i := 0; i < active; i++ {
-		dotParts = append(dotParts, ansiGreen+"▶"+ansiReset)
-	}
-	for i := 0; i < n-active; i++ {
-		dotParts = append(dotParts, ansiYellow+"⏸"+ansiReset)
-	}
-	dots := strings.Join(dotParts, " ")
-
-	filled := 0
-	if total > 0 {
-		filled = int(math.Round(10.0 * float64(completed) / float64(total)))
-	}
-	bar := ansiGreen + strings.Repeat("█", filled) + ansiReset +
-		ansiGray + strings.Repeat("░", 10-filled) + ansiReset
-
-	counts := ansiGreen + "▶" + strconv.Itoa(inProgress) + ansiReset + "  " +
-		ansiYellow + "⏸" + strconv.Itoa(pending) + ansiReset + "  " +
-		ansiGray + "✓" + strconv.Itoa(completed) + ansiReset
-
-	var parts []string
-	parts = append(parts, "👥 "+ansiBold+teamName+ansiReset)
-	if dots != "" {
-		parts = append(parts, "["+dots+"]")
-	}
-	parts = append(parts, bar)
-	if total > 0 {
-		parts = append(parts, strconv.Itoa(completed)+"/"+strconv.Itoa(total)+" tasks")
-	}
-	parts = append(parts, counts)
-	return strings.Join(parts, "  ")
-}
-
-// resolveTeamName finds the team name from the most-recently-modified config in ~/.claude/teams/.
-func resolveTeamName(home string) string {
-	teamsDir := filepath.Join(home, ".claude", "teams")
-	var candidates []string
-	if m, _ := filepath.Glob(filepath.Join(teamsDir, "*", "config.json")); len(m) > 0 {
-		candidates = append(candidates, m...)
-	}
-	if m, _ := filepath.Glob(filepath.Join(teamsDir, "*.json")); len(m) > 0 {
-		candidates = append(candidates, m...)
-	}
-	if len(candidates) == 0 {
-		return defaultTeamName
-	}
-
-	newest := candidates[0]
-	var newestTime time.Time
-	for _, c := range candidates {
-		info, err := os.Stat(c)
-		if err != nil {
-			continue
-		}
-		if info.ModTime().After(newestTime) {
-			newestTime = info.ModTime()
-			newest = c
-		}
-	}
-
-	data, err := os.ReadFile(newest)
-	if err != nil {
-		return defaultTeamName
-	}
-	var cfg map[string]interface{}
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return defaultTeamName
-	}
-	if name, ok := cfg["name"].(string); ok && name != "" {
-		return name
-	}
-	if filepath.Base(newest) == "config.json" {
-		return filepath.Base(filepath.Dir(newest))
-	}
-	return strings.TrimSuffix(filepath.Base(newest), ".json")
 }
 
 // ccReserveWidth returns the terminal columns reserved by CC's autocompact indicator,

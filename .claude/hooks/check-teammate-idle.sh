@@ -13,39 +13,6 @@ if [ -z "$TEAMMATE_NAME" ]; then
   exit 0
 fi
 
-# Write team state snapshot for statusline (best-effort, does not affect exit code)
-_HOOK_INPUT="$INPUT" _HOOK_AGENT="$TEAMMATE_NAME" python3 <<'PYEOF' 2>/dev/null || true
-import json, os, pathlib, datetime
-
-teammate = os.environ.get('_HOOK_AGENT', '')
-try:
-    data = json.loads(os.environ.get('_HOOK_INPUT', '{}'))
-except Exception:
-    data = {}
-
-state_path = pathlib.Path.home() / '.claude' / 'team-state.json'
-existing = {}
-try:
-    existing = json.loads(state_path.read_text())
-except Exception:
-    pass
-
-seen = list({*existing.get('agents_seen', []), teammate} - {''})
-tasks = data.get('tasks', [])
-state = {
-    'updated_at': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-    'agents_seen': sorted(seen),
-    'tasks': {
-        'pending':     sum(1 for t in tasks if t.get('status') == 'pending'),
-        'in_progress': sum(1 for t in tasks if t.get('status') == 'in_progress'),
-        'completed':   sum(1 for t in tasks if t.get('status') == 'completed'),
-    },
-}
-tmp = state_path.with_suffix('.tmp')
-tmp.write_text(json.dumps(state))
-tmp.rename(state_path)
-PYEOF
-
 # Check if there are in-progress tasks in the input
 IN_PROGRESS=$(echo "$INPUT" | jq -r '.tasks[]? | select(.status == "in_progress") | .subject' 2>/dev/null || true)
 

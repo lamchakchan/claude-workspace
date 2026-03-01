@@ -76,16 +76,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/clear-team-state.sh"
-          }
-        ]
-      }
     ]
   },
   "alwaysThinkingEnabled": true,

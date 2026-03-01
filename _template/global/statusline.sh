@@ -19,7 +19,7 @@ if [[ -z "$base" || "$base" == ❌* ]]; then
         2>/dev/null)
 fi
 
-# Delegate computed parts (reset countdown, service alerts, team summary, width compaction)
+# Delegate computed parts (reset countdown, service alerts, width compaction)
 # to the Go binary. Falls back to printing just the base line if not available.
 if command -v claude-workspace &>/dev/null; then
     printf '%s' "$input" | \

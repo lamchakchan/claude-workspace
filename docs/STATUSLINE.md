@@ -18,12 +18,10 @@ graph TD
 
     CW -->|"reads ~/.claude.json"| RESET["Weekly reset\ncountdown"]
     CW -->|"HTTP + /tmp cache"| ALERTS["Service status\nalerts"]
-    CW -->|"reads ~/.claude/team-state.json"| TEAM["Team agent\nsummary"]
     CW -->|"width compaction"| OUT
 
     RESET --> OUT
     ALERTS --> OUT
-    TEAM --> OUT
 ```
 
 ## Data Call Flow
@@ -37,7 +35,7 @@ sequenceDiagram
     participant BUN as bun/npx (ccusage)
     participant JQ as jq (fallback)
     participant GO as claude-workspace<br/>statusline render
-    participant FS as Filesystem<br/>(~/.claude.json, team-state.json)
+    participant FS as Filesystem<br/>(~/.claude.json)
     participant NET as Status APIs<br/>(6 services)
     participant CACHE as /tmp/claude-statusline/
 
@@ -70,15 +68,9 @@ sequenceDiagram
             end
             note over GO: parse indicator field
         end
-    and Team summary
-        GO->>FS: read ~/.claude/team-state.json
-        FS-->>GO: agents_seen, tasks, updated_at
-        GO->>FS: glob ~/.claude/teams/*/config.json
-        FS-->>GO: team name
-        note over GO: staleness check: updated_at < 30 min ago
     end
 
-    note over GO: assemble: alerts line + team line + base + reset
+    note over GO: assemble: alerts line + base + reset
     note over GO: width compaction if visible chars > COLS
 
     GO-->>CC: multi-line statusline output
@@ -86,12 +78,11 @@ sequenceDiagram
 
 ## Output Structure
 
-The statusline produces up to three lines, each omitted when not applicable:
+The statusline produces up to two lines, each omitted when not applicable:
 
 ```
 Line 1: [service alerts]     — only when incidents are active
-Line 2: [team summary]       — only when a team session is running
-Line 3: [metrics + reset]    — always present if data is available
+Line 2: [metrics + reset]    — always present if data is available
 ```
 
 ---
@@ -133,7 +124,7 @@ Claude Sonnet 4.6 | $0.032 | 18% ctx
 
 ### Go Binary Fallback
 
-If `claude-workspace` is not in `$PATH`, the script prints only the base line and exits — no reset countdown, no service alerts, no team summary, no width compaction.
+If `claude-workspace` is not in `$PATH`, the script prints only the base line and exits — no reset countdown, no service alerts, no width compaction.
 
 ---
 
@@ -147,12 +138,11 @@ If `claude-workspace` is not in `$PATH`, the script prints only the base line an
 - `$COLS`: terminal width (integer string, default 120)
 - `$CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`: custom auto-compact threshold (default 95.0)
 
-The binary computes four things in parallel and assembles the final output:
+The binary computes three things in parallel and assembles the final output:
 
 1. [Weekly reset countdown](#indicator-weekly-reset-countdown)
 2. [Service status alerts](#indicator-service-status-alerts)
-3. [Team agent summary](#indicator-team-agent-summary)
-4. [Width compaction](#width-compaction)
+3. [Width compaction](#width-compaction)
 
 ---
 
@@ -281,74 +271,6 @@ Multiple critical:
 
 ---
 
-## Indicator: Team Agent Summary
-
-**Source:** `~/.claude/team-state.json` (written by the `check-teammate-idle.sh` TeammateIdle hook)
-
-**Condition for display:** File must exist, `updated_at` must be within the last 30 minutes, and either `agents_seen` or task counts must be non-empty.
-
-### Data Source
-
-The TeammateIdle hook writes `~/.claude/team-state.json` each time a teammate goes idle during a team session. The Stop hook (`clear-team-state.sh`) deletes the file when the session ends.
-
-```json
-{
-  "updated_at": "2026-03-01T14:30:00Z",
-  "agents_seen": ["researcher", "coder", "tester"],
-  "tasks": {
-    "pending": 2,
-    "in_progress": 1,
-    "completed": 3
-  }
-}
-```
-
-### Team Name Resolution
-
-The team name is resolved from the most-recently-modified file in `~/.claude/teams/`:
-1. `~/.claude/teams/*/config.json` → read `name` field
-2. `~/.claude/teams/*.json` → read `name` field
-3. Fallback: directory name, then filename stem, then `"team"`
-
-### Format
-
-```
-👥 <team-name>  [<agent dots>]  <progress bar>  <N>/<total> tasks  ▶<n>  ⏸<n>  ✓<n>
-```
-
-| Component | Description |
-|-----------|-------------|
-| `👥 team-name` | Team name in bold |
-| `[▶ ▶ ⏸]` | One dot per agent: green `▶` = active (running a task), yellow `⏸` = idle |
-| `████████░░` | 10-char progress bar: green `█` filled proportional to completed/total |
-| `N/total tasks` | Completed / total task count (omitted if total is 0) |
-| `▶N` | In-progress task count (green) |
-| `⏸N` | Pending task count (yellow) |
-| `✓N` | Completed task count (gray) |
-
-Active agent count = `min(in_progress_tasks, agent_count)`.
-
-### Examples
-
-Early in a session (3 agents, 1 task running, 5 pending, 0 done):
-```
-👥 my-project  [▶ ⏸ ⏸]  ░░░░░░░░░░  0/6 tasks  ▶1  ⏸5  ✓0
-```
-
-Mid-session (3 agents, 2 running, 3 done out of 8):
-```
-👥 my-project  [▶ ▶ ⏸]  ████░░░░░░  3/8 tasks  ▶2  ⏸3  ✓3
-```
-
-Near completion (1 agent left, 7 of 8 done):
-```
-👥 my-project  [▶]  █████████░  7/8 tasks  ▶1  ⏸0  ✓7
-```
-
-Session ends or state is older than 30 minutes — line omitted entirely.
-
----
-
 ## Width Compaction
 
 When Claude Code's "Context left until auto-compact: N%" indicator is active (context usage ≥ 95%), it occupies the right side of the **first line** of statusline output. The Go binary detects this and compacts the affected line to avoid overlap.
@@ -360,8 +282,7 @@ CC places its autocompact indicator on the first output line. The compaction log
 | First line | CC reserve applied to | Metrics line width |
 |------------|----------------------|-------------------|
 | Alerts (service incidents active) | Alerts line | Full terminal width (no reserve) |
-| Team summary (no alerts) | Team line (not compacted) | Full terminal width |
-| Metrics (no alerts, no team) | Metrics line | `cols - ccReserve` |
+| Metrics (no alerts) | Metrics line | `cols - ccReserve` |
 
 This means when service alerts are present, the metrics line gets the full terminal width because CC's indicator shares the alerts line, not the metrics line.
 
@@ -400,7 +321,7 @@ Service name abbreviations: Cloudflare → CF, Google Cloud → GCP, Azure DevOp
 2. Check `context_window.used_percentage` from session JSON
 3. If `used_percentage >= threshold` (default 95%, overridable via `$CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`):
    - Compute `ccReserve = len("  Context left until auto-compact: N%")`
-   - Determine which output line is first (alerts → team → metrics)
+   - Determine which output line is first (alerts → metrics)
    - Apply compaction only to the first line; other lines get full terminal width
 4. If CC indicator is not active: no compaction at all (full content, terminal wraps if needed)
 
@@ -436,7 +357,7 @@ Opus 4.6 | $16.…
 
 ## Full Output Examples
 
-### Typical session (wide terminal, all services healthy, no team)
+### Typical session (wide terminal, all services healthy)
 
 ```
 Claude Sonnet 4.6 | $0.04 session / $0.21 today | $0.02/hr | 8,400 (4%) | resets in 5d
@@ -455,18 +376,10 @@ Sonnet | $0.04 session / $0.21 today / $0.00 block | $0.02/hr | 8,400 (4%) | res
 Sonnet | $0.04 session / $0.21 today | $0.02/hr | 8,400 (4%) | resets in 2d
 ```
 
-### Team session running
-
-```
-👥 my-project  [▶ ▶ ⏸]  █████░░░░░  3/6 tasks  ▶2  ⏸1  ✓3
-Opus | $1.20 session / $3.40 today | $0.60/hr | 45,000 (22%) | resets in 3d
-```
-
 ### All indicators active
 
 ```
 🚨 AWS: Active Incidents (2)  ⚠️  Cloudflare: Partial Outage
-👥 auth-refactor  [▶ ▶ ▶ ⏸]  ████████░░  8/10 tasks  ▶3  ⏸0  ✓7 (idle)
 Opus | $2.10 session / $5.60 today / $0.80 block (45m left) | $1.05/hr | 68,000 (33%) | resets today
 ```
 
