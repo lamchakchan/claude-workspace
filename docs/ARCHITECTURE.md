@@ -221,6 +221,46 @@ User or Claude triggers a tool call
 | `enforce-branch-policy.sh` | PreToolUse | Bash | Blocks commits to main/master, warns on checkout |
 | `validate-secrets.sh` | PreToolUse | Write\|Edit | Scans content for AWS keys, API tokens, passwords |
 | `auto-format.sh` | PostToolUse | Write\|Edit | Runs prettier/black/rustfmt on changed files |
+| `verify-task-completed.sh` | TaskCompleted | — | Runs tests before allowing task completion |
+| `check-teammate-idle.sh` | TeammateIdle | — | Nudges idle teammates with remaining tasks |
+
+### Team Agent Architecture
+
+The platform supports multi-agent team execution as an opt-in extension of the plan-and-execute workflow:
+
+```
+/plan-and-execute
+       │
+       ▼
+  Phase 1.5: Team Assessment
+  (Are phases parallelizable?)
+       │
+       ├── No  → Sequential execution (Phase 2 as usual)
+       │
+       └── Yes → Spawn team-lead agent
+                      │
+                      ▼
+                 TeamCreate + TaskCreate
+                      │
+                      ▼
+              ┌───────┴───────┐
+              │               │
+         Teammate A      Teammate B
+         (Phase 1)       (Phase 2)
+              │               │
+              └───────┬───────┘
+                      │
+                 Verify & merge
+                      │
+                      ▼
+              Phase 3: Verification
+```
+
+**Design decisions:**
+
+- **Opt-in, not replacement**: The `/plan-and-execute` skill assesses parallelism and asks the user before spawning a team. Sequential execution remains the default.
+- **Shell hooks for verification**: `TaskCompleted` uses a shell hook (not a prompt hook) to run tests deterministically. This avoids LLM latency and hallucination risk for pass/fail checks.
+- **Fail-open hooks**: Both team hooks exit 0 if expected input fields are missing, since the hook input JSON schema is not fully documented. This prevents hooks from blocking work due to schema changes.
 
 ---
 

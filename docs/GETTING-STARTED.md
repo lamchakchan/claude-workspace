@@ -551,6 +551,38 @@ Simply ask Claude to create a team:
 - Tasks that modify the same files (merge conflicts)
 - Simple, single-file changes
 
+### Verification Hooks
+
+The platform includes two hooks that add quality gates to team workflows:
+
+**TaskCompleted** (`verify-task-completed.sh`) — Runs before a task can be marked complete. Detects the project type (Go, Node.js, Rust) and runs the appropriate test suite. If tests fail, the task completion is blocked with feedback. Configured with a 60-second timeout.
+
+**TeammateIdle** (`check-teammate-idle.sh`) — Fires when a teammate is about to go idle. If the teammate still has in-progress tasks, the hook sends a nudge to keep working. Falls back to allowing idle if the input format is unexpected.
+
+Both hooks follow the exit-code protocol:
+- Exit 0 = allow the action
+- Exit 2 = block the action and send the stderr message as feedback
+
+To disable either hook, remove its entry from `.claude/settings.json` under the `hooks` key.
+
+### Using the Team Lead Agent
+
+The `team-lead` agent is a specialized coordinator that decomposes plans into parallel tasks and manages teammates. You can use it directly:
+
+```
+> Use the team-lead agent to execute this plan: ./plans/plan-2026-02-28-add-feature.md
+```
+
+Or let `/plan-and-execute` suggest it automatically — after plan approval, it assesses whether the plan has parallelizable phases and recommends team execution when beneficial.
+
+The team-lead agent:
+1. Reads the approved plan and identifies parallelizable vs sequential phases
+2. Creates a team with `TeamCreate` and tasks with `TaskCreate`
+3. Spawns 2-3 teammates (prefers fewer to reduce coordination overhead)
+4. Monitors progress as teammates report back
+5. Verifies each phase (tests pass, changes correct) before proceeding
+6. Shuts down teammates and reports results
+
 ---
 
 ## 11. Day-to-Day Workflow

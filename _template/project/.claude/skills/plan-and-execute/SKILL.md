@@ -44,7 +44,44 @@ Before starting a new plan, check if an existing plan covers this work:
 7. **Name the session** - Suggest `/rename <description>` using the **same `<description>` token** from the plan filename so session name matches plan file (e.g., plan file `plan-2026-02-27-add-auth-middleware.md` → `/rename add-auth-middleware`)
 8. **Log the plan path** - Tell the user: "Plan saved to `./plans/<filename>`. You can resume this in a future session with `/plan-resume`"
 
+## Phase 1.5: Team Assessment (Optional)
+
+After the plan is approved, assess whether team-based parallel execution is beneficial.
+
+### When to use teams
+
+Recommend team execution when ALL of these are true:
+1. The plan has 3+ implementation phases
+2. At least 2 phases have no dependencies on each other
+3. The parallel phases modify DIFFERENT files (no merge conflict risk)
+4. Each parallel phase involves substantial work (not a 5-line change)
+
+### When NOT to use teams
+
+- Phases modify overlapping files
+- Phases have strict sequential dependencies
+- The plan has only 1-2 phases
+- The user explicitly prefers sequential execution
+
+### How to propose team execution
+
+Present the parallelism assessment to the user:
+- Which phases can run concurrently
+- Which must be sequential (and why)
+- Recommendation: team vs sequential
+
+### If approved, use the team-lead agent
+
+1. Spawn the team-lead agent with the approved plan
+2. The team-lead creates a team, assigns tasks, monitors progress
+3. TaskCompleted hooks verify each phase's work automatically
+4. Resume at Phase 3 (Verification) when the team-lead reports completion
+
 ## Phase 2: Execution
+
+> **Note:** If team execution was approved in Phase 1.5, skip Phase 2.
+> The team-lead agent handles execution. Resume at Phase 3 when all
+> team tasks are complete.
 
 1. **Work step by step** - Follow the plan in order
 2. **Update progress** - As each step completes:

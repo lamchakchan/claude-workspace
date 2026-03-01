@@ -35,7 +35,7 @@ When you type `/onboarding`, Claude reads the corresponding `SKILL.md` file and 
 
 ### When to use skills
 
-- `/plan-and-execute` — Before any non-trivial implementation task
+- `/plan-and-execute` — Before any non-trivial implementation task. Includes optional team execution for plans with parallelizable phases.
 - `/plan-resume` — When returning to a project with an in-progress plan
 - `/pr-workflow` — When your changes are ready for review
 - `/onboarding` — After running `claude-workspace attach` on a new project

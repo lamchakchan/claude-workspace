@@ -16,7 +16,7 @@ You are onboarding to a new project. Your goal is to understand the project stru
 - Identify the framework(s) in use
 
 ### 2. Build System
-- Find and read the package manifest (package.json, Cargo.toml, go.mod, pyproject.toml, etc.)
+- Find and read the package manifest (package.json, Cargo.toml, go.mod, pyproject.toml, requirements.txt, pom.xml, build.gradle, build.gradle.kts, Gemfile, *.csproj, *.sln, mix.exs, composer.json, Package.swift, build.sbt, MODULE.bazel, CMakeLists.txt)
 - Identify the build command
 - Identify the test command
 - Identify linting/formatting tools
@@ -28,7 +28,7 @@ You are onboarding to a new project. Your goal is to understand the project stru
 - Understand the module/package organization
 
 ### 4. Key Files
-- Configuration files (webpack, vite, tsconfig, etc.)
+- Configuration files (webpack, vite, tsconfig, pom.xml, build.gradle, Rakefile, Guardfile, phpunit.xml, .swiftlint.yml, .scalafmt.conf, .clang-format, BUILD, WORKSPACE, etc.)
 - Environment files (.env.example)
 - CI/CD configuration (.github/workflows, Jenkinsfile, etc.)
 - Database migrations or schemas

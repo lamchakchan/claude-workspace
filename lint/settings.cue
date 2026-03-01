@@ -19,12 +19,21 @@ import (
 	hooks: [...#HookCommand] & list.MinItems(1)
 }
 
+// Hook entry with optional matcher — for lifecycle hooks (TaskCompleted, TeammateIdle)
+// that don't match on tool names
+#HookOptionalMatcher: {
+	matcher?: string & strings.MinRunes(1)
+	hooks: [...#HookCommand] & list.MinItems(1)
+}
+
 // Hook event definitions
 #HookEvents: {
-	PreToolUse?:   [...#HookMatcher]
-	PostToolUse?:  [...#HookMatcher]
-	Notification?: [...#HookMatcher]
-	Stop?:         [...#HookMatcher]
+	PreToolUse?:    [...#HookMatcher]
+	PostToolUse?:   [...#HookMatcher]
+	Notification?:  [...#HookMatcher]
+	Stop?:          [...#HookMatcher]
+	TaskCompleted?: [...#HookOptionalMatcher]
+	TeammateIdle?:  [...#HookOptionalMatcher]
 }
 
 // Permission rules
