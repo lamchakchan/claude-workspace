@@ -53,6 +53,29 @@
           }
         ]
       }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-task-completed.sh",
+            "statusMessage": "Verifying task completion...",
+            "timeout": 60000
+          }
+        ]
+      }
+    ],
+    "TeammateIdle": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-teammate-idle.sh",
+            "statusMessage": "Checking teammate status..."
+          }
+        ]
+      }
     ]
   },
   "alwaysThinkingEnabled": true,
