@@ -421,3 +421,38 @@ To configure manually within a Claude Code session, use the `/statusline-setup` 
 |----------|---------|---------|
 | `$COLS` | `120` | Terminal width (set automatically by `tput cols`) |
 | `$CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | `95.0` | Context usage threshold for reserving auto-compact indicator space |
+
+---
+
+## Claude Code Native Team Indicator
+
+Claude Code includes a built-in team management row that appears when agent teams are active. This indicator is rendered entirely by Claude Code itself and is separate from the statusline pipeline described above.
+
+### Format
+
+When active, the row appears below the custom statusline output:
+
+```
+@main @agent-a @agent-b · ↓ to expand
+```
+
+| Element | Description |
+|---------|-------------|
+| `@main` | The primary Claude Code session |
+| `@agent-*` | Each active teammate, prefixed with `@` |
+| `· ↓ to expand` | Hint that the row is collapsible/expandable |
+
+### Activation
+
+| Condition | Requirement |
+|-----------|-------------|
+| Environment variable | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` must be set |
+| Active teammates | At least one teammate must have been spawned by the session |
+
+The row appears when agents spawn and disappears when all agents shut down. It is not present in single-agent sessions.
+
+### Relationship to This Project
+
+This indicator requires no configuration, scripting, or output from the statusline pipeline. Claude Code renders it independently, using its own internal agent registry.
+
+This project previously implemented a custom team line (prefixed with a team emoji) as part of the Go binary's output. That line was removed because the native indicator already provides equivalent visibility into active teammates, making the custom implementation redundant.
