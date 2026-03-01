@@ -21,6 +21,10 @@ const (
 	ansiGray   = "\033[0;37m"
 	ansiBold   = "\033[1m"
 	ansiReset  = "\033[0m"
+
+	severityMajor   = "major"
+	severityMinor   = "minor"
+	defaultTeamName = "team"
 )
 
 var ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*m`)
@@ -260,32 +264,50 @@ func (sc *serviceChecker) fetchCached(label, url string, ttl time.Duration) []by
 }
 
 func alertColor(severity, text string) string {
-	if severity == "major" {
+	if severity == severityMajor {
 		return "🚨 " + ansiRed + text + ansiReset
 	}
 	return "⚠️ " + ansiYellow + text + ansiReset
 }
 
+// statuspageResp is the common response shape for Statuspage-based services.
+type statuspageResp struct {
+	Status struct {
+		Indicator   string `json:"indicator"`
+		Description string `json:"description"`
+	} `json:"status"`
+	Incidents []struct {
+		CreatedAt string `json:"created_at"`
+		Status    string `json:"status"`
+	} `json:"incidents"`
+}
+
 // check fetches all 6 services and returns an ANSI alert string, or "" if all healthy.
 func (sc *serviceChecker) check() string {
-	const ttl = 5 * time.Minute
 	var alerts []string
-
-	type statuspageResp struct {
-		Status struct {
-			Indicator   string `json:"indicator"`
-			Description string `json:"description"`
-		} `json:"status"`
-		Incidents []struct {
-			CreatedAt string `json:"created_at"`
-			Status    string `json:"status"`
-		} `json:"incidents"`
+	alerts = append(alerts, sc.checkStatuspages()...)
+	if a := sc.checkAWS(); a != "" {
+		alerts = append(alerts, a)
 	}
-	for _, svc := range []struct{ key, label, url string }{
+	if a := sc.checkGoogleCloud(); a != "" {
+		alerts = append(alerts, a)
+	}
+	if a := sc.checkAzureDevOps(); a != "" {
+		alerts = append(alerts, a)
+	}
+	return strings.Join(alerts, "  ")
+}
+
+// checkStatuspages checks GitHub, Claude, and Cloudflare via the Statuspage API.
+func (sc *serviceChecker) checkStatuspages() []string {
+	const ttl = 5 * time.Minute
+	services := []struct{ key, label, url string }{
 		{"github", "GitHub", "https://www.githubstatus.com/api/v2/summary.json"},
 		{"claude", "Claude", "https://status.claude.com/api/v2/summary.json"},
 		{"cloudflare", "Cloudflare", "https://www.cloudflarestatus.com/api/v2/summary.json"},
-	} {
+	}
+	var alerts []string
+	for _, svc := range services {
 		data := sc.fetchCached(svc.key, svc.url, ttl)
 		if data == nil {
 			continue
@@ -298,9 +320,9 @@ func (sc *serviceChecker) check() string {
 		if ind == "" || ind == "none" {
 			continue
 		}
-		sev := "minor"
-		if ind == "major" || ind == "critical" {
-			sev = "major"
+		sev := severityMinor
+		if ind == severityMajor || ind == "critical" {
+			sev = severityMajor
 		}
 		text := svc.label + ": " + resp.Status.Description
 		for _, inc := range resp.Incidents {
@@ -314,92 +336,115 @@ func (sc *serviceChecker) check() string {
 		}
 		alerts = append(alerts, alertColor(sev, text))
 	}
+	return alerts
+}
 
-	// AWS Health — non-empty JSON array means active incidents
-	if data := sc.fetchCached("aws", "https://health.aws.amazon.com/public/currentevents", ttl); data != nil {
-		var events []interface{}
-		if err := json.Unmarshal(data, &events); err == nil && len(events) > 0 {
-			var earliest time.Time
-			for _, ev := range events {
-				if m, ok := ev.(map[string]interface{}); ok {
-					if st, ok := m["startTime"].(string); ok {
-						if t := parseTime(st); !t.IsZero() {
-							if earliest.IsZero() || t.Before(earliest) {
-								earliest = t
-							}
-						}
-					}
-				}
-			}
-			text := fmt.Sprintf("AWS: Active Incidents (%d)", len(events))
-			if dur := formatDuration(earliest); dur != "" {
-				text += " (" + dur + ")"
-			}
-			alerts = append(alerts, alertColor("major", text))
-		}
-	}
-
-	// Google Cloud — active incidents where latest status is not AVAILABLE
-	if data := sc.fetchCached("google-cloud", "https://status.cloud.google.com/incidents.json", ttl); data != nil {
-		var incidents []map[string]interface{}
-		if err := json.Unmarshal(data, &incidents); err == nil {
-			var active []map[string]interface{}
-			for _, inc := range incidents {
-				update, _ := inc["most_recent_update"].(map[string]interface{})
-				status, _ := update["status"].(string)
-				if status != "AVAILABLE" && status != "" {
-					active = append(active, inc)
-				}
-			}
-			if len(active) > 0 {
-				sev := "minor"
-				for _, inc := range active {
-					if inc["severity"] == "high" {
-						sev = "major"
-						break
-					}
-				}
-				var earliest time.Time
-				for _, inc := range active {
-					if begin, ok := inc["begin"].(string); ok {
-						if t := parseTime(begin); !t.IsZero() {
-							if earliest.IsZero() || t.Before(earliest) {
-								earliest = t
-							}
-						}
-					}
-				}
-				text := fmt.Sprintf("Google Cloud: Active Incidents (%d)", len(active))
-				if dur := formatDuration(earliest); dur != "" {
-					text += " (" + dur + ")"
-				}
-				alerts = append(alerts, alertColor(sev, text))
+// earliestTime returns the earliest non-zero time from a list of time strings.
+func earliestTime(times []string) time.Time {
+	var earliest time.Time
+	for _, s := range times {
+		if t := parseTime(s); !t.IsZero() {
+			if earliest.IsZero() || t.Before(earliest) {
+				earliest = t
 			}
 		}
 	}
+	return earliest
+}
 
-	// Azure DevOps — status.health != "healthy"
-	if data := sc.fetchCached("azure-devops", "https://status.dev.azure.com/_apis/status/health?api-version=7.1-preview.1", ttl); data != nil {
-		var resp struct {
-			Status struct {
-				Health  string `json:"health"`
-				Message string `json:"message"`
-			} `json:"status"`
-		}
-		if err := json.Unmarshal(data, &resp); err == nil && resp.Status.Health != "" && resp.Status.Health != "healthy" {
-			sev := "minor"
-			if resp.Status.Health == "unhealthy" {
-				sev = "major"
+// checkAWS checks AWS Health for active incidents.
+func (sc *serviceChecker) checkAWS() string {
+	const ttl = 5 * time.Minute
+	data := sc.fetchCached("aws", "https://health.aws.amazon.com/public/currentevents", ttl)
+	if data == nil {
+		return ""
+	}
+	var events []interface{}
+	if err := json.Unmarshal(data, &events); err != nil || len(events) == 0 {
+		return ""
+	}
+	var startTimes []string
+	for _, ev := range events {
+		if m, ok := ev.(map[string]interface{}); ok {
+			if st, ok := m["startTime"].(string); ok {
+				startTimes = append(startTimes, st)
 			}
-			msg := resp.Status.Message
-			if msg == "" {
-				msg = "Issues detected"
-			}
-			alerts = append(alerts, alertColor(sev, "Azure DevOps: "+msg))
 		}
 	}
+	text := fmt.Sprintf("AWS: Active Incidents (%d)", len(events))
+	if dur := formatDuration(earliestTime(startTimes)); dur != "" {
+		text += " (" + dur + ")"
+	}
+	return alertColor(severityMajor, text)
+}
 
-	return strings.Join(alerts, "  ")
+// checkGoogleCloud checks Google Cloud Status for active incidents.
+func (sc *serviceChecker) checkGoogleCloud() string {
+	const ttl = 5 * time.Minute
+	data := sc.fetchCached("google-cloud", "https://status.cloud.google.com/incidents.json", ttl)
+	if data == nil {
+		return ""
+	}
+	var incidents []map[string]interface{}
+	if err := json.Unmarshal(data, &incidents); err != nil {
+		return ""
+	}
+	var active []map[string]interface{}
+	for _, inc := range incidents {
+		update, _ := inc["most_recent_update"].(map[string]interface{})
+		status, _ := update["status"].(string)
+		if status != "AVAILABLE" && status != "" {
+			active = append(active, inc)
+		}
+	}
+	if len(active) == 0 {
+		return ""
+	}
+	sev := severityMinor
+	for _, inc := range active {
+		if inc["severity"] == "high" {
+			sev = severityMajor
+			break
+		}
+	}
+	var beginTimes []string
+	for _, inc := range active {
+		if begin, ok := inc["begin"].(string); ok {
+			beginTimes = append(beginTimes, begin)
+		}
+	}
+	text := fmt.Sprintf("Google Cloud: Active Incidents (%d)", len(active))
+	if dur := formatDuration(earliestTime(beginTimes)); dur != "" {
+		text += " (" + dur + ")"
+	}
+	return alertColor(sev, text)
+}
+
+// checkAzureDevOps checks Azure DevOps status health.
+func (sc *serviceChecker) checkAzureDevOps() string {
+	const ttl = 5 * time.Minute
+	data := sc.fetchCached("azure-devops", "https://status.dev.azure.com/_apis/status/health?api-version=7.1-preview.1", ttl)
+	if data == nil {
+		return ""
+	}
+	var resp struct {
+		Status struct {
+			Health  string `json:"health"`
+			Message string `json:"message"`
+		} `json:"status"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil || resp.Status.Health == "" || resp.Status.Health == "healthy" {
+		return ""
+	}
+	sev := severityMinor
+	if resp.Status.Health == "unhealthy" {
+		sev = severityMajor
+	}
+	msg := resp.Status.Message
+	if msg == "" {
+		msg = "Issues detected"
+	}
+	return alertColor(sev, "Azure DevOps: "+msg)
 }
 
 // renderTeamSummary reads ~/.claude/team-state.json and returns an ANSI team line, or "".
@@ -482,14 +527,14 @@ func renderTeamSummary(home string) string {
 func resolveTeamName(home string) string {
 	teamsDir := filepath.Join(home, ".claude", "teams")
 	var candidates []string
-	if m, _ := filepath.Glob(filepath.Join(teamsDir, "*/config.json")); len(m) > 0 {
+	if m, _ := filepath.Glob(filepath.Join(teamsDir, "*", "config.json")); len(m) > 0 {
 		candidates = append(candidates, m...)
 	}
 	if m, _ := filepath.Glob(filepath.Join(teamsDir, "*.json")); len(m) > 0 {
 		candidates = append(candidates, m...)
 	}
 	if len(candidates) == 0 {
-		return "team"
+		return defaultTeamName
 	}
 
 	newest := candidates[0]
@@ -507,11 +552,11 @@ func resolveTeamName(home string) string {
 
 	data, err := os.ReadFile(newest)
 	if err != nil {
-		return "team"
+		return defaultTeamName
 	}
 	var cfg map[string]interface{}
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return "team"
+		return defaultTeamName
 	}
 	if name, ok := cfg["name"].(string); ok && name != "" {
 		return name
@@ -608,6 +653,31 @@ func compactAlerts(alerts string, maxW int) string {
 	return truncateDisplay(stripped, maxW)
 }
 
+// segmentDegrader transforms pipe-separated segments to progressively shed information.
+type segmentDegrader func([]string) []string
+
+// applyDegradations runs each degradation step in order, returning as soon as the
+// joined result fits within maxW display columns.
+func applyDegradations(segments []string, maxW int, steps []segmentDegrader) (string, bool) {
+	for _, step := range steps {
+		segments = step(segments)
+		joined := strings.Join(segments, " | ")
+		if displayWidth(ansiRE.ReplaceAllString(joined, "")) <= maxW {
+			return joined, true
+		}
+	}
+	return strings.Join(segments, " | "), false
+}
+
+// abbreviateSession replaces " session" with " sess" in each segment.
+func abbreviateSession(segments []string) []string {
+	out := make([]string, len(segments))
+	for i, s := range segments {
+		out[i] = strings.Replace(s, " session", " sess", 1)
+	}
+	return out
+}
+
 // compactResult progressively degrades the metrics line to fit within maxW display columns.
 //
 // Degradation steps:
@@ -659,36 +729,13 @@ func compactResult(result, reset string, inputJSON []byte, maxW int) string {
 
 	// Steps 2-6: Segment-based progressive degradation
 	segments := strings.Split(cur, " | ")
-
-	// Step 2: Drop hourly rate (🔥)
-	segments = filterSegments(segments, "🔥")
-	if joined := strings.Join(segments, " | "); fits(joined) {
-		return joined
-	}
-
-	// Step 3: Drop block cost sub-segment
-	segments = dropCostSub(segments, "block")
-	if joined := strings.Join(segments, " | "); fits(joined) {
-		return joined
-	}
-
-	// Step 4: Drop daily cost sub-segment
-	segments = dropCostSub(segments, "today")
-	if joined := strings.Join(segments, " | "); fits(joined) {
-		return joined
-	}
-
-	// Step 5: Abbreviate "session" → "sess"
-	for i, s := range segments {
-		segments[i] = strings.Replace(s, " session", " sess", 1)
-	}
-	if joined := strings.Join(segments, " | "); fits(joined) {
-		return joined
-	}
-
-	// Step 6: Drop tokens/context (🧠)
-	segments = filterSegments(segments, "🧠")
-	if joined := strings.Join(segments, " | "); fits(joined) {
+	if joined, ok := applyDegradations(segments, maxW, []segmentDegrader{
+		func(s []string) []string { return filterSegments(s, "🔥") },
+		func(s []string) []string { return dropCostSub(s, "block") },
+		func(s []string) []string { return dropCostSub(s, "today") },
+		abbreviateSession,
+		func(s []string) []string { return filterSegments(s, "🧠") },
+	}); ok {
 		return joined
 	}
 
@@ -698,11 +745,8 @@ func compactResult(result, reset string, inputJSON []byte, maxW int) string {
 		model = "Claude"
 	}
 	compact := fmt.Sprintf("%s | $%.2f", model, data.Cost.TotalCostUSD)
-	if reset != "" {
-		withReset := compact + " | " + reset
-		if fits(withReset) {
-			return withReset
-		}
+	if reset != "" && fits(compact+" | "+reset) {
+		return compact + " | " + reset
 	}
 	if fits(compact) {
 		return compact

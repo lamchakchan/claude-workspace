@@ -165,21 +165,32 @@ func TestServiceChecker_AllHealthy(t *testing.T) {
 	}
 }
 
-func TestServiceChecker_GitHubMajorOutage(t *testing.T) {
-	start := time.Now().Add(-62 * time.Minute)
-	fixture := fmt.Sprintf(`{"status":{"indicator":"major","description":"Major outage"},"incidents":[{"created_at":%q,"status":"investigating"}]}`, start.UTC().Format(time.RFC3339))
-	client := testServiceClient(map[string]string{
-		"githubstatus.com": fixture,
-	}, `{"status":{"indicator":"none"}}`)
-	got := newServiceChecker(t.TempDir(), client).check()
-	if !strings.Contains(got, "GitHub") {
-		t.Errorf("expected GitHub alert, got %q", got)
-	}
-	if !strings.Contains(got, ansiRed) {
-		t.Errorf("expected red color for major alert, got %q", got)
-	}
-	if !strings.Contains(got, "m)") {
-		t.Errorf("expected duration in alert, got %q", got)
+func TestServiceChecker_OutageAlert(t *testing.T) {
+	for _, tt := range []struct {
+		name, urlKey, label, indicator, wantColor string
+		elapsed                                   time.Duration
+	}{
+		{"GitHubMajor", "githubstatus.com", "GitHub", "major", ansiRed, 62 * time.Minute},
+		{"ClaudeMinor", "status.claude.com", "Claude", "minor", ansiYellow, 14 * time.Minute},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			start := time.Now().Add(-tt.elapsed)
+			fixture := fmt.Sprintf(
+				`{"status":{"indicator":%q,"description":"Outage"},"incidents":[{"created_at":%q,"status":"investigating"}]}`,
+				tt.indicator, start.UTC().Format(time.RFC3339),
+			)
+			client := testServiceClient(map[string]string{tt.urlKey: fixture}, `{"status":{"indicator":"none"}}`)
+			got := newServiceChecker(t.TempDir(), client).check()
+			if !strings.Contains(got, tt.label) {
+				t.Errorf("expected %s alert, got %q", tt.label, got)
+			}
+			if !strings.Contains(got, tt.wantColor) {
+				t.Errorf("expected color %q in alert, got %q", tt.wantColor, got)
+			}
+			if !strings.Contains(got, "m)") {
+				t.Errorf("expected duration in alert, got %q", got)
+			}
+		})
 	}
 }
 
@@ -199,24 +210,6 @@ func TestServiceChecker_SkipsMonitoringIncident(t *testing.T) {
 	}
 	if !strings.Contains(got, "m)") {
 		t.Errorf("expected duration from investigating incident, got %q", got)
-	}
-}
-
-func TestServiceChecker_ClaudeMinorOutage(t *testing.T) {
-	start := time.Now().Add(-14 * time.Minute)
-	fixture := fmt.Sprintf(`{"status":{"indicator":"minor","description":"Degraded performance"},"incidents":[{"created_at":%q,"status":"identified"}]}`, start.UTC().Format(time.RFC3339))
-	client := testServiceClient(map[string]string{
-		"status.claude.com": fixture,
-	}, `{"status":{"indicator":"none"}}`)
-	got := newServiceChecker(t.TempDir(), client).check()
-	if !strings.Contains(got, "Claude") {
-		t.Errorf("expected Claude alert, got %q", got)
-	}
-	if !strings.Contains(got, ansiYellow) {
-		t.Errorf("expected yellow color for minor alert, got %q", got)
-	}
-	if !strings.Contains(got, "m)") {
-		t.Errorf("expected duration in alert, got %q", got)
 	}
 }
 
@@ -355,6 +348,9 @@ func writeTeamState(t *testing.T, home string, updatedAt time.Time, agents []str
 	_ = os.WriteFile(filepath.Join(home, ".claude", "team-state.json"), data, 0644)
 }
 
+// testModelCostTokens is the expected metrics line after dropping 🔥 but keeping all other segments.
+const testModelCostTokens = "🤖 Opus 4.6 | 💰 $16.84 session | 🧠 5,803 (3%)"
+
 // --- ccReserveWidth ---
 
 func TestCCReserveWidth_BelowThreshold(t *testing.T) {
@@ -411,7 +407,7 @@ func TestCompactResult_DropHourlyRate(t *testing.T) {
 	// After dropping reset, hourly rate segment (🔥) is dropped next.
 	inputJSON := []byte(`{"cost":{"total_cost_usd":16.84},"model":{"display_name":"Opus 4.6"}}`)
 	base := "🤖 Opus 4.6 | 💰 $16.84 session | 🔥 $4.88/hr | 🧠 5,803 (3%)"
-	want := "🤖 Opus 4.6 | 💰 $16.84 session | 🧠 5,803 (3%)"
+	want := testModelCostTokens
 	maxW := displayWidth(want) // exact fit after dropping 🔥
 	got := compactResult(base, "", inputJSON, maxW)
 	if got != want {
@@ -435,7 +431,7 @@ func TestCompactResult_DropDailyCost(t *testing.T) {
 	// After dropping block cost, daily cost sub-segment is dropped.
 	inputJSON := []byte(`{"cost":{"total_cost_usd":16.84},"model":{"display_name":"Opus 4.6"}}`)
 	base := "🤖 Opus 4.6 | 💰 $16.84 session / $18.35 today | 🧠 5,803 (3%)"
-	want := "🤖 Opus 4.6 | 💰 $16.84 session | 🧠 5,803 (3%)"
+	want := testModelCostTokens
 	maxW := displayWidth(want)
 	got := compactResult(base, "", inputJSON, maxW)
 	if got != want {
@@ -446,7 +442,7 @@ func TestCompactResult_DropDailyCost(t *testing.T) {
 func TestCompactResult_AbbreviateSession(t *testing.T) {
 	// After dropping daily cost, "session" is abbreviated to "sess".
 	inputJSON := []byte(`{"cost":{"total_cost_usd":16.84},"model":{"display_name":"Opus 4.6"}}`)
-	base := "🤖 Opus 4.6 | 💰 $16.84 session | 🧠 5,803 (3%)"
+	base := testModelCostTokens
 	want := "🤖 Opus 4.6 | 💰 $16.84 sess | 🧠 5,803 (3%)"
 	maxW := displayWidth(want)
 	got := compactResult(base, "", inputJSON, maxW)

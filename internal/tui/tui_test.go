@@ -109,21 +109,23 @@ func TestNewMcpAdd(t *testing.T) {
 		t.Errorf("scope field choices = %d, want 3", len(scopeField.Choices))
 	}
 	// Default choice must be "local".
+	const wantScope = "local"
 	vals := m.form.Values()
-	if vals[3] != "local" {
-		t.Errorf("default scope = %q, want %q", vals[3], "local")
+	if vals[3] != wantScope {
+		t.Errorf("default scope = %q, want %q", vals[3], wantScope)
 	}
 }
 
 func TestSelectField_DefaultValue(t *testing.T) {
+	const wantScope = "local"
 	theme := DefaultTheme()
 	fields := []FormField{
-		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+		{Label: "Scope", Choices: []string{wantScope, "user", "project"}},
 	}
 	form := NewForm("Test", fields, &theme)
 	vals := form.Values()
-	if vals[0] != "local" {
-		t.Errorf("default choice = %q, want %q", vals[0], "local")
+	if vals[0] != wantScope {
+		t.Errorf("default choice = %q, want %q", vals[0], wantScope)
 	}
 }
 
