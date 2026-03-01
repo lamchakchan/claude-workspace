@@ -60,6 +60,8 @@ func TestWriteWrapperScript_ContainsRequiredSections(t *testing.T) {
 		{"status_alerts variable", "status_alerts"},
 		{"urllib import", "urllib.request"},
 		{"ansi color codes", "\\033[1;31m"},
+		{"ccusage error guard", "head -1"},
+		{"ccusage error fallback", "❌"},
 		{"team segment marker", "team-state.json"},
 		{"team agent emoji", "👥"},
 		{"team task in_progress field", "in_progress"},
