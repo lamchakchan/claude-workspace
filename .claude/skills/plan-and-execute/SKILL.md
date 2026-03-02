@@ -90,22 +90,32 @@ Present the assessment to the user:
 - **For solo teams**: "I'll create a team with task tracking. Each phase gets a task, and automated hooks will run tests between phases. No additional agents needed."
 - **For multi-agent teams**: Estimated time savings from parallelism. Example: "Phases A, B, C take ~5 min each sequentially (15 min). Running A+B in parallel then C takes ~10 min — saving ~5 min (~33%)."
 
+### Using the Team Coordination Plan
+
+When the plan includes a **Team Coordination Plan** section (produced by the planner agent for solo-team or multi-agent-team modes), use it as the execution blueprint:
+
+- **Roles table** tells you who the coordinator is and what agent types to spawn
+- **Task Assignment table** maps directly to `TaskCreate` calls — use the dependencies column for `addBlockedBy`
+- **Execution Phases** shows the parallel/sequential structure to follow
+- **Communication Protocol** and **Error Handling** set the rules for the team
+
+Do not re-derive the coordination strategy. The plan already specifies it.
+
 ### Executing the chosen mode
 
 **Sequential** (score 0-1): Proceed directly to Phase 2.
 
 **Solo team** (score 2, or 3+ without parallelism):
 1. Use `TeamCreate` to create a team for this plan
-2. Use `TaskCreate` to create one task per implementation phase
-3. Set dependencies with `TaskUpdate(addBlockedBy)` for sequential phases
-4. Work through tasks yourself, marking each completed as you go
-5. TaskCompleted hooks verify each phase automatically
-6. When all tasks are complete, use `TeamDelete` to clean up
-7. Resume at Phase 3 (Verification)
+2. Use the plan's **Task Assignment** table to create tasks via `TaskCreate` — one per row, with dependencies from the "Depends On" column
+3. Work through tasks yourself in the order specified by the plan's **Execution Phases** list
+4. Mark each task completed as you go — TaskCompleted hooks verify each phase automatically
+5. When all tasks are complete, use `TeamDelete` to clean up
+6. Resume at Phase 3 (Verification)
 
 **Multi-agent team** (score 3+ with parallelism):
-- **Simple teams (2 teammates, clear phases)**: Create the team yourself using `TeamCreate`, spawn teammates with the `Agent` tool (set `team_name` and `name`), assign tasks via `TaskUpdate`, and monitor progress directly. Send `shutdown_request` to teammates when done.
-- **Complex teams (3+ teammates, multi-phase dependencies)**: Spawn the `team-lead` agent with the approved plan. The team-lead handles coordination, teammate lifecycle, and phase transitions.
+- **Simple teams (2 teammates, clear phases)**: Create the team yourself using `TeamCreate`. Use the plan's **Roles** and **Task Assignment** tables to spawn teammates with the correct `subagent_type` and assign tasks via `TaskUpdate`. Follow the plan's **Communication Protocol** for monitoring. Send `shutdown_request` to teammates when done.
+- **Complex teams (3+ teammates, multi-phase dependencies)**: Spawn the `team-lead` agent and include the plan file path in its prompt. The team-lead reads the **Team Coordination Plan** section and uses it as the coordination blueprint — roles, task assignments, phase structure, communication rules, and error handling are all specified in the plan.
 
 In both cases, TaskCompleted hooks verify each phase's work automatically. Resume at Phase 3 (Verification) when all team tasks are complete.
 

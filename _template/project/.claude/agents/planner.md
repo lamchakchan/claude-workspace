@@ -126,6 +126,37 @@ Last Updated: [YYYY-MM-DD]
 - [ ] Estimated speedup: [sequential time vs parallel time, or "N/A - sequential only"]
 - [ ] Recommended mode: [sequential | solo-team | multi-agent-team]
 
+## Team Coordination Plan
+<!-- Populate this section when recommended mode is solo-team or multi-agent-team. -->
+<!-- For sequential mode, write: "N/A — sequential execution, no team coordination needed." -->
+
+### Roles
+| Role | Agent Type | Responsibility |
+|------|-----------|----------------|
+| Coordinator | [main agent or team-lead] | [Owns team lifecycle, monitors progress, handles phase transitions] |
+| [Phase N executor] | [general-purpose / code-reviewer / test-runner / etc.] | [What this agent implements] |
+
+### Task Assignment
+| Task | Phase | Agent Type | Depends On | Files Modified |
+|------|-------|-----------|------------|----------------|
+| [Task name] | [Phase N] | [agent type] | [task IDs or "none"] | [file list] |
+
+### Execution Phases
+<!-- Show the parallel/sequential structure. Use a list for simple plans, a Mermaid diagram for complex ones. -->
+1. **Phase N + Phase M** (parallel): [description]
+2. **Phase P** (sequential, after N+M): [description]
+
+### Communication Protocol
+- **Progress**: Teammates send a message to the coordinator upon task completion
+- **Blockers**: Teammates escalate immediately via SendMessage; coordinator decides whether to reassign or unblock
+- **Phase transitions**: Coordinator verifies (tests pass, files reviewed) before unblocking the next phase
+- **Cadence**: No polling — coordinator reacts to teammate messages as they arrive
+
+### Error Handling
+- **Teammate failure**: Coordinator reads the error, attempts a fix or reassigns the task to another teammate
+- **Verification failure**: Coordinator halts the pipeline, diagnoses the failure, and either fixes or reports to the user
+- **Abort conditions**: If a critical phase fails twice, coordinator stops all work and reports to the user with findings
+
 ## Success Criteria
 - [ ] Criterion 1
 - [ ] Criterion 2
@@ -145,6 +176,26 @@ When creating a plan, always assess whether phases can be executed in parallel b
 - **sequential**: Phases have strict dependencies or modify overlapping files. Default safe choice.
 - **solo-team**: Work is complex enough to benefit from structured task tracking (`TaskCreate`/`TaskUpdate`) and automated hooks (`TaskCompleted` runs tests between phases, `TeammateIdle` nudges on stalls), but does not require multiple agents working concurrently. Example: a 5-phase sequential plan where you want automated test gates between phases.
 - **multi-agent-team**: At least 2 phases can run in parallel on isolated file sets, each involving substantial work (not 5-line changes). Example: adding a new API endpoint (backend) while simultaneously building the UI component (frontend).
+
+### Populating the Team Coordination Plan
+
+Always fill in the **Team Coordination Plan** section based on the recommended mode:
+
+**Sequential mode**: Write `"N/A — sequential execution, no team coordination needed."` and skip all subsections.
+
+**Solo-team mode** (minimal coordination plan):
+- **Roles**: One row — the main agent as both coordinator and executor
+- **Task Assignment**: One row per phase, all assigned to the main agent, with correct dependency ordering
+- **Execution Phases**: Simple numbered list showing the phase sequence
+- **Communication Protocol**: "Self-managed — main agent executes phases sequentially with TaskCompleted hooks running tests between phases."
+- **Error Handling**: "Main agent fixes issues directly or reports to user."
+
+**Multi-agent-team mode** (full coordination plan):
+- **Roles**: One row per distinct role. Specify the coordinator (main agent for simple teams, team-lead for complex teams) and one row per teammate with their agent type.
+- **Task Assignment**: One row per task with the specific agent type, dependencies, and file list. This table is the contract the team-lead uses to spawn teammates.
+- **Execution Phases**: Show parallel vs sequential grouping. Use a Mermaid `sequenceDiagram` or `flowchart` for plans with 3+ phases. Label which phases run concurrently.
+- **Communication Protocol**: Keep the defaults from the template. Add plan-specific notes if needed (e.g., "Backend teammate must notify frontend teammate when the API contract is finalized").
+- **Error Handling**: Keep the defaults. Add plan-specific abort conditions if relevant (e.g., "If database migration fails, abort all work — do not proceed with API layer").
 
 ## When to Include Diagrams
 
