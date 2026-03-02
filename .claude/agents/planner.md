@@ -120,6 +120,12 @@ Last Updated: [YYYY-MM-DD]
 - [ ] Code reuse: [existing utilities checked, duplication avoided]
 - [ ] Benchmark plan: [which operations need before/after measurement, or N/A]
 
+## Team Execution Feasibility
+- [ ] Parallelizable phases identified: [list phases with no file overlap that could run concurrently, or "none"]
+- [ ] File isolation verified: [confirm parallel phases modify different files, or "N/A"]
+- [ ] Estimated speedup: [sequential time vs parallel time, or "N/A - sequential only"]
+- [ ] Recommended mode: [sequential | solo-team | multi-agent-team]
+
 ## Success Criteria
 - [ ] Criterion 1
 - [ ] Criterion 2
@@ -130,6 +136,15 @@ Last Updated: [YYYY-MM-DD]
 - Phase 1: Not started
 - Phase 2: Not started
 ```
+
+## Team Execution Annotation
+
+When creating a plan, always assess whether phases can be executed in parallel by a team of agents. This annotation helps the `plan-and-execute` skill and the user decide the execution strategy.
+
+**Recommended mode heuristics**:
+- **sequential**: Phases have strict dependencies or modify overlapping files. Default safe choice.
+- **solo-team**: Work is complex enough to benefit from structured task tracking (`TaskCreate`/`TaskUpdate`) and automated hooks (`TaskCompleted` runs tests between phases, `TeammateIdle` nudges on stalls), but does not require multiple agents working concurrently. Example: a 5-phase sequential plan where you want automated test gates between phases.
+- **multi-agent-team**: At least 2 phases can run in parallel on isolated file sets, each involving substantial work (not 5-line changes). Example: adding a new API endpoint (backend) while simultaneously building the UI component (frontend).
 
 ## When to Include Diagrams
 

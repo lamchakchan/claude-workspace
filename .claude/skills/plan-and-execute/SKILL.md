@@ -44,13 +44,21 @@ Before starting a new plan, check if an existing plan covers this work:
 7. **Name the session** - Suggest `/rename <description>` using the **same `<description>` token** from the plan filename so session name matches plan file (e.g., plan file `plan-2026-02-27-add-auth-middleware.md` → `/rename add-auth-middleware`)
 8. **Log the plan path** - Tell the user: "Plan saved to `./plans/<filename>`. You can resume this in a future session with `/plan-resume`"
 
-## Phase 1.5: Team Assessment (Optional)
+## Phase 1.5: Execution Mode Assessment
 
-After the plan is approved, assess whether team-based parallel execution is beneficial.
+After the plan is approved, determine the best execution mode. If the plan includes a "Team Execution Feasibility" section (from the planner agent), use its annotations as input.
 
-### When to use teams
+### Three execution modes
 
-Score the plan against these criteria. Recommend team execution when the score is 3+:
+| Mode | When to use | Who creates the team? |
+|------|-------------|-----------------------|
+| **Sequential** (default) | Simple work, overlapping files, or user prefers it | No team needed |
+| **Solo team** | Complex sequential work benefiting from structured task tracking and automated verification hooks | You (the main agent) create the team directly |
+| **Multi-agent team** | 2+ phases can run in parallel on isolated file sets | You (simple) or the team-lead agent (complex) |
+
+### Scoring rubric
+
+Score the plan against these criteria:
 
 | Criterion | Points | Description |
 |-----------|--------|-------------|
@@ -58,37 +66,54 @@ Score the plan against these criteria. Recommend team execution when the score i
 | Independent work | +2 | At least 2 phases have no dependencies on each other |
 | File isolation | +1 | Parallel phases modify DIFFERENT files (no merge conflict risk) |
 | Substantial phases | +1 | Each parallel phase involves substantial work (not a 5-line change) |
+| Automated gates desired | +1 | Plan would benefit from TaskCompleted hooks running tests between phases |
 
-**Hard disqualifiers** (override the score — never use teams):
+**Hard disqualifiers** (override the score — never use multi-agent teams):
 - Phases modify overlapping files
 - The user explicitly prefers sequential execution
 
-### When NOT to use teams
+### Mode selection
 
-- Score is below 3
-- All phases have strict sequential dependencies
-- The plan has only 1-2 phases
+| Score | Recommended mode |
+|-------|-----------------|
+| 0-1 | **Sequential** — proceed directly to Phase 2 |
+| 2 | **Solo team** — you create a team, create tasks for each phase, and execute them yourself sequentially. TaskCompleted hooks run tests between phases automatically. |
+| 3+ with independent phases | **Multi-agent team** — parallelize independent phases |
+| 3+ without independent phases | **Solo team** — structured tracking with automated gates |
 
-### How to propose team execution
+### How to propose the execution mode
 
-Present the parallelism assessment to the user:
-- Which phases can run concurrently
+Present the assessment to the user:
+- Which phases can run concurrently (if any)
 - Which must be sequential (and why)
-- **Estimated time savings**: calculate the wall-clock difference between sequential and parallel execution. Example: "Phases A, B, C take ~5 min each sequentially (15 min total). Running A+B in parallel then C takes ~10 min — saving ~5 min (~33%)."
-- Recommendation: team vs sequential
+- The recommended mode and its benefits
+- **For solo teams**: "I'll create a team with task tracking. Each phase gets a task, and automated hooks will run tests between phases. No additional agents needed."
+- **For multi-agent teams**: Estimated time savings from parallelism. Example: "Phases A, B, C take ~5 min each sequentially (15 min). Running A+B in parallel then C takes ~10 min — saving ~5 min (~33%)."
 
-### If approved, use the team-lead agent
+### Executing the chosen mode
 
-1. Spawn the team-lead agent with the approved plan
-2. The team-lead creates a team, assigns tasks, monitors progress
-3. TaskCompleted hooks verify each phase's work automatically
-4. Resume at Phase 3 (Verification) when the team-lead reports completion
+**Sequential** (score 0-1): Proceed directly to Phase 2.
+
+**Solo team** (score 2, or 3+ without parallelism):
+1. Use `TeamCreate` to create a team for this plan
+2. Use `TaskCreate` to create one task per implementation phase
+3. Set dependencies with `TaskUpdate(addBlockedBy)` for sequential phases
+4. Work through tasks yourself, marking each completed as you go
+5. TaskCompleted hooks verify each phase automatically
+6. When all tasks are complete, use `TeamDelete` to clean up
+7. Resume at Phase 3 (Verification)
+
+**Multi-agent team** (score 3+ with parallelism):
+- **Simple teams (2 teammates, clear phases)**: Create the team yourself using `TeamCreate`, spawn teammates with the `Agent` tool (set `team_name` and `name`), assign tasks via `TaskUpdate`, and monitor progress directly. Send `shutdown_request` to teammates when done.
+- **Complex teams (3+ teammates, multi-phase dependencies)**: Spawn the `team-lead` agent with the approved plan. The team-lead handles coordination, teammate lifecycle, and phase transitions.
+
+In both cases, TaskCompleted hooks verify each phase's work automatically. Resume at Phase 3 (Verification) when all team tasks are complete.
 
 ## Phase 2: Execution
 
-> **Note:** If team execution was approved in Phase 1.5, skip Phase 2.
-> The team-lead agent handles execution. Resume at Phase 3 when all
-> team tasks are complete.
+> **Note:** If a solo team or multi-agent team was chosen in Phase 1.5, skip Phase 2.
+> Team execution (solo or multi-agent) handles the work with automated verification.
+> Resume at Phase 3 when all team tasks are complete.
 
 1. **Work step by step** - Follow the plan in order
    - **Security checkpoint**: If a step involves auth, user input handling, file I/O with external paths, or shell command construction, run the security-scanner subagent on that step's changes before proceeding to the next step. Do not wait until Phase 3.
