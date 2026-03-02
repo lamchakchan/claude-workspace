@@ -388,6 +388,12 @@ func GenerateClaudeMdScaffold(projectDir string) string {
 
 ## Important Notes
 <!-- Add project-specific notes for Claude -->
+
+## Team Execution
+<!-- Claude Code supports team-based parallel execution -->
+<!-- Modes: sequential (default) | solo team (task tracking + hooks) | multi-agent team (parallel agents) -->
+<!-- Tools: TeamCreate, TaskCreate/TaskUpdate/TaskList, Agent (with team_name), SendMessage, TeamDelete -->
+<!-- Configure hooks in settings.json: TaskCompleted (verify between phases), TeammateIdle (nudge stalled agents) -->
 `)
 
 	return sb.String()
@@ -429,6 +435,18 @@ Lint: `+"`<lint command if found>`"+`
 
 ## Important Notes
 - <project-specific gotcha or important detail>
+
+## Team Execution
+Check the project for team infrastructure:
+- `+"`.claude/agents/team-lead.md`"+` — team-lead agent
+- `+"`.claude/hooks/verify-task-completed.sh`"+` — TaskCompleted hook (runs tests between phases)
+- `+"`.claude/hooks/check-teammate-idle.sh`"+` — TeammateIdle hook (nudges stalled agents)
+- `+"`.claude/settings.json`"+` — hook configurations
+If team infrastructure is found, document:
+- Available execution modes: sequential (default), solo team (one agent with task tracking and hooks), multi-agent team (parallel agents on isolated files)
+- Key tools: TeamCreate, TaskCreate/TaskUpdate/TaskList, Agent (with team_name param), SendMessage, TeamDelete
+- Which hooks are configured and what they do
+If no team infrastructure is found, include a placeholder comment: <!-- Team execution available via Claude Code team tools -->
 
 Rules:
 - Only include information you can verify from the project files

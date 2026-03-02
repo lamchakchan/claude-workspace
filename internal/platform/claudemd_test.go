@@ -146,6 +146,7 @@ func TestBuildEnrichmentPrompt(t *testing.T) {
 		"## Conventions",
 		"## Important Files",
 		"## Important Notes",
+		"## Team Execution",
 	} {
 		if !strings.Contains(prompt, section) {
 			t.Errorf("prompt should contain section %q", section)
@@ -305,6 +306,9 @@ func TestGenerateClaudeMdScaffold(t *testing.T) {
 	}
 	if !strings.Contains(scaffold, "Lint: `go vet ./...`") {
 		t.Error("scaffold should include Go lint command")
+	}
+	if !strings.Contains(scaffold, "## Team Execution") {
+		t.Error("scaffold should include Team Execution section")
 	}
 }
 

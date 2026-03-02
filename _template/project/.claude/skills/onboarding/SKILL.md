@@ -67,6 +67,7 @@ Based on your findings, create or update the project's `.claude/CLAUDE.md` with:
 - Coding conventions and patterns
 - Important files to know about
 - **MCP Tool Preferences** section: list capability categories covered by detected MCP servers, using the same capability-based format (not specific tool names) so the entry survives MCP provider changes
+- **Team Execution** section: if team agents (`.claude/agents/team-lead.md`) or hooks (`.claude/hooks/verify-task-completed.sh`, `.claude/hooks/check-teammate-idle.sh`) are detected, document available execution modes (sequential, solo team, multi-agent team), key tools (`TeamCreate`, `TaskCreate`/`TaskUpdate`/`TaskList`, `Agent` with `team_name`, `SendMessage`, `TeamDelete`), and configured hooks
 
 ## Output
 
