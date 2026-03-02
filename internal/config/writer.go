@@ -118,7 +118,7 @@ func readOrCreateJSON(path string) (map[string]interface{}, error) {
 
 // parseWriteValue parses a string value into the appropriate Go type based on
 // the registry's type for the given key. For unknown keys, it infers the type.
-func parseWriteValue(key, value string) (interface{}, error) {
+func parseWriteValue(key, value string) (interface{}, error) { //nolint:gocyclo
 	reg := GlobalRegistry()
 	ck, ok := reg.Get(key)
 	if !ok {
@@ -149,10 +149,15 @@ func parseWriteValue(key, value string) (interface{}, error) {
 		}
 		return nil, fmt.Errorf("invalid enum value %q; valid values: %s", value, strings.Join(ck.EnumValues, ", "))
 	case TypeStringArray:
+		if strings.TrimSpace(value) == "" {
+			return []interface{}{}, nil
+		}
 		parts := strings.Split(value, ",")
 		arr := make([]interface{}, 0, len(parts))
 		for _, p := range parts {
-			arr = append(arr, strings.TrimSpace(p))
+			if trimmed := strings.TrimSpace(p); trimmed != "" {
+				arr = append(arr, trimmed)
+			}
 		}
 		return arr, nil
 	case TypeObject:

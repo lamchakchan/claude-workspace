@@ -208,22 +208,54 @@ func TestParseWriteValue_Enum(t *testing.T) {
 }
 
 func TestParseWriteValue_Array(t *testing.T) {
-	got, err := parseWriteValue("permissions.allow", "Bash(*),Read(*),Write(*)")
-	if err != nil {
-		t.Fatalf("parseWriteValue: %v", err)
+	tests := []struct {
+		name    string
+		value   string
+		wantLen int
+		wantVal []string
+	}{
+		{
+			name:    "three items",
+			value:   "Bash(*),Read(*),Write(*)",
+			wantLen: 3,
+			wantVal: []string{"Bash(*)", "Read(*)", "Write(*)"},
+		},
+		{
+			name:    "empty string clears to empty array",
+			value:   "",
+			wantLen: 0,
+		},
+		{
+			name:    "whitespace-only clears to empty array",
+			value:   "   ",
+			wantLen: 0,
+		},
+		{
+			name:    "sparse commas skip empty entries",
+			value:   "a,,b",
+			wantLen: 2,
+			wantVal: []string{"a", "b"},
+		},
 	}
-	arr, ok := got.([]interface{})
-	if !ok {
-		t.Fatalf("expected []interface{}, got %T", got)
-	}
-	if len(arr) != 3 {
-		t.Fatalf("len = %d, want 3", len(arr))
-	}
-	want := []string{"Bash(*)", "Read(*)", "Write(*)"}
-	for i, w := range want {
-		if arr[i] != w {
-			t.Errorf("arr[%d] = %v, want %q", i, arr[i], w)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseWriteValue("permissions.allow", tt.value)
+			if err != nil {
+				t.Fatalf("parseWriteValue: %v", err)
+			}
+			arr, ok := got.([]interface{})
+			if !ok {
+				t.Fatalf("expected []interface{}, got %T", got)
+			}
+			if len(arr) != tt.wantLen {
+				t.Fatalf("len = %d, want %d (got %v)", len(arr), tt.wantLen, arr)
+			}
+			for i, w := range tt.wantVal {
+				if arr[i] != w {
+					t.Errorf("arr[%d] = %v, want %q", i, arr[i], w)
+				}
+			}
+		})
 	}
 }
 
