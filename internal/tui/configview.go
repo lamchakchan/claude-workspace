@@ -713,7 +713,15 @@ func (m *ConfigModel) View() tea.View {
 	}
 
 	// Tab bar
-	b.WriteString(m.renderConfigTabs())
+	tabs := make([]TabItem, 0, len(m.categories))
+	for _, cat := range m.categories {
+		name := string(cat)
+		if len(name) > 12 {
+			name = name[:12]
+		}
+		tabs = append(tabs, TabItem{Label: name})
+	}
+	b.WriteString(renderTabBar(tabs, m.activeTab, m.width, m.theme))
 	b.WriteString("\n")
 
 	// Main content area
@@ -746,31 +754,6 @@ func (m *ConfigModel) View() tea.View {
 	b.WriteString(m.renderFooter())
 
 	return tea.NewView(b.String())
-}
-
-// renderConfigTabs renders the category tab bar.
-func (m *ConfigModel) renderConfigTabs() string {
-	selected := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary)
-	unselected := lipgloss.NewStyle().Foreground(m.theme.Muted)
-	separator := lipgloss.NewStyle().Foreground(m.theme.Muted)
-
-	tabs := make([]string, 0, len(m.categories))
-	for i, cat := range m.categories {
-		label := fmt.Sprintf("[%d]", i+1)
-		name := string(cat)
-		if len(name) > 12 {
-			name = name[:12]
-		}
-		if i == m.activeTab {
-			tabs = append(tabs, selected.Render(label+" "+name)+"  ")
-		} else {
-			tabs = append(tabs, unselected.Render(label+" "+name)+"  ")
-		}
-	}
-
-	line := "  " + strings.Join(tabs, "")
-	rule := separator.Render("  " + strings.Repeat("─", max(1, m.width-4)))
-	return line + "\n" + rule
 }
 
 // renderTwoColumn renders side-by-side key list and detail panel.

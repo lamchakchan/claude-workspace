@@ -439,16 +439,18 @@ func TestCostTabLabels(t *testing.T) {
 
 func TestCostRenderTabs(t *testing.T) {
 	theme := DefaultTheme()
-	m := NewCost(&theme)
-	m.width = 80
-	out := m.renderTabs()
+	tabs := make([]TabItem, len(costTabLabels))
+	for i, label := range costTabLabels {
+		tabs[i] = TabItem{Label: label}
+	}
+	out := renderTabBar(tabs, 0, 80, &theme)
 	if out == "" {
-		t.Error("renderTabs returned empty string")
+		t.Error("renderTabBar returned empty string")
 	}
 	// All tab labels should appear
 	for _, label := range costTabLabels {
 		if !strings.Contains(out, label) {
-			t.Errorf("renderTabs missing label %q", label)
+			t.Errorf("renderTabBar missing label %q", label)
 		}
 	}
 }

@@ -506,11 +506,19 @@ func TestConfigFormatValue_LongString(t *testing.T) {
 func TestConfigModel_RenderConfigTabs(t *testing.T) {
 	theme := DefaultTheme()
 	m := loadedConfigModel(&theme)
-	m.width = 120
 
-	tabs := m.renderConfigTabs()
-	if tabs == "" {
-		t.Error("renderConfigTabs returned empty string")
+	items := make([]TabItem, 0, len(m.categories))
+	for _, cat := range m.categories {
+		name := string(cat)
+		if len(name) > 12 {
+			name = name[:12]
+		}
+		items = append(items, TabItem{Label: name})
+	}
+
+	out := renderTabBar(items, 0, 120, &theme)
+	if out == "" {
+		t.Error("renderTabBar returned empty string")
 	}
 	// First category should appear
 	if len(m.categories) > 0 {
@@ -518,8 +526,8 @@ func TestConfigModel_RenderConfigTabs(t *testing.T) {
 		if len(first) > 12 {
 			first = first[:12]
 		}
-		if !strings.Contains(tabs, first) {
-			t.Errorf("renderConfigTabs missing first category %q", first)
+		if !strings.Contains(out, first) {
+			t.Errorf("renderTabBar missing first category %q", first)
 		}
 	}
 }

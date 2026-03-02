@@ -154,7 +154,11 @@ func (m *CostModel) View() tea.View {
 	b.WriteString(m.theme.SectionBanner("Usage & Costs"))
 
 	// Tab bar
-	b.WriteString(m.renderTabs())
+	tabs := make([]TabItem, len(costTabLabels))
+	for i, label := range costTabLabels {
+		tabs[i] = TabItem{Label: label}
+	}
+	b.WriteString(renderTabBar(tabs, int(m.activeTab), m.width, m.theme))
 	b.WriteString("\n")
 
 	if m.loading {
@@ -199,27 +203,6 @@ func (m *CostModel) View() tea.View {
 	b.WriteString(help)
 
 	return tea.NewView(b.String())
-}
-
-// renderTabs renders the tab bar with the active tab highlighted.
-func (m *CostModel) renderTabs() string {
-	selected := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary)
-	unselected := lipgloss.NewStyle().Foreground(m.theme.Muted)
-	separator := lipgloss.NewStyle().Foreground(m.theme.Muted)
-
-	tabs := make([]string, len(costTabLabels))
-	for i, label := range costTabLabels {
-		key := fmt.Sprintf("[%d]", i+1)
-		if costTab(i) == m.activeTab {
-			tabs[i] = selected.Render(key+" "+label) + "  "
-		} else {
-			tabs[i] = unselected.Render(key+" "+label) + "  "
-		}
-	}
-
-	line := "  " + strings.Join(tabs, "")
-	rule := separator.Render("  " + strings.Repeat("─", max(1, m.width-4)))
-	return line + "\n" + rule
 }
 
 // switchTab changes the active tab and triggers a reload.
