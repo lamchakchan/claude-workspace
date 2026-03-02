@@ -5,15 +5,16 @@ import (
 )
 
 const (
-	keyCtrlC    = "ctrl+c"
-	keyEnter    = "enter"
-	keyEsc      = "esc"
-	keyTab      = "tab"
-	keyShiftTab = "shift+tab"
-	keyDown     = "down"
-	keyUp       = "up"
-	keyLeft     = "left"
-	keyRight    = "right"
+	keyCtrlC     = "ctrl+c"
+	keyEnter     = "enter"
+	keyEsc       = "esc"
+	keyTab       = "tab"
+	keyShiftTab  = "shift+tab"
+	keyDown      = "down"
+	keyUp        = "up"
+	keyLeft      = "left"
+	keyRight     = "right"
+	keyBackspace = "backspace"
 )
 
 // IsQuit returns true if the key message is a quit key (q or ctrl+c).

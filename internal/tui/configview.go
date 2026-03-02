@@ -265,7 +265,7 @@ func (m *ConfigModel) handleFilterKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 		m.applyFilter()
 	case keyEnter:
 		m.filterMode = false
-	case "backspace":
+	case keyBackspace:
 		if len(m.filter) > 0 {
 			m.filter = m.filter[:len(m.filter)-1]
 			m.applyFilter()
@@ -320,7 +320,7 @@ func (m *ConfigModel) handleEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case keyTab:
 		m.editScopeIdx = (m.editScopeIdx + 1) % len(m.editScopes)
 		m.editScope = m.editScopes[m.editScopeIdx]
-	case "backspace":
+	case keyBackspace:
 		if len(m.editValue) > 0 {
 			m.editValue = m.editValue[:len(m.editValue)-1]
 		}
@@ -495,7 +495,7 @@ func (m *ConfigModel) handleArrayAddKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 			}
 			return nil // local state already updated; no reload needed
 		}
-	case "backspace":
+	case keyBackspace:
 		if len(m.arrayAddValue) > 0 {
 			m.arrayAddValue = m.arrayAddValue[:len(m.arrayAddValue)-1]
 		}
