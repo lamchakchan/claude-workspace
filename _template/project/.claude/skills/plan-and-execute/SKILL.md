@@ -50,24 +50,31 @@ After the plan is approved, assess whether team-based parallel execution is bene
 
 ### When to use teams
 
-Recommend team execution when ALL of these are true:
-1. The plan has 3+ implementation phases
-2. At least 2 phases have no dependencies on each other
-3. The parallel phases modify DIFFERENT files (no merge conflict risk)
-4. Each parallel phase involves substantial work (not a 5-line change)
+Score the plan against these criteria. Recommend team execution when the score is 3+:
+
+| Criterion | Points | Description |
+|-----------|--------|-------------|
+| Multiple phases | +1 | Plan has 3+ implementation phases |
+| Independent work | +2 | At least 2 phases have no dependencies on each other |
+| File isolation | +1 | Parallel phases modify DIFFERENT files (no merge conflict risk) |
+| Substantial phases | +1 | Each parallel phase involves substantial work (not a 5-line change) |
+
+**Hard disqualifiers** (override the score — never use teams):
+- Phases modify overlapping files
+- The user explicitly prefers sequential execution
 
 ### When NOT to use teams
 
-- Phases modify overlapping files
-- Phases have strict sequential dependencies
+- Score is below 3
+- All phases have strict sequential dependencies
 - The plan has only 1-2 phases
-- The user explicitly prefers sequential execution
 
 ### How to propose team execution
 
 Present the parallelism assessment to the user:
 - Which phases can run concurrently
 - Which must be sequential (and why)
+- **Estimated time savings**: calculate the wall-clock difference between sequential and parallel execution. Example: "Phases A, B, C take ~5 min each sequentially (15 min total). Running A+B in parallel then C takes ~10 min — saving ~5 min (~33%)."
 - Recommendation: team vs sequential
 
 ### If approved, use the team-lead agent
@@ -93,15 +100,21 @@ Present the parallelism assessment to the user:
 
 ## Phase 3: Verification
 
+Run verification agents **in parallel** where possible. Steps 1-4 are independent and should be spawned concurrently as subagents.
+
 1. **Run tests** - Use the test-runner subagent
 2. **Review changes** - Use the code-reviewer subagent
-3. **Performance validation** (when applicable) - If the plan identified performance-sensitive changes:
+3. **Security scan** (when applicable) - If the plan touched auth, input handling, command execution, or dependency changes, use the security-scanner subagent. It writes a full report to `.claude/audits/` and returns a brief summary.
+4. **Verify documentation** - Use the documentation-writer subagent to verify all affected docs are consistent with the changes
+
+These agents read different inputs (test output, git diff, security patterns, doc files) and produce independent reports. Spawn all applicable agents at once and wait for all to complete.
+
+5. **Performance validation** (when applicable) - After test-runner completes, if the plan identified performance-sensitive changes:
    - Use the test-runner subagent in benchmark mode
    - Compare with baseline if available
    - Include results in the verification summary
-4. **Verify documentation** - Use the documentation-writer subagent to verify all affected docs are consistent with the changes
-5. **Summarize** - Report what was done and any remaining items
-6. **Update plan status** - Set the plan file's `Status:` to `Complete` and `Last Updated:` to today's date
+6. **Summarize** - Collect results from all verification agents and report what was done and any remaining items
+7. **Update plan status** - Set the plan file's `Status:` to `Complete` and `Last Updated:` to today's date
 
 ## Status Values
 

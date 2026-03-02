@@ -3,7 +3,7 @@ name: documentation-writer
 description: Technical documentation agent. Use proactively after implementing features, changing APIs, or refactoring to update READMEs, API docs, changelogs, and architecture notes. Catches documentation drift before it reaches PR review. Does NOT handle code review (use code-reviewer) or onboarding (use onboarding skill).
 tools: Read, Write, Grep, Glob, Bash
 model: sonnet
-permissionMode: plan
+permissionMode: acceptEdits
 maxTurns: 20
 ---
 
