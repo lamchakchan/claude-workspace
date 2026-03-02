@@ -18,7 +18,8 @@ This guide walks you through setting up the platform, attaching it to your first
 10. [Agent Teams](#10-agent-teams)
 11. [Day-to-Day Workflow](#11-day-to-day-workflow)
 12. [Tips and Tricks](#12-tips-and-tricks)
-13. [Configuration Reference](#13-configuration-reference)
+13. [Security-First Development](#13-security-first-development)
+14. [Configuration Reference](#14-configuration-reference)
 
 ---
 

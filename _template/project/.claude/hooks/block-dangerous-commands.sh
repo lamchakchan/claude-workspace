@@ -51,7 +51,7 @@ if echo "$COMMAND" | grep -qE 'git\s+reset\s+--hard'; then
 fi
 
 # Block git clean -fd (destructive untracked file deletion)
-if echo "$COMMAND" | grep -qE 'git\s+clean\s+(-[a-zA-Z]*f|-f)'; then
+if echo "$COMMAND" | grep -qE 'git\s+clean\s+(-[a-zA-Z]*f|-f|--force)'; then
   echo "Blocked: git clean -f permanently deletes untracked files. Review with git clean -n first." >&2
   exit 2
 fi
@@ -63,7 +63,7 @@ if echo "$COMMAND" | grep -qE 'docker\s+run\s+.*--privileged'; then
 fi
 
 # Warn on sudo (may be needed but should be intentional)
-if echo "$COMMAND" | grep -qE '^\s*sudo\s+'; then
+if echo "$COMMAND" | grep -qE '(^|\||\&\&|;)\s*sudo\s+'; then
   echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"This command uses sudo for privilege escalation. Is this necessary?"}}'
   exit 0
 fi

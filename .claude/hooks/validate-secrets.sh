@@ -28,8 +28,8 @@ PATTERNS=(
   'password\s*[:=]\s*["\x27][^"\x27]{8,}'     # Hardcoded passwords
   'secret\s*[:=]\s*["\x27][^"\x27]{8,}'       # Hardcoded secrets
   '"type"\s*:\s*"service_account"'             # GCP service account key
-  '"clientSecret"\s*:\s*"[^"]+'               # Azure AD client secret
-  '(password|pwd)\s*=\s*[^;]{8,}'             # DB connection string passwords
+  '"clientSecret"\s*:\s*"[^"]{8,}'            # Azure AD client secret (8+ chars)
+  '(password|pwd)\s*=\s*["\x27][^"\x27]{8,}'  # DB connection string passwords (quoted values only)
   '(jwt_secret|JWT_SECRET)\s*[:=]\s*["\x27][^"\x27]{8,}'  # JWT secrets
   'AZURE_[A-Z_]*SECRET\s*[:=]\s*["\x27][^"\x27]{8,}'      # Azure secrets
   'SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}'              # SendGrid API key

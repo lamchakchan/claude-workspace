@@ -16,6 +16,7 @@ This document explains why the platform is structured the way it is, what trade-
 8. [Context Management Strategy](#8-context-management-strategy)
 9. [Sandboxing & Isolation](#9-sandboxing--isolation)
 10. [Extending the Platform](#10-extending-the-platform)
+11. [Security Architecture](#11-security-architecture)
 
 ---
 
@@ -94,9 +95,9 @@ During a planner subagent invocation:
 
 ## 4. Subagent Architecture
 
-### Why Nine Agents?
+### Why Ten Agents?
 
-Each agent maps to a distinct phase or concern in the development workflow. The core pipeline (explore → plan → implement → review → test → secure) is augmented by specialized agents for dependency management, incident response, documentation, and infrastructure review.
+Each agent maps to a distinct phase or concern in the development workflow. The core pipeline (explore → plan → implement → review → test → secure) is augmented by specialized agents for dependency management, incident response, documentation, infrastructure review, and team coordination.
 
 ```
     ┌─────────┐     ┌──────────┐     ┌───────────┐     ┌──────────┐
@@ -121,6 +122,12 @@ Each agent maps to a distinct phase or concern in the development workflow. The 
     │   Updater        │  │    Responder       │  │   Writer           │  │    Reviewer     │
     │   (Sonnet)       │  │    (Sonnet)        │  │   (Haiku)          │  │    (Sonnet)     │
     └─────────────────┘  └───────────────────┘  └────────────────────┘  └────────────────┘
+
+    Coordinator agent (for parallel team execution):
+    ┌─────────────────┐
+    │   Team Lead      │
+    │   (Sonnet)       │
+    └─────────────────┘
 ```
 
 ### Design Decision: Model Selection Per Agent
@@ -136,6 +143,7 @@ Each agent maps to a distinct phase or concern in the development workflow. The 
 | Incident Responder | **Sonnet** | Root cause diagnosis requires correlating evidence across logs, metrics, and code. |
 | Documentation Writer | **Haiku** | Doc writing is high-volume text generation, not deep reasoning. Cost-effective for repetitive updates. |
 | Infra Reviewer | **Sonnet** | Infrastructure review requires knowledge of security contexts, resource limits, and platform best practices. |
+| Team Lead | **Sonnet** | Coordinates parallel team execution — decomposes plans, spawns teammates, monitors progress, verifies results. |
 
 **When to use Opus**: For architectural decisions spanning the entire codebase, switch the main session to Opus (`/model opus`) or use the `opusplan` alias. Don't run all agents on Opus - it's 10x the cost.
 
@@ -210,14 +218,14 @@ User or Claude triggers a tool call
 
 **Why not more hooks?**
 - Each hook adds latency to every tool call
-- The four PreToolUse hooks cover the critical safety surface
+- The three PreToolUse hooks cover the critical safety surface
 - Teams can add project-specific hooks as needed
 
 ### Hook Files
 
 | Hook | Event | Matcher | Purpose |
 |------|-------|---------|---------|
-| `block-dangerous-commands.sh` | PreToolUse | Bash | Blocks rm -rf, force push, curl\|bash, chmod 777, git reset --hard, git clean -f, docker --privileged; warns on sudo |
+| `block-dangerous-commands.sh` | PreToolUse | Bash | Blocks rm -rf, force push, curl\|bash, wget\|bash, chmod 777, git reset --hard, git clean -f/--force, docker --privileged; warns on sudo (including piped) |
 | `enforce-branch-policy.sh` | PreToolUse | Bash | Blocks commits to main/master, warns on checkout |
 | `validate-secrets.sh` | PreToolUse | Write\|Edit | Scans content for AWS/GCP/Azure keys, API tokens, passwords, JWT secrets, DB connection strings (all file types) |
 | `auto-format.sh` | PostToolUse | Write\|Edit | Runs prettier/black/rustfmt on changed files |
@@ -523,6 +531,11 @@ The platform addresses the top agentic AI security risks:
 | ASI03 | Identity & Privilege Abuse | `sudo` warning hook; branch policy enforcement; `permissionMode: plan` on review agents |
 | ASI04 | Supply Chain Vulnerabilities | Security-scanner supply chain checks; govulncheck in CI; `enableAllProjectMcpServers: false` |
 | ASI05 | Unexpected Code Execution | `validate-secrets.sh` hook; code-reviewer eval/exec quick-check; `block-dangerous-commands.sh` |
+| ASI06 | Memory Poisoning | Agent memory (`memory: project`) is project-scoped; auto-memory files are gitignored |
+| ASI07 | Cascading Hallucination | Plan approval gates; test-runner verification after each phase; code-reviewer cross-check |
+| ASI08 | Uncontrolled Autonomy | `permissionMode: plan` on review agents; hook-based blocking; user approval gates in plan-and-execute |
+| ASI09 | Logging & Monitoring Gaps | Security-scanner writes audits to `.claude/audits/`; CI job summaries; hook stderr feedback |
+| ASI10 | Cross-Agent Manipulation | Team-lead coordinates via TaskCreate/SendMessage; teammates cannot modify each other's tool permissions |
 
 ### What the Security-Scanner Covers
 

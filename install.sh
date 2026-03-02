@@ -76,7 +76,7 @@ if [ "$VERIFY_CHECKSUM" = true ]; then
   CHECKSUM_URL="https://github.com/${REPO}/releases/download/${LATEST}/checksums.txt"
   echo -e "${BOLD}Verifying checksum...${NC}"
   if curl -fsSL "$CHECKSUM_URL" -o "${TMPDIR}/checksums.txt" 2>/dev/null; then
-    EXPECTED=$(grep "${ARCHIVE}" "${TMPDIR}/checksums.txt" | awk '{print $1}')
+    EXPECTED=$(grep -F "${ARCHIVE}" "${TMPDIR}/checksums.txt" | head -1 | awk '{print $1}')
     if [ -z "$EXPECTED" ]; then
       echo -e "${RED}Error: Archive not found in checksums.txt${NC}"
       exit 1

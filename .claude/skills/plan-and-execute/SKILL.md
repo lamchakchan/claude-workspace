@@ -101,7 +101,7 @@ Present the parallelism assessment to the user:
 
 ## Phase 3: Verification
 
-Run verification agents **in parallel** where possible. Steps 1-4 are independent and should be spawned concurrently as subagents.
+Run verification agents **in parallel** where possible. Steps 1-5 are independent and should be spawned concurrently as subagents.
 
 1. **Run tests** - Use the test-runner subagent
 2. **Review changes** - Use the code-reviewer subagent
