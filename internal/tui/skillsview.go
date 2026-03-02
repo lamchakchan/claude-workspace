@@ -34,7 +34,7 @@ func (s *skillItem) Detail() string {
 			return strings.TrimSpace(string(data))
 		}
 	}
-	return "(unable to read file)"
+	return unableToReadFile
 }
 
 // SkillsModel displays discovered skills in an expandable list.
@@ -56,7 +56,7 @@ func (m *SkillsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func loadSkillSections() ([]ListSection, error) {
+func loadSkillSections() ([]ListSection, error) { //nolint:dupl // structurally similar to loadAgentSections but uses different discover/item types
 	var sections []ListSection
 
 	cwd, err := os.Getwd()

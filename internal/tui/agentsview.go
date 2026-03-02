@@ -34,7 +34,7 @@ func (a *agentItem) Detail() string {
 			return string(data)
 		}
 	}
-	return "(unable to read file)"
+	return unableToReadFile
 }
 
 // AgentsModel displays discovered agents in an expandable list.
@@ -56,7 +56,7 @@ func (m *AgentsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func loadAgentSections() ([]ListSection, error) {
+func loadAgentSections() ([]ListSection, error) { //nolint:dupl // structurally similar to loadSkillSections but uses different discover/item types
 	var sections []ListSection
 
 	cwd, err := os.Getwd()

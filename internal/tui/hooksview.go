@@ -34,7 +34,7 @@ func (h *hookScriptItem) Detail() string {
 			return string(data)
 		}
 	}
-	return "(unable to read file)"
+	return unableToReadFile
 }
 
 // hookConfigItem implements ListItem for a hook configuration entry.

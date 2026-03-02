@@ -172,13 +172,14 @@ func parseFrontmatterBytes(data []byte) Agent {
 	frontmatter := rest[:secondDelim]
 	for _, line := range strings.Split(frontmatter, "\n") {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "name:") {
+		switch {
+		case strings.HasPrefix(line, "name:"):
 			agent.Name = strings.TrimSpace(strings.TrimPrefix(line, "name:"))
-		} else if strings.HasPrefix(line, "description:") {
+		case strings.HasPrefix(line, "description:"):
 			agent.Description = strings.TrimSpace(strings.TrimPrefix(line, "description:"))
-		} else if strings.HasPrefix(line, "model:") {
+		case strings.HasPrefix(line, "model:"):
 			agent.Model = strings.TrimSpace(strings.TrimPrefix(line, "model:"))
-		} else if strings.HasPrefix(line, "tools:") {
+		case strings.HasPrefix(line, "tools:"):
 			agent.Tools = strings.TrimSpace(strings.TrimPrefix(line, "tools:"))
 		}
 	}

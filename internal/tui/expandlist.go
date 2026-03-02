@@ -9,6 +9,9 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+// unableToReadFile is the fallback detail text when a file cannot be read.
+const unableToReadFile = "(unable to read file)"
+
 // ListItem is the interface that items in an expandable list must satisfy.
 type ListItem interface {
 	Title() string  // one-line summary shown in the list
@@ -142,6 +145,26 @@ func (m *ExpandListModel) clampScroll() {
 	if m.scroll < 0 {
 		m.scroll = 0
 	}
+}
+
+// movePage moves the cursor by approximately one page in the given direction.
+// dir should be 1 (forward) or -1 (backward).
+func (m *ExpandListModel) movePage(dir int) {
+	target := m.cursor
+	linesLeft := m.visibleLines()
+	for linesLeft > 0 {
+		next := m.nextSelectable(target+dir, dir)
+		if dir < 0 && next >= target {
+			break
+		}
+		if dir > 0 && next <= target {
+			break
+		}
+		target = next
+		linesLeft--
+	}
+	m.cursor = target
+	m.clampScroll()
 }
 
 // nextSelectable finds the next selectable entry index from start in the given direction.
@@ -286,32 +309,10 @@ func (m *ExpandListModel) handleListKey(msg tea.KeyPressMsg) {
 		m.clampScroll()
 
 	case keyPgUp, "b":
-		target := m.cursor
-		linesLeft := m.visibleLines()
-		for linesLeft > 0 && target > 0 {
-			prev := m.nextSelectable(target-1, -1)
-			if prev >= target {
-				break
-			}
-			target = prev
-			linesLeft--
-		}
-		m.cursor = target
-		m.clampScroll()
+		m.movePage(-1)
 
 	case keyPgDown, "f":
-		target := m.cursor
-		linesLeft := m.visibleLines()
-		for linesLeft > 0 && target < len(m.entries)-1 {
-			next := m.nextSelectable(target+1, 1)
-			if next <= target {
-				break
-			}
-			target = next
-			linesLeft--
-		}
-		m.cursor = target
-		m.clampScroll()
+		m.movePage(1)
 
 	case "g":
 		m.cursor = m.nextSelectable(0, 1)
@@ -480,12 +481,11 @@ func (m *ExpandListModel) viewDetail(b *strings.Builder) tea.View {
 	b.WriteString("  " + ruleStyle.Render(strings.Repeat("─", ruleWidth)) + "\n")
 
 	// Viewport content with indent
-	vpContent := m.detailVP.View()
-	indentedLines := make([]string, 0)
-	for _, line := range strings.Split(vpContent, "\n") {
-		indentedLines = append(indentedLines, "      "+line)
+	vpLines := strings.Split(m.detailVP.View(), "\n")
+	for i, line := range vpLines {
+		vpLines[i] = "      " + line
 	}
-	vpRendered := strings.Join(indentedLines, "\n")
+	vpRendered := strings.Join(vpLines, "\n")
 
 	// Scrollbar
 	totalLines := strings.Count(m.detailVP.GetContent(), "\n") + 1
