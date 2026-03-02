@@ -44,4 +44,28 @@ if echo "$COMMAND" | grep -qE 'chmod\s+777'; then
   exit 2
 fi
 
+# Block git reset --hard (destructive history rewrite)
+if echo "$COMMAND" | grep -qE 'git\s+reset\s+--hard'; then
+  echo "Blocked: git reset --hard discards uncommitted changes. Use git stash or git checkout -- <file> instead." >&2
+  exit 2
+fi
+
+# Block git clean -fd (destructive untracked file deletion)
+if echo "$COMMAND" | grep -qE 'git\s+clean\s+(-[a-zA-Z]*f|-f)'; then
+  echo "Blocked: git clean -f permanently deletes untracked files. Review with git clean -n first." >&2
+  exit 2
+fi
+
+# Block docker run --privileged (container privilege escalation)
+if echo "$COMMAND" | grep -qE 'docker\s+run\s+.*--privileged'; then
+  echo "Blocked: docker run --privileged grants full host access. Use specific --cap-add flags instead." >&2
+  exit 2
+fi
+
+# Warn on sudo (may be needed but should be intentional)
+if echo "$COMMAND" | grep -qE '^\s*sudo\s+'; then
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"This command uses sudo for privilege escalation. Is this necessary?"}}'
+  exit 0
+fi
+
 exit 0

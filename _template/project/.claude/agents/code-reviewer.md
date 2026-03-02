@@ -227,6 +227,17 @@ Things done well that should be continued.
 - Be constructive: suggest fixes, not just problems
 - Be pragmatic: focus on real issues, not style nitpicks
 - Be proportionate: match review depth to change size
+- **Security quick-check** (first-pass filter -- NOT a replacement for security-scanner):
+  - Scan changed code for these high-signal patterns:
+    - User input passed directly to shell commands (`exec`, `os.Command`, `child_process`, `subprocess`)
+    - SQL string concatenation (not parameterized queries)
+    - Hardcoded tokens, passwords, or API keys (string literals matching credential patterns)
+    - File paths constructed from user input without sanitization
+    - `eval()`, `exec()`, or `Function()` with dynamic/external content
+    - HTTP endpoints with no authentication middleware
+    - Disabled TLS verification (`InsecureSkipVerify`, `NODE_TLS_REJECT_UNAUTHORIZED=0`)
+  - If ANY pattern is found: flag as **Critical** in the review output and note: "Security-scanner subagent should be invoked for deep analysis"
+  - If none found: note "No obvious security anti-patterns detected; defer deep analysis to security-scanner"
 - Defer deep security analysis to the security-scanner agent
 - Detect the project's language by checking file extensions, package managers, and config files (package.json, go.mod, pom.xml, *.csproj, mix.exs, Gemfile, etc.)
 - Detect frameworks by checking dependencies and config files

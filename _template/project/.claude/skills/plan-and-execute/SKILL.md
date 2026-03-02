@@ -91,6 +91,7 @@ Present the parallelism assessment to the user:
 > team tasks are complete.
 
 1. **Work step by step** - Follow the plan in order
+   - **Security checkpoint**: If a step involves auth, user input handling, file I/O with external paths, or shell command construction, run the security-scanner subagent on that step's changes before proceeding to the next step. Do not wait until Phase 3.
 2. **Update progress** - As each step completes:
    - Check it off in the plan file (`- [ ]` → `- [x]`)
    - Mark the corresponding todo as completed
@@ -104,17 +105,18 @@ Run verification agents **in parallel** where possible. Steps 1-4 are independen
 
 1. **Run tests** - Use the test-runner subagent
 2. **Review changes** - Use the code-reviewer subagent
-3. **Security scan** (when applicable) - If the plan touched auth, input handling, command execution, or dependency changes, use the security-scanner subagent. It writes a full report to `.claude/audits/` and returns a brief summary.
-4. **Verify documentation** - Use the documentation-writer subagent to verify all affected docs are consistent with the changes
+3. **Security scan** (default: on) - Run the security-scanner subagent unless the plan is documentation-only or covers only test/config files with no code logic changes. It writes a full report to `.claude/audits/` and returns a brief summary. When in doubt, run it.
+4. **Infrastructure review** (when applicable) - If the plan touched CI/CD pipelines, Dockerfiles, docker-compose files, or Kubernetes manifests, use the infra-reviewer subagent.
+5. **Verify documentation** - Use the documentation-writer subagent to verify all affected docs are consistent with the changes
 
-These agents read different inputs (test output, git diff, security patterns, doc files) and produce independent reports. Spawn all applicable agents at once and wait for all to complete.
+These agents read different inputs (test output, git diff, security patterns, doc files, infra files) and produce independent reports. Spawn all applicable agents at once and wait for all to complete.
 
-5. **Performance validation** (when applicable) - After test-runner completes, if the plan identified performance-sensitive changes:
+6. **Performance validation** (when applicable) - After test-runner completes, if the plan identified performance-sensitive changes:
    - Use the test-runner subagent in benchmark mode
    - Compare with baseline if available
    - Include results in the verification summary
-6. **Summarize** - Collect results from all verification agents and report what was done and any remaining items
-7. **Update plan status** - Set the plan file's `Status:` to `Complete` and `Last Updated:` to today's date
+7. **Summarize** - Collect results from all verification agents and report what was done and any remaining items
+8. **Update plan status** - Set the plan file's `Status:` to `Complete` and `Last Updated:` to today's date
 
 ## Status Values
 

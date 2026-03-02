@@ -7,6 +7,16 @@ set -euo pipefail
 REPO="lamchakchan/claude-workspace"
 BINARY="claude-workspace"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
+VERIFY_CHECKSUM=true
+
+# Parse arguments
+for arg in "$@"; do
+  case "$arg" in
+    --no-verify)
+      VERIFY_CHECKSUM=false
+      ;;
+  esac
+done
 
 # Colors
 RED='\033[0;31m'
@@ -60,6 +70,41 @@ TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
 curl -fsSL "$URL" -o "${TMPDIR}/${ARCHIVE}"
+
+# Verify checksum
+if [ "$VERIFY_CHECKSUM" = true ]; then
+  CHECKSUM_URL="https://github.com/${REPO}/releases/download/${LATEST}/checksums.txt"
+  echo -e "${BOLD}Verifying checksum...${NC}"
+  if curl -fsSL "$CHECKSUM_URL" -o "${TMPDIR}/checksums.txt" 2>/dev/null; then
+    EXPECTED=$(grep "${ARCHIVE}" "${TMPDIR}/checksums.txt" | awk '{print $1}')
+    if [ -z "$EXPECTED" ]; then
+      echo -e "${RED}Error: Archive not found in checksums.txt${NC}"
+      exit 1
+    fi
+    # Cross-platform SHA256: shasum on macOS, sha256sum on Linux
+    if command -v sha256sum >/dev/null 2>&1; then
+      ACTUAL=$(sha256sum "${TMPDIR}/${ARCHIVE}" | awk '{print $1}')
+    elif command -v shasum >/dev/null 2>&1; then
+      ACTUAL=$(shasum -a 256 "${TMPDIR}/${ARCHIVE}" | awk '{print $1}')
+    else
+      echo -e "${YELLOW}Warning: No sha256sum or shasum found. Skipping verification.${NC}"
+      ACTUAL="$EXPECTED"
+    fi
+    if [ "$EXPECTED" != "$ACTUAL" ]; then
+      echo -e "${RED}Error: Checksum verification failed!${NC}"
+      echo -e "${RED}Expected: ${EXPECTED}${NC}"
+      echo -e "${RED}Actual:   ${ACTUAL}${NC}"
+      echo -e "${RED}The downloaded file may have been tampered with.${NC}"
+      exit 1
+    fi
+    echo -e "${GREEN}Checksum verified.${NC}"
+  else
+    echo -e "${YELLOW}Warning: Could not download checksums.txt. Skipping verification.${NC}"
+    echo -e "${YELLOW}Use --no-verify to suppress this warning.${NC}"
+  fi
+else
+  echo -e "${YELLOW}Warning: Checksum verification skipped (--no-verify).${NC}"
+fi
 
 # Extract
 echo -e "${BOLD}Extracting...${NC}"

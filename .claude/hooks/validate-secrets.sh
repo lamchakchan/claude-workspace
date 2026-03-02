@@ -10,8 +10,8 @@ if [ -z "$CONTENT" ]; then
   exit 0
 fi
 
-# Skip if writing to allowed config file types
-if echo "$FILE_PATH" | grep -qE '\.(example|template|sample|md|txt)$'; then
+# Skip if writing to allowed placeholder file types (intentional examples)
+if echo "$FILE_PATH" | grep -qE '\.(example|template|sample)$'; then
   exit 0
 fi
 
@@ -27,6 +27,13 @@ PATTERNS=(
   '-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----'   # Private keys
   'password\s*[:=]\s*["\x27][^"\x27]{8,}'     # Hardcoded passwords
   'secret\s*[:=]\s*["\x27][^"\x27]{8,}'       # Hardcoded secrets
+  '"type"\s*:\s*"service_account"'             # GCP service account key
+  '"clientSecret"\s*:\s*"[^"]+'               # Azure AD client secret
+  '(password|pwd)\s*=\s*[^;]{8,}'             # DB connection string passwords
+  '(jwt_secret|JWT_SECRET)\s*[:=]\s*["\x27][^"\x27]{8,}'  # JWT secrets
+  'AZURE_[A-Z_]*SECRET\s*[:=]\s*["\x27][^"\x27]{8,}'      # Azure secrets
+  'SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}'              # SendGrid API key
+  'sq0[a-z]{3}-[a-zA-Z0-9_-]{22,}'                         # Square API key
 )
 
 for PATTERN in "${PATTERNS[@]}"; do

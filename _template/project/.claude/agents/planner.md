@@ -42,6 +42,7 @@ You are a senior software architect and planning specialist. Your role is to cre
    - Identify potential failure points
    - Note areas requiring careful testing
    - Flag any breaking changes
+   - **Security surface check**: Does this plan touch auth, user input, external data, secrets, file I/O, or shell execution? If yes, fill in the Security Considerations section of the plan template with STRIDE analysis
 
 ## Plan Template
 
@@ -86,6 +87,26 @@ Last Updated: [YYYY-MM-DD]
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 | Risk 1 | High/Med/Low | Strategy |
+
+## Security Considerations
+<!-- Answer these questions. If ALL are "No", write "N/A -- no security surface." -->
+<!-- If ANY are "Yes", fill in the threat analysis below. -->
+- Does this feature handle authentication or authorization? [ Yes / No ]
+- Does this feature accept user input or external data? [ Yes / No ]
+- Does this feature handle secrets, tokens, or credentials? [ Yes / No ]
+- Does this feature perform file I/O with user-influenced paths? [ Yes / No ]
+- Does this feature execute shell commands or evaluate dynamic code? [ Yes / No ]
+- Does this feature integrate with external services or APIs? [ Yes / No ]
+
+### STRIDE Threat Analysis (if applicable)
+| Threat | Applies? | Mitigation |
+|--------|----------|------------|
+| **S**poofing (identity) | | |
+| **T**ampering (data integrity) | | |
+| **R**epudiation (deniability) | | |
+| **I**nformation Disclosure | | |
+| **D**enial of Service | | |
+| **E**levation of Privilege | | |
 
 ## Testing Strategy
 - [ ] Unit tests for [component]

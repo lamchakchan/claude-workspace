@@ -217,9 +217,9 @@ User or Claude triggers a tool call
 
 | Hook | Event | Matcher | Purpose |
 |------|-------|---------|---------|
-| `block-dangerous-commands.sh` | PreToolUse | Bash | Blocks rm -rf, force push, curl\|bash, chmod 777 |
+| `block-dangerous-commands.sh` | PreToolUse | Bash | Blocks rm -rf, force push, curl\|bash, chmod 777, git reset --hard, git clean -f, docker --privileged; warns on sudo |
 | `enforce-branch-policy.sh` | PreToolUse | Bash | Blocks commits to main/master, warns on checkout |
-| `validate-secrets.sh` | PreToolUse | Write\|Edit | Scans content for AWS keys, API tokens, passwords |
+| `validate-secrets.sh` | PreToolUse | Write\|Edit | Scans content for AWS/GCP/Azure keys, API tokens, passwords, JWT secrets, DB connection strings (all file types) |
 | `auto-format.sh` | PostToolUse | Write\|Edit | Runs prettier/black/rustfmt on changed files |
 | `verify-task-completed.sh` | TaskCompleted | — | Runs tests before allowing task completion |
 | `check-teammate-idle.sh` | TeammateIdle | — | Nudges idle teammates with remaining tasks |
@@ -483,3 +483,57 @@ Deploy managed settings to system directories:
 ```
 
 These settings cannot be overridden by users or project config.
+
+---
+
+## 11. Security Architecture
+
+### Defense-in-Depth Layers
+
+The platform implements security at four layers, each catching issues the previous layer missed:
+
+```
+Layer 1: Planning (Planner Agent)
+  └─ STRIDE threat analysis in plan template
+  └─ Forces security thinking before code is written
+
+Layer 2: Execution (Hooks + Plan-and-Execute)
+  └─ PreToolUse hooks block secrets and dangerous commands in real-time
+  └─ Security-scanner invoked mid-execution for security-sensitive steps
+
+Layer 3: Review (Code-Reviewer + Security-Scanner)
+  └─ Code-reviewer performs lightweight security quick-check
+  └─ Security-scanner performs deep analysis (9 scan areas)
+  └─ Infra-reviewer checks CI/CD and container security
+
+Layer 4: CI/CD (GitHub Actions)
+  └─ govulncheck catches known Go CVEs
+  └─ go mod verify detects tampered dependencies
+  └─ Template linting validates configuration integrity
+```
+
+### OWASP Agentic Top 10 (2026) Mapping
+
+The platform addresses the top agentic AI security risks:
+
+| OWASP ID | Risk | Platform Mitigation |
+|----------|------|---------------------|
+| ASI01 | Agent Goal Hijack | Planner STRIDE analysis; plan approval gates; `respectGitignore: true` |
+| ASI02 | Tool Misuse | `block-dangerous-commands.sh` hook; tool restrictions per agent (`tools:` in frontmatter) |
+| ASI03 | Identity & Privilege Abuse | `sudo` warning hook; branch policy enforcement; `permissionMode: plan` on review agents |
+| ASI04 | Supply Chain Vulnerabilities | Security-scanner supply chain checks; govulncheck in CI; `enableAllProjectMcpServers: false` |
+| ASI05 | Unexpected Code Execution | `validate-secrets.sh` hook; code-reviewer eval/exec quick-check; `block-dangerous-commands.sh` |
+
+### What the Security-Scanner Covers
+
+| Area | Checks |
+|------|--------|
+| Input Validation | SQL injection, XSS, command injection, path traversal, SSRF |
+| Auth & Authz | Password storage, session management, JWT, RBAC, API keys |
+| Data Protection | Hardcoded secrets, sensitive logging, encryption, PII |
+| Dependencies | Known CVEs, outdated packages, unmaintained deps, license compliance |
+| Configuration | Debug mode, CORS, security headers, error exposure, default creds |
+| Go-Specific | govulncheck, unsafe imports, math/rand misuse, HTTP client timeouts |
+| Supply Chain | Lockfile presence, version pinning, typosquatting detection |
+| Cryptographic Misuse | Weak algorithms, deprecated ciphers, ECB mode, hardcoded IVs, key lengths |
+| API Security | Missing auth middleware, rate limiting, body size limits, CORS |
