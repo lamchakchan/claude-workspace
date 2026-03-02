@@ -20,10 +20,10 @@ claude-workspace
 |-------|----------|
 | Getting Started | Setup, Attach, Enrich, Sandbox |
 | MCP Servers | Add Server, List Servers |
-| Inspect & Manage | Doctor, Skills, Sessions, Memory, Cost, Config |
+| Inspect & Manage | Doctor, Skills, Agents, Hooks, Sessions, Memory, Cost, Config |
 | Maintenance | Upgrade, Statusline |
 
-Select a command to open its dedicated TUI view — form-based views (Attach, Enrich, Sandbox, MCP Add) include path autocomplete with tab completion, while data views (Doctor, Skills, Sessions, Cost, Config) display output inline with scrolling and clipboard copy.
+Select a command to open its dedicated TUI view — form-based views (Attach, Enrich, Sandbox, MCP Add) include path autocomplete with tab completion. Skills, Agents, and Hooks use interactive expandable lists with cursor navigation (j/k), expand/collapse (enter), and scrollbar. Other data views (Doctor, Sessions, Cost, Config) display output inline with scrolling and clipboard copy.
 
 **Environment variables:**
 
@@ -87,6 +87,8 @@ MCP Servers
 Inspect & Manage
   🩺 Doctor        Check platform configuration health
   🛠  Skills        List available skills and personal commands
+  🤖 Agents        List configured agents
+  🪝 Hooks         List configured hooks
   💬 Sessions      Browse and review session prompts
   🧠 Memory        Inspect and manage memory layers
   💰 Cost          View usage and costs
@@ -425,7 +427,7 @@ claude-workspace doctor
 
 ## claude-workspace skills
 
-List available skills (project-level and platform built-in) and personal commands (`~/.claude/commands/`).
+List available skills (project-level) and personal commands (`~/.claude/commands/`).
 
 **Synopsis:**
 
@@ -445,7 +447,6 @@ claude-workspace skills [list]
 
 1. **Project skills** — `.claude/skills/*/SKILL.md` in the current directory. Parses YAML frontmatter for `name` and `description`.
 2. **Personal commands** — `~/.claude/commands/*.md`. Uses filename as name, first non-empty line as description.
-3. **Platform built-in skills** — Skills embedded in the `claude-workspace` binary (useful when run outside an attached project).
 
 **Examples:**
 
@@ -458,6 +459,131 @@ claude-workspace skills list
 ```
 
 **See also:** [Skills Reference](SKILLS.md)
+
+---
+
+## claude-workspace agents
+
+List configured agents from project and user-global sources.
+
+**Synopsis:**
+
+```
+claude-workspace agents [list]
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List all discovered agents (default) |
+
+**Flags:** None.
+
+**Sources scanned:**
+
+1. **Project agents** — `.claude/agents/*.md` in the current directory. Parses YAML frontmatter for `name`, `description`, `model`, and `tools`.
+2. **User-global agents** — `~/.claude/agents/*.md`. Same frontmatter parsing.
+
+**Agent frontmatter fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | yes | Agent identifier (kebab-case) |
+| `description` | yes | What the agent does |
+| `model` | yes | Model to use (`haiku`, `sonnet`, `opus`) |
+| `tools` | yes | Comma-separated list of allowed tools |
+
+**Examples:**
+
+```bash
+# List all agents (default subcommand)
+claude-workspace agents
+
+# Explicit list subcommand
+claude-workspace agents list
+```
+
+**Example output:**
+
+```
+═══════════════════════════════════
+  Agents
+═══════════════════════════════════
+
+  Project Agents (.claude/agents/)
+  code-reviewer         sonnet  Code quality and correctness review...
+  explorer              haiku   Fast codebase exploration and context gathering...
+  planner               opus    Deep planning agent for complex tasks...
+  test-runner           sonnet  Test execution and failure diagnosis...
+
+  Tips
+  Agents are invoked automatically by Claude Code when matching tasks arise.
+  Create new:  .claude/agents/my-agent.md
+```
+
+---
+
+## claude-workspace hooks
+
+List configured hook scripts and hook event configuration from settings.json.
+
+**Synopsis:**
+
+```
+claude-workspace hooks [list]
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List all discovered hooks (default) |
+
+**Flags:** None.
+
+**Sources scanned:**
+
+1. **Project hook scripts** — `.claude/hooks/*.sh` in the current directory. Extracts the description from the first comment line (after the shebang and `set` directives).
+2. **Hook configuration** — `.claude/settings.json` `hooks` key. Shows event bindings with matcher patterns and status messages.
+
+**Examples:**
+
+```bash
+# List all hooks (default subcommand)
+claude-workspace hooks
+
+# Explicit list subcommand
+claude-workspace hooks list
+```
+
+**Example output:**
+
+```
+═══════════════════════════════════
+  Hooks
+═══════════════════════════════════
+
+  Project Hook Scripts (.claude/hooks/)
+  auto-format.sh              Auto-formats written files using project formatter
+  block-dangerous-commands.sh Blocks dangerous shell commands
+  enforce-branch-policy.sh    Prevents direct commits to main/master
+  validate-secrets.sh         Scans file content being written for potential secrets
+  verify-task-completed.sh    Runs project tests before marking task complete
+
+  Hook Configuration (settings.json)
+  EVENT          MATCHER      STATUS MESSAGE
+  PreToolUse     Bash         Checking command safety...
+  PreToolUse     Bash         Checking branch policy...
+  PreToolUse     Write|Edit   Scanning for secrets...
+  PostToolUse    Write|Edit   Auto-formatting...
+  TaskCompleted  (any)        Verifying task completion...
+
+  Tips
+  Hooks are shell scripts that run before/after tool use or on events.
+  Create new:  .claude/hooks/my-hook.sh (must be executable)
+  Configure:   .claude/settings.json under "hooks" key
+```
 
 ---
 

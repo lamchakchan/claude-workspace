@@ -1,40 +1,63 @@
 package tui
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 	"github.com/lamchakchan/claude-workspace/internal/skills"
 )
 
-// SkillsModel displays discovered skills in a scrollable viewer.
-type SkillsModel struct {
-	viewer *ViewerModel
+// skillItem implements ListItem for a skill.
+type skillItem struct {
+	skill skills.Skill
 }
 
-// NewSkills creates a new skills viewer.
+func (s *skillItem) Title() string {
+	desc := s.skill.Description
+	if len(desc) > 70 {
+		desc = desc[:67] + "..."
+	}
+	if desc != "" {
+		return s.skill.Name + "  " + desc
+	}
+	return s.skill.Name
+}
+
+func (s *skillItem) Detail() string {
+	if s.skill.Path != "" {
+		data, err := os.ReadFile(s.skill.Path)
+		if err == nil {
+			return strings.TrimSpace(string(data))
+		}
+	}
+	return "(unable to read file)"
+}
+
+// SkillsModel displays discovered skills in an expandable list.
+type SkillsModel struct {
+	list *ExpandListModel
+}
+
+// NewSkills creates a new skills expandable list.
 func NewSkills(theme *Theme) *SkillsModel {
 	return &SkillsModel{
-		viewer: NewLoadingViewer("Skills", loadSkills, theme),
+		list: NewExpandList("Skills", loadSkillSections, "Invoke with: /skill-name inside Claude Code", theme),
 	}
 }
 
-func (m *SkillsModel) Init() tea.Cmd  { return m.viewer.Init() }
-func (m *SkillsModel) View() tea.View { return m.viewer.View() }
+func (m *SkillsModel) Init() tea.Cmd  { return m.list.Init() }
+func (m *SkillsModel) View() tea.View { return m.list.View() }
 func (m *SkillsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	_, cmd := m.viewer.Update(msg)
+	_, cmd := m.list.Update(msg)
 	return m, cmd
 }
 
-func loadSkills() (string, error) {
-	var b strings.Builder
-	anyFound := false
+func loadSkillSections() ([]ListSection, error) {
+	var sections []ListSection
 
 	cwd, err := os.Getwd()
 	if err == nil {
@@ -42,8 +65,11 @@ func loadSkills() (string, error) {
 		if platform.FileExists(skillsDir) {
 			projectSkills := skills.DiscoverSkills(skillsDir)
 			if len(projectSkills) > 0 {
-				anyFound = true
-				writeSkillSection(&b, "Project Skills (.claude/skills/)", projectSkills)
+				items := make([]ListItem, 0, len(projectSkills))
+				for i := range projectSkills {
+					items = append(items, &skillItem{skill: projectSkills[i]})
+				}
+				sections = append(sections, ListSection{Title: "Project Skills (.claude/skills/)", Items: items})
 			}
 		}
 	}
@@ -54,47 +80,14 @@ func loadSkills() (string, error) {
 		if platform.FileExists(commandsDir) {
 			commands := skills.DiscoverCommands(commandsDir)
 			if len(commands) > 0 {
-				anyFound = true
-				writeSkillSection(&b, "Personal Commands (~/.claude/commands/)", commands)
+				items := make([]ListItem, 0, len(commands))
+				for i := range commands {
+					items = append(items, &skillItem{skill: commands[i]})
+				}
+				sections = append(sections, ListSection{Title: "Personal Commands (~/.claude/commands/)", Items: items})
 			}
 		}
 	}
 
-	if platform.FS != nil {
-		builtins := skills.DiscoverEmbeddedSkills(platform.FS, ".claude/skills")
-		if len(builtins) > 0 {
-			anyFound = true
-			writeSkillSection(&b, "Platform Built-in Skills", builtins)
-		}
-	}
-
-	if !anyFound {
-		b.WriteString("  No skills found.\n\n")
-		b.WriteString("  Create a project skill:   .claude/skills/my-skill/SKILL.md\n")
-		b.WriteString("  Create a personal command: ~/.claude/commands/my-command.md\n")
-	}
-
-	b.WriteString("\n  Invoke with: /skill-name inside Claude Code\n")
-
-	return b.String(), nil
-}
-
-func writeSkillSection(b *strings.Builder, title string, items []skills.Skill) {
-	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#06B6D4"))
-	b.WriteString("  " + sectionStyle.Render(title) + "\n")
-
-	maxName := 0
-	for _, s := range items {
-		if len(s.Name) > maxName {
-			maxName = len(s.Name)
-		}
-	}
-	for _, s := range items {
-		desc := s.Description
-		if len(desc) > 70 {
-			desc = desc[:67] + "..."
-		}
-		fmt.Fprintf(b, "    %-*s  %s\n", maxName, s.Name, desc)
-	}
-	b.WriteString("\n")
+	return sections, nil
 }
