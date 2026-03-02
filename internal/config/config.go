@@ -52,9 +52,51 @@ func RunTo(w io.Writer, args []string) error {
 	case "set":
 		return runSet(args[1:])
 
+	case "delete", "unset":
+		return runDelete(args[1:])
+
 	default:
-		return fmt.Errorf("unknown config subcommand %q (available: view, get, set)", subcmd)
+		return fmt.Errorf("unknown config subcommand %q (available: view, get, set, delete)", subcmd)
 	}
+}
+
+// runDelete handles "config delete <key> [--scope user|project|local]".
+func runDelete(args []string) error {
+	fs := flag.NewFlagSet("config delete", flag.ContinueOnError)
+	scope := fs.String("scope", "user", "config scope to delete from: user, project, or local")
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("parsing flags: %w", err)
+	}
+
+	remaining := fs.Args()
+	if len(remaining) < 1 {
+		return fmt.Errorf("usage: config delete <key> [--scope user|project|local]")
+	}
+	key := remaining[0]
+
+	configScope := ConfigScope(*scope)
+	switch configScope {
+	case ScopeUser, ScopeProject, ScopeLocal:
+		// valid
+	default:
+		return fmt.Errorf("invalid scope %q: must be user, project, or local", *scope)
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("getting home directory: %w", err)
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting working directory: %w", err)
+	}
+
+	if err := DeleteSettingsValue(key, configScope, home, cwd); err != nil {
+		return fmt.Errorf("deleting config: %w", err)
+	}
+
+	fmt.Fprintf(os.Stdout, "Deleted %s from %s scope\n", key, configScope)
+	return nil
 }
 
 // runSet handles "config set <key> <value> [--scope user|project|local]".

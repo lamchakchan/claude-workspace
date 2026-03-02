@@ -40,6 +40,31 @@ func Run(version string) error {
 	return nil
 }
 
+// RunConfig starts the interactive TUI with the config viewer as the initial view,
+// bypassing the launcher. It is called when "claude-workspace config" is invoked
+// with no arguments on a TTY.
+func RunConfig(version string) error {
+	if IsAccessible() {
+		return nil
+	}
+
+	theme := DefaultTheme()
+	configView := NewConfigView(&theme)
+
+	app := &appModel{
+		stack:   []tea.Model{configView},
+		theme:   theme,
+		version: version,
+	}
+
+	p := tea.NewProgram(app)
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("TUI error: %w", err)
+	}
+
+	return nil
+}
+
 func (m *appModel) Init() tea.Cmd {
 	if len(m.stack) > 0 {
 		return m.stack[len(m.stack)-1].Init()

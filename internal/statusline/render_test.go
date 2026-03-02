@@ -254,6 +254,56 @@ func TestServiceChecker_AzureDevOpsUnhealthy(t *testing.T) {
 	}
 }
 
+func TestServiceChecker_AzureDevOps_OnsetCreated(t *testing.T) {
+	// First check against an unhealthy status should create the onset file.
+	// No duration is shown yet (onset is 0 seconds old — formatDuration returns "").
+	cacheDir := t.TempDir()
+	client := testServiceClient(map[string]string{
+		"status.dev.azure.com": `{"status":{"health":"degraded","message":"Investigating"}}`,
+	}, `{"status":{"indicator":"none"}}`)
+	got := newServiceChecker(cacheDir, client).check()
+	if !strings.Contains(got, "Azure DevOps") {
+		t.Errorf("expected Azure DevOps alert, got %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(cacheDir, "azure-devops-onset.json")); err != nil {
+		t.Errorf("expected onset file to be created, got error: %v", err)
+	}
+}
+
+func TestServiceChecker_AzureDevOps_OnsetPersisted(t *testing.T) {
+	// A pre-existing onset file should drive the reported duration.
+	cacheDir := t.TempDir()
+	onset := time.Now().Add(-90 * time.Minute).UTC()
+	onsetJSON := fmt.Sprintf(`{"onset":%q}`, onset.Format(time.RFC3339))
+	_ = os.WriteFile(filepath.Join(cacheDir, "azure-devops-onset.json"), []byte(onsetJSON), 0644)
+
+	client := testServiceClient(map[string]string{
+		"status.dev.azure.com": `{"status":{"health":"degraded","message":"Investigating"}}`,
+	}, `{"status":{"indicator":"none"}}`)
+	got := newServiceChecker(cacheDir, client).check()
+	if !strings.Contains(got, "1h 30m") {
+		t.Errorf("expected '1h 30m' duration from persisted onset, got %q", got)
+	}
+}
+
+func TestServiceChecker_AzureDevOps_OnsetCleared(t *testing.T) {
+	// When Azure DevOps recovers, the onset file should be removed.
+	cacheDir := t.TempDir()
+	onsetFile := filepath.Join(cacheDir, "azure-devops-onset.json")
+	_ = os.WriteFile(onsetFile, []byte(`{"onset":"2026-01-01T00:00:00Z"}`), 0644)
+
+	client := testServiceClient(map[string]string{
+		"status.dev.azure.com": `{"status":{"health":"healthy","message":""}}`,
+	}, `{"status":{"indicator":"none"}}`)
+	got := newServiceChecker(cacheDir, client).check()
+	if strings.Contains(got, "Azure DevOps") {
+		t.Errorf("expected no Azure DevOps alert when healthy, got %q", got)
+	}
+	if _, err := os.Stat(onsetFile); !os.IsNotExist(err) {
+		t.Errorf("expected onset file to be removed after recovery")
+	}
+}
+
 // errTransport always returns an error, used to verify the cache is used without network.
 type errTransport struct{}
 
