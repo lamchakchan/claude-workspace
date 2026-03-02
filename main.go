@@ -234,9 +234,9 @@ func runUpgrade(args []string) error {
 
 func runConfig(args []string) error {
 	subArgs := args[1:]
-	// No subcommand and connected to a TTY: launch TUI directly
+	// No subcommand and connected to a TTY: launch config TUI directly
 	if len(subArgs) == 0 && platform.IsTTY() {
-		return tui.Run(version)
+		return tui.RunConfig(version)
 	}
 	return config.Run(subArgs)
 }

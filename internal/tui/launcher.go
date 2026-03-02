@@ -57,11 +57,11 @@ func newLauncher(version string, theme *Theme) *launcherModel {
 			title: "Inspect & Manage",
 			items: []commandItem{
 				{name: "Doctor", desc: "Check platform configuration health", icon: "🩺", command: "doctor"},
+				{name: "Config", desc: "View and edit configuration", icon: "🔧", command: "config"},
 				{name: "Skills", desc: "List available skills and personal commands", icon: "🛠 ", command: "skills"},
 				{name: "Sessions", desc: "Browse and review session prompts", icon: "💬", command: "sessions"},
 				{name: "Memory", desc: "Inspect and manage memory layers", icon: "🧠", command: "memory"},
 				{name: "Cost", desc: "View usage and costs", icon: "💰", command: "cost"},
-				{name: "Config", desc: "View and edit configuration", icon: "🔧", command: "config"},
 			},
 		},
 		{

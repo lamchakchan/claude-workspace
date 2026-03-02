@@ -90,6 +90,51 @@ func RemoveFromArray(key, value string, scope ConfigScope, home, cwd string) err
 	return platform.WriteJSONFile(path, root)
 }
 
+// DeleteSettingsValue removes a key from the specified scope's settings.json file.
+// If the file or key does not exist, this is a no-op. Managed, env, and default
+// scopes return an error.
+func DeleteSettingsValue(key string, scope ConfigScope, home, cwd string) error {
+	path, err := settingsPath(scope, home, cwd)
+	if err != nil {
+		return err
+	}
+
+	if !platform.FileExists(path) {
+		return nil
+	}
+
+	root, err := readOrCreateJSON(path)
+	if err != nil {
+		return err
+	}
+
+	deleteNestedValue(root, key)
+
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("creating directory for %s: %w", path, err)
+	}
+	return platform.WriteJSONFile(path, root)
+}
+
+// deleteNestedValue removes the key at the dot-separated path from root.
+// If any intermediate key is missing or not a map, this is a no-op.
+func deleteNestedValue(root map[string]interface{}, dotPath string) {
+	parts := strings.Split(dotPath, ".")
+	current := root
+	for _, part := range parts[:len(parts)-1] {
+		next, ok := current[part]
+		if !ok {
+			return
+		}
+		m, ok := next.(map[string]interface{})
+		if !ok {
+			return
+		}
+		current = m
+	}
+	delete(current, parts[len(parts)-1])
+}
+
 // settingsPath returns the filesystem path for the given scope's settings.json file.
 func settingsPath(scope ConfigScope, home, cwd string) (string, error) {
 	switch scope {

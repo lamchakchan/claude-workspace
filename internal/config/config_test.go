@@ -87,3 +87,33 @@ func TestRunSet_MissingArgs(t *testing.T) {
 		t.Error("expected error for missing value")
 	}
 }
+
+func TestRunTo_DeleteSubcommand_MissingKey(t *testing.T) {
+	var buf strings.Builder
+	err := RunTo(&buf, []string{"delete"})
+	if err == nil {
+		t.Error("expected error for missing key argument")
+	}
+	if !strings.Contains(err.Error(), "usage") {
+		t.Errorf("error should mention usage, got: %v", err)
+	}
+}
+
+func TestRunTo_DeleteSubcommand_InvalidScope(t *testing.T) {
+	err := runDelete([]string{"--scope", "managed", "model"})
+	if err == nil {
+		t.Error("expected error for managed scope")
+	}
+	if !strings.Contains(err.Error(), "managed") {
+		t.Errorf("error should mention 'managed', got: %v", err)
+	}
+}
+
+func TestRunTo_UnsetAlias(t *testing.T) {
+	// "unset" is an alias for "delete"
+	var buf strings.Builder
+	err := RunTo(&buf, []string{"unset"})
+	if err == nil {
+		t.Error("expected error for missing key argument (unset alias)")
+	}
+}

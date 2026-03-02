@@ -457,3 +457,86 @@ func TestSetNestedValue(t *testing.T) {
 		}
 	}
 }
+
+func TestDeleteSettingsValue_ExistingKey(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	cwd := filepath.Join(tmp, "project")
+
+	// Write two keys then delete one
+	if err := WriteSettingsValue("model", testOpusModel, ScopeUser, home, cwd); err != nil {
+		t.Fatalf("WriteSettingsValue: %v", err)
+	}
+	if err := WriteSettingsValue("effortLevel", "high", ScopeUser, home, cwd); err != nil {
+		t.Fatalf("WriteSettingsValue: %v", err)
+	}
+	if err := DeleteSettingsValue("model", ScopeUser, home, cwd); err != nil {
+		t.Fatalf("DeleteSettingsValue: %v", err)
+	}
+
+	path := filepath.Join(home, ".claude", "settings.json")
+	var got map[string]interface{}
+	data, _ := os.ReadFile(path)
+	_ = json.Unmarshal(data, &got)
+
+	if _, exists := got["model"]; exists {
+		t.Error("expected model to be deleted")
+	}
+	if got["effortLevel"] != "high" {
+		t.Errorf("effortLevel = %v, want high", got["effortLevel"])
+	}
+}
+
+func TestDeleteSettingsValue_NestedKey(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	cwd := filepath.Join(tmp, "project")
+
+	if err := WriteSettingsValue("sandbox.enabled", "true", ScopeProject, home, cwd); err != nil {
+		t.Fatalf("WriteSettingsValue: %v", err)
+	}
+	if err := WriteSettingsValue("sandbox.timeout", "30000", ScopeProject, home, cwd); err != nil {
+		t.Fatalf("WriteSettingsValue: %v", err)
+	}
+	if err := DeleteSettingsValue("sandbox.enabled", ScopeProject, home, cwd); err != nil {
+		t.Fatalf("DeleteSettingsValue: %v", err)
+	}
+
+	path := filepath.Join(cwd, ".claude", "settings.json")
+	var got map[string]interface{}
+	data, _ := os.ReadFile(path)
+	_ = json.Unmarshal(data, &got)
+
+	sb, ok := got["sandbox"].(map[string]interface{})
+	if !ok {
+		t.Fatal("sandbox key missing")
+	}
+	if _, exists := sb["enabled"]; exists {
+		t.Error("expected sandbox.enabled to be deleted")
+	}
+	if sb["timeout"] == nil {
+		t.Error("expected sandbox.timeout to be preserved")
+	}
+}
+
+func TestDeleteSettingsValue_NonExistentKey(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	cwd := filepath.Join(tmp, "project")
+
+	// File doesn't exist yet — should be a no-op
+	if err := DeleteSettingsValue("model", ScopeUser, home, cwd); err != nil {
+		t.Fatalf("DeleteSettingsValue on missing file: %v", err)
+	}
+}
+
+func TestDeleteSettingsValue_ManagedScope(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	cwd := filepath.Join(tmp, "project")
+
+	err := DeleteSettingsValue("model", ScopeManaged, home, cwd)
+	if err == nil {
+		t.Error("expected error for managed scope")
+	}
+}

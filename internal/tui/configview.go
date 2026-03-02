@@ -23,6 +23,9 @@ type configErrorMsg struct{ err error }
 // configSavedMsg signals a successful config write.
 type configSavedMsg struct{ key string }
 
+// configDeletedMsg signals a successful config key deletion.
+type configDeletedMsg struct{ key string }
+
 // ConfigModel displays configuration keys grouped by category with tab navigation,
 // key list with source badges, detail panel, and inline edit support.
 type ConfigModel struct {
@@ -46,6 +49,7 @@ type ConfigModel struct {
 	editScope    config.ConfigScope
 	editScopes   []config.ConfigScope
 	editScopeIdx int
+	deleteMode   bool
 }
 
 // configHeaderLines is the number of lines used by the banner + tab bar.
@@ -111,7 +115,21 @@ func (m *ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return configLoadedMsg{snap: snap, reg: config.GlobalRegistry()}
 		}
 
+	case configDeletedMsg:
+		m.deleteMode = false
+		// Reload snapshot
+		return m, func() tea.Msg {
+			snap, err := config.ReadAll()
+			if err != nil {
+				return configErrorMsg{err: err}
+			}
+			return configLoadedMsg{snap: snap, reg: config.GlobalRegistry()}
+		}
+
 	case tea.KeyPressMsg:
+		if m.deleteMode {
+			return m.handleDeleteKey(msg)
+		}
 		if m.editMode {
 			return m.handleEditKey(msg)
 		}
@@ -169,6 +187,15 @@ func (m *ConfigModel) handleNormalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 				} else {
 					m.editValue = ""
 				}
+			}
+		}
+	case "d":
+		if len(m.keys) > 0 {
+			key := m.keys[m.cursor]
+			if !strings.HasPrefix(key.Key, "file:") && key.Category != config.CatFiles {
+				m.deleteMode = true
+				m.editScopeIdx = 0
+				m.editScope = m.editScopes[0]
 			}
 		}
 	default:
@@ -243,6 +270,37 @@ func (m *ConfigModel) handleEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if len(msg.Text) > 0 && msg.Text[0] >= ' ' {
 			m.editValue += msg.Text
 		}
+	}
+	return m, nil
+}
+
+// handleDeleteKey handles key events in delete confirmation mode.
+func (m *ConfigModel) handleDeleteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case keyEsc:
+		m.deleteMode = false
+	case keyEnter:
+		if len(m.keys) == 0 {
+			return m, nil
+		}
+		key := m.keys[m.cursor]
+		scope := m.editScope
+		home := ""
+		cwd := ""
+		if m.snapshot != nil {
+			home = m.snapshot.Home
+			cwd = m.snapshot.Cwd
+		}
+		return m, func() tea.Msg {
+			err := config.DeleteSettingsValue(key.Key, scope, home, cwd)
+			if err != nil {
+				return configErrorMsg{err: err}
+			}
+			return configDeletedMsg{key: key.Key}
+		}
+	case keyTab:
+		m.editScopeIdx = (m.editScopeIdx + 1) % len(m.editScopes)
+		m.editScope = m.editScopes[m.editScopeIdx]
 	}
 	return m, nil
 }
@@ -333,6 +391,12 @@ func (m *ConfigModel) View() tea.View {
 	if m.editMode && len(m.keys) > 0 {
 		b.WriteString("\n")
 		b.WriteString(m.renderEditPanel())
+	}
+
+	// Delete overlay
+	if m.deleteMode && len(m.keys) > 0 {
+		b.WriteString("\n")
+		b.WriteString(m.renderDeletePanel())
 	}
 
 	// Footer
@@ -525,12 +589,17 @@ func (m *ConfigModel) renderDetailPanel(b *strings.Builder, width int) {
 			config.ScopeManaged, config.ScopeUser, config.ScopeProject,
 			config.ScopeLocal, config.ScopeEnv,
 		}
+		effectiveStyle := lipgloss.NewStyle().Foreground(m.theme.Primary)
 		for _, scope := range scopes {
 			val, ok := cv.LayerValues[scope]
 			if !ok {
 				continue
 			}
-			fmt.Fprintf(b, "    %-8s %s\n", string(scope)+":", configFormatValue(val))
+			marker := ""
+			if scope == cv.Source {
+				marker = "  " + effectiveStyle.Render("← effective")
+			}
+			fmt.Fprintf(b, "    %-8s %s%s\n", string(scope)+":", configFormatValue(val), marker)
 		}
 	}
 }
@@ -584,6 +653,62 @@ func (m *ConfigModel) renderEditPanel() string {
 	return b.String()
 }
 
+// renderDeletePanel renders the inline delete confirmation overlay.
+func (m *ConfigModel) renderDeletePanel() string {
+	if m.cursor >= len(m.keys) {
+		return ""
+	}
+	key := m.keys[m.cursor]
+
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Error)
+	labelStyle := lipgloss.NewStyle().Foreground(m.theme.Muted)
+
+	var b strings.Builder
+	b.WriteString("  ")
+	b.WriteString(headerStyle.Render("Delete: " + key.Key))
+	b.WriteString("\n")
+
+	// Scope selector
+	b.WriteString("  ")
+	b.WriteString(labelStyle.Render("From scope: "))
+	for i, scope := range m.editScopes {
+		name := string(scope)
+		if i == m.editScopeIdx {
+			b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(m.theme.Error).Render("[" + name + "]"))
+		} else {
+			b.WriteString(lipgloss.NewStyle().Foreground(m.theme.Muted).Render(" " + name + " "))
+		}
+		b.WriteString(" ")
+	}
+	b.WriteString("\n")
+
+	// Show current value in selected scope
+	b.WriteString("  ")
+	b.WriteString(labelStyle.Render("Value: "))
+	if cv, ok := m.snapshot.Values[key.Key]; ok && cv != nil {
+		if val, hasLayer := cv.LayerValues[m.editScope]; hasLayer {
+			b.WriteString(configFormatValue(val))
+		} else {
+			b.WriteString(lipgloss.NewStyle().Foreground(m.theme.Muted).Render("(not set in this scope)"))
+		}
+	} else {
+		b.WriteString(lipgloss.NewStyle().Foreground(m.theme.Muted).Render("(not set in this scope)"))
+	}
+	b.WriteString("\n")
+
+	// Help
+	b.WriteString("  ")
+	help := fmt.Sprintf(
+		"%s confirm  %s cancel  %s scope",
+		lipgloss.NewStyle().Foreground(m.theme.Error).Bold(true).Render(keyEnter),
+		lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render(keyEsc),
+		lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render(keyTab),
+	)
+	b.WriteString(help)
+
+	return b.String()
+}
+
 // renderFooter renders the help footer bar.
 func (m *ConfigModel) renderFooter() string {
 	if m.filterMode {
@@ -598,6 +723,7 @@ func (m *ConfigModel) renderFooter() string {
 	parts := []string{ //nolint:gocritic // appendCombine: each entry uses method calls evaluated at call time
 		m.theme.HelpKey.Render("/") + m.theme.HelpDesc.Render(" filter"),
 		m.theme.HelpKey.Render("e") + m.theme.HelpDesc.Render(" edit"),
+		m.theme.HelpKey.Render("d") + m.theme.HelpDesc.Render(" delete"),
 		m.theme.HelpKey.Render("j/k") + m.theme.HelpDesc.Render(" scroll"),
 		m.theme.HelpKey.Render(keyTab) + m.theme.HelpDesc.Render(" next tab"),
 		m.theme.HelpKey.Render("q") + m.theme.HelpDesc.Render(" back"),
