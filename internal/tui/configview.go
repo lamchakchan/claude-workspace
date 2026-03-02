@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -29,27 +30,36 @@ type configDeletedMsg struct{ key string }
 // ConfigModel displays configuration keys grouped by category with tab navigation,
 // key list with source badges, detail panel, and inline edit support.
 type ConfigModel struct {
-	theme        *Theme
-	categories   []config.Category
-	activeTab    int
-	keys         []config.ConfigKey // keys in active category (filtered)
-	allKeys      []config.ConfigKey // keys in active category (unfiltered)
-	cursor       int
-	scroll       int
-	filter       string
-	filterMode   bool
-	snapshot     *config.ConfigSnapshot
-	registry     *config.Registry
-	loading      bool
-	err          string
-	width        int
-	height       int
+	theme      *Theme
+	categories []config.Category
+	activeTab  int
+	keys       []config.ConfigKey // keys in active category (filtered)
+	allKeys    []config.ConfigKey // keys in active category (unfiltered)
+	cursor     int
+	scroll     int
+	filter     string
+	filterMode bool
+	snapshot   *config.ConfigSnapshot
+	registry   *config.Registry
+	loading    bool
+	err        string
+	width      int
+	height     int
+	// Text/object/enum edit mode
 	editMode     bool
 	editValue    string
 	editScope    config.ConfigScope
 	editScopes   []config.ConfigScope
 	editScopeIdx int
-	deleteMode   bool
+	editEnumIdx  int // cursor within TypeEnum EnumValues list
+	// Delete mode
+	deleteMode bool
+	// Array editor mode (TypeStringArray)
+	arrayEditMode bool
+	arrayItems    []interface{} // items in the selected scope (not merged)
+	arrayCursor   int
+	arrayAddMode  bool   // sub-mode: typing a new item to append
+	arrayAddValue string // text being entered for new item
 }
 
 // configHeaderLines is the number of lines used by the banner + tab bar.
@@ -106,6 +116,7 @@ func (m *ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case configSavedMsg:
 		m.editMode = false
 		m.editValue = ""
+		m.arrayEditMode = false
 		// Reload snapshot
 		return m, func() tea.Msg {
 			snap, err := config.ReadAll()
@@ -117,6 +128,7 @@ func (m *ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case configDeletedMsg:
 		m.deleteMode = false
+		m.arrayEditMode = false
 		// Reload snapshot
 		return m, func() tea.Msg {
 			snap, err := config.ReadAll()
@@ -127,6 +139,9 @@ func (m *ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyPressMsg:
+		if m.arrayEditMode {
+			return m.handleArrayKey(msg)
+		}
 		if m.deleteMode {
 			return m.handleDeleteKey(msg)
 		}
@@ -175,29 +190,60 @@ func (m *ConfigModel) handleNormalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 	case "/":
 		m.filterMode = true
 	case "e":
-		if len(m.keys) > 0 {
-			key := m.keys[m.cursor]
-			if key.Type != config.TypeObject && !strings.HasPrefix(key.Key, "file:") {
-				m.editMode = true
-				m.editScopeIdx = 0
-				m.editScope = m.editScopes[0]
-				// Pre-fill with current effective value
+		if len(m.keys) == 0 {
+			break
+		}
+		key := m.keys[m.cursor]
+		if key.ReadOnly || strings.HasPrefix(key.Key, "file:") {
+			break
+		}
+		m.editScopeIdx = 0
+		m.editScope = m.editScopes[0]
+		switch key.Type {
+		case config.TypeObject:
+			// Open read-only object viewer
+			m.editMode = true
+		case config.TypeEnum:
+			m.editMode = true
+			m.editEnumIdx = 0
+			// Pre-select current effective value in the enum list
+			if len(key.EnumValues) > 0 {
 				if cv, ok := m.snapshot.Values[key.Key]; ok && cv != nil && !cv.IsDefault {
-					m.editValue = configFormatValue(cv.EffectiveValue)
-				} else {
-					m.editValue = ""
+					val := configFormatValue(cv.EffectiveValue)
+					for i, v := range key.EnumValues {
+						if v == val {
+							m.editEnumIdx = i
+							break
+						}
+					}
 				}
+			}
+		case config.TypeStringArray:
+			m.arrayEditMode = true
+			m.arrayCursor = 0
+			m.arrayAddMode = false
+			m.arrayAddValue = ""
+			m.refreshArrayItems()
+		default:
+			// TypeString, TypeBool, TypeInt — text editor
+			m.editMode = true
+			if cv, ok := m.snapshot.Values[key.Key]; ok && cv != nil && !cv.IsDefault {
+				m.editValue = configFormatValue(cv.EffectiveValue)
+			} else {
+				m.editValue = ""
 			}
 		}
 	case "d":
-		if len(m.keys) > 0 {
-			key := m.keys[m.cursor]
-			if !strings.HasPrefix(key.Key, "file:") && key.Category != config.CatFiles {
-				m.deleteMode = true
-				m.editScopeIdx = 0
-				m.editScope = m.editScopes[0]
-			}
+		if len(m.keys) == 0 {
+			break
 		}
+		key := m.keys[m.cursor]
+		if key.ReadOnly || strings.HasPrefix(key.Key, "file:") || key.Category == config.CatFiles {
+			break
+		}
+		m.deleteMode = true
+		m.editScopeIdx = 0
+		m.editScope = m.editScopes[0]
 	default:
 		// Number keys 1-9 jump to category
 		if len(msg.Text) == 1 && msg.Text[0] >= '1' && msg.Text[0] <= '9' {
@@ -233,21 +279,33 @@ func (m *ConfigModel) handleFilterKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
-// handleEditKey handles key events in edit mode.
+// handleEditKey handles key events in edit mode, dispatching by key type.
 func (m *ConfigModel) handleEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if len(m.keys) == 0 {
+		return m, nil
+	}
+	key := m.keys[m.cursor]
+
+	// TypeEnum: arrow-key selector
+	if key.Type == config.TypeEnum {
+		return m.handleEnumKey(msg)
+	}
+	// TypeObject: read-only viewer — only Esc closes it
+	if key.Type == config.TypeObject {
+		if msg.String() == keyEsc {
+			m.editMode = false
+		}
+		return m, nil
+	}
+	// TypeString, TypeBool, TypeInt: free text input
 	switch msg.String() {
 	case keyEsc:
 		m.editMode = false
 		m.editValue = ""
 	case keyEnter:
-		if len(m.keys) == 0 {
-			return m, nil
-		}
-		key := m.keys[m.cursor]
 		val := m.editValue
 		scope := m.editScope
-		home := ""
-		cwd := ""
+		home, cwd := "", ""
 		if m.snapshot != nil {
 			home = m.snapshot.Home
 			cwd = m.snapshot.Cwd
@@ -274,6 +332,48 @@ func (m *ConfigModel) handleEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleEnumKey handles key events in the enum-selector sub-mode.
+func (m *ConfigModel) handleEnumKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if len(m.keys) == 0 {
+		return m, nil
+	}
+	key := m.keys[m.cursor]
+	switch msg.String() {
+	case keyEsc:
+		m.editMode = false
+	case "j", keyDown:
+		if m.editEnumIdx < len(key.EnumValues)-1 {
+			m.editEnumIdx++
+		}
+	case "k", keyUp:
+		if m.editEnumIdx > 0 {
+			m.editEnumIdx--
+		}
+	case keyEnter:
+		if len(key.EnumValues) == 0 {
+			return m, nil
+		}
+		val := key.EnumValues[m.editEnumIdx]
+		scope := m.editScope
+		home, cwd := "", ""
+		if m.snapshot != nil {
+			home = m.snapshot.Home
+			cwd = m.snapshot.Cwd
+		}
+		return m, func() tea.Msg {
+			err := config.WriteSettingsValue(key.Key, val, scope, home, cwd)
+			if err != nil {
+				return configErrorMsg{err: err}
+			}
+			return configSavedMsg{key: key.Key}
+		}
+	case keyTab:
+		m.editScopeIdx = (m.editScopeIdx + 1) % len(m.editScopes)
+		m.editScope = m.editScopes[m.editScopeIdx]
+	}
+	return m, nil
+}
+
 // handleDeleteKey handles key events in delete confirmation mode.
 func (m *ConfigModel) handleDeleteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -285,8 +385,7 @@ func (m *ConfigModel) handleDeleteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 		}
 		key := m.keys[m.cursor]
 		scope := m.editScope
-		home := ""
-		cwd := ""
+		home, cwd := "", ""
 		if m.snapshot != nil {
 			home = m.snapshot.Home
 			cwd = m.snapshot.Cwd
@@ -303,6 +402,134 @@ func (m *ConfigModel) handleDeleteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 		m.editScope = m.editScopes[m.editScopeIdx]
 	}
 	return m, nil
+}
+
+// handleArrayKey dispatches array-editor key events between navigation and add-item modes.
+func (m *ConfigModel) handleArrayKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.arrayAddMode {
+		return m.handleArrayAddKey(msg)
+	}
+	return m.handleArrayNavKey(msg)
+}
+
+// handleArrayNavKey handles navigation within the array editor.
+func (m *ConfigModel) handleArrayNavKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) { //nolint:gocyclo
+	switch msg.String() {
+	case keyEsc:
+		m.arrayEditMode = false
+		m.arrayItems = nil
+		// Reload snapshot to reflect any changes made during array editing
+		return m, func() tea.Msg {
+			snap, err := config.ReadAll()
+			if err != nil {
+				return configErrorMsg{err: err}
+			}
+			return configLoadedMsg{snap: snap, reg: config.GlobalRegistry()}
+		}
+	case "j", keyDown:
+		if m.arrayCursor < len(m.arrayItems)-1 {
+			m.arrayCursor++
+		}
+	case "k", keyUp:
+		if m.arrayCursor > 0 {
+			m.arrayCursor--
+		}
+	case "a":
+		m.arrayAddMode = true
+		m.arrayAddValue = ""
+	case "d":
+		if len(m.arrayItems) == 0 || m.snapshot == nil || len(m.keys) == 0 {
+			return m, nil
+		}
+		key := m.keys[m.cursor]
+		item := fmt.Sprintf("%v", m.arrayItems[m.arrayCursor])
+		scope := m.editScope
+		home, cwd := m.snapshot.Home, m.snapshot.Cwd
+		// Remove from local list immediately for responsive UX
+		newItems := make([]interface{}, 0, len(m.arrayItems)-1)
+		for i, v := range m.arrayItems {
+			if i != m.arrayCursor {
+				newItems = append(newItems, v)
+			}
+		}
+		m.arrayItems = newItems
+		if m.arrayCursor >= len(m.arrayItems) {
+			m.arrayCursor = max(0, len(m.arrayItems)-1)
+		}
+		return m, func() tea.Msg {
+			if err := config.RemoveFromArray(key.Key, item, scope, home, cwd); err != nil {
+				return configErrorMsg{err: err}
+			}
+			return nil // local state already updated; no reload needed
+		}
+	case keyTab:
+		m.editScopeIdx = (m.editScopeIdx + 1) % len(m.editScopes)
+		m.editScope = m.editScopes[m.editScopeIdx]
+		m.arrayCursor = 0
+		m.refreshArrayItems()
+	}
+	return m, nil
+}
+
+// handleArrayAddKey handles key events while the user is typing a new array item.
+func (m *ConfigModel) handleArrayAddKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case keyEsc:
+		m.arrayAddMode = false
+		m.arrayAddValue = ""
+	case keyEnter:
+		val := strings.TrimSpace(m.arrayAddValue)
+		if val == "" || m.snapshot == nil || len(m.keys) == 0 {
+			return m, nil
+		}
+		key := m.keys[m.cursor]
+		scope := m.editScope
+		home, cwd := m.snapshot.Home, m.snapshot.Cwd
+		// Append to local list immediately
+		m.arrayItems = append(m.arrayItems, val)
+		m.arrayAddMode = false
+		m.arrayAddValue = ""
+		return m, func() tea.Msg {
+			if err := config.AppendToArray(key.Key, val, scope, home, cwd); err != nil {
+				return configErrorMsg{err: err}
+			}
+			return nil // local state already updated; no reload needed
+		}
+	case "backspace":
+		if len(m.arrayAddValue) > 0 {
+			m.arrayAddValue = m.arrayAddValue[:len(m.arrayAddValue)-1]
+		}
+	default:
+		if len(msg.Text) > 0 && msg.Text[0] >= ' ' {
+			m.arrayAddValue += msg.Text
+		}
+	}
+	return m, nil
+}
+
+// refreshArrayItems loads array items for the currently selected scope from the snapshot.
+func (m *ConfigModel) refreshArrayItems() {
+	if len(m.keys) == 0 || m.snapshot == nil {
+		m.arrayItems = nil
+		return
+	}
+	key := m.keys[m.cursor]
+	cv := m.snapshot.Values[key.Key]
+	if cv == nil {
+		m.arrayItems = nil
+		return
+	}
+	val, ok := cv.LayerValues[m.editScope]
+	if !ok {
+		m.arrayItems = nil
+		return
+	}
+	if arr, ok := val.([]interface{}); ok {
+		m.arrayItems = arr
+	} else {
+		m.arrayItems = nil
+	}
+	m.arrayCursor = 0
 }
 
 // switchCategory changes the active tab and resets the cursor.
@@ -387,10 +614,16 @@ func (m *ConfigModel) View() tea.View {
 		b.WriteString(m.renderSingleColumn())
 	}
 
-	// Edit overlay
+	// Edit overlay (text, enum, or object viewer)
 	if m.editMode && len(m.keys) > 0 {
 		b.WriteString("\n")
 		b.WriteString(m.renderEditPanel())
+	}
+
+	// Array editor overlay
+	if m.arrayEditMode && len(m.keys) > 0 {
+		b.WriteString("\n")
+		b.WriteString(m.renderArrayPanel())
 	}
 
 	// Delete overlay
@@ -580,7 +813,7 @@ func (m *ConfigModel) renderDetailPanel(b *strings.Builder, width int) {
 	}
 	b.WriteString("\n")
 
-	// Layer values
+	// Layer values with effective marker
 	if cv != nil && len(cv.LayerValues) > 0 {
 		b.WriteString("\n  ")
 		b.WriteString(labelStyle.Render("Layers:"))
@@ -604,8 +837,24 @@ func (m *ConfigModel) renderDetailPanel(b *strings.Builder, width int) {
 	}
 }
 
-// renderEditPanel renders the inline edit overlay.
+// renderEditPanel dispatches to the appropriate edit sub-panel based on key type.
 func (m *ConfigModel) renderEditPanel() string {
+	if m.cursor >= len(m.keys) {
+		return ""
+	}
+	key := m.keys[m.cursor]
+	switch key.Type {
+	case config.TypeObject:
+		return m.renderObjectPanel()
+	case config.TypeEnum:
+		return m.renderEnumPanel()
+	default:
+		return m.renderTextEditPanel()
+	}
+}
+
+// renderTextEditPanel renders the free-text edit overlay for string/bool/int keys.
+func (m *ConfigModel) renderTextEditPanel() string {
 	if m.cursor >= len(m.keys) {
 		return ""
 	}
@@ -640,7 +889,7 @@ func (m *ConfigModel) renderEditPanel() string {
 	b.WriteString(lipgloss.NewStyle().Foreground(m.theme.Primary).Render("_"))
 	b.WriteString("\n")
 
-	// Edit help
+	// Help
 	b.WriteString("  ")
 	help := fmt.Sprintf(
 		"%s save  %s cancel  %s scope",
@@ -649,6 +898,190 @@ func (m *ConfigModel) renderEditPanel() string {
 		lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render(keyTab),
 	)
 	b.WriteString(help)
+
+	return b.String()
+}
+
+// renderEnumPanel renders the arrow-key selector for TypeEnum keys.
+func (m *ConfigModel) renderEnumPanel() string {
+	if m.cursor >= len(m.keys) {
+		return ""
+	}
+	key := m.keys[m.cursor]
+
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary)
+	labelStyle := lipgloss.NewStyle().Foreground(m.theme.Muted)
+	selectedStyle := lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true)
+
+	var b strings.Builder
+	b.WriteString("  ")
+	b.WriteString(headerStyle.Render("Edit: " + key.Key))
+	b.WriteString("\n")
+
+	// Scope selector
+	b.WriteString("  ")
+	b.WriteString(labelStyle.Render("Scope: "))
+	for i, scope := range m.editScopes {
+		name := string(scope)
+		if i == m.editScopeIdx {
+			b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary).Render("[" + name + "]"))
+		} else {
+			b.WriteString(lipgloss.NewStyle().Foreground(m.theme.Muted).Render(" " + name + " "))
+		}
+		b.WriteString(" ")
+	}
+	b.WriteString("\n\n")
+
+	// Enum values list
+	for i, val := range key.EnumValues {
+		b.WriteString("  ")
+		if i == m.editEnumIdx {
+			b.WriteString(selectedStyle.Render("● " + val))
+		} else {
+			b.WriteString(labelStyle.Render("○ " + val))
+		}
+		b.WriteString("\n")
+	}
+
+	// Help
+	b.WriteString("\n  ")
+	help := fmt.Sprintf(
+		"%s/%s select  %s save  %s cancel  %s scope",
+		lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render("↑"),
+		lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render("↓"),
+		lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render(keyEnter),
+		lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render(keyEsc),
+		lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render(keyTab),
+	)
+	b.WriteString(help)
+
+	return b.String()
+}
+
+// renderObjectPanel renders a read-only JSON viewer for TypeObject keys.
+func (m *ConfigModel) renderObjectPanel() string {
+	if m.cursor >= len(m.keys) {
+		return ""
+	}
+	key := m.keys[m.cursor]
+
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Secondary)
+	labelStyle := lipgloss.NewStyle().Foreground(m.theme.Muted)
+	mutedStyle := lipgloss.NewStyle().Foreground(m.theme.Muted).Italic(true)
+
+	var b strings.Builder
+	b.WriteString("  ")
+	b.WriteString(headerStyle.Render("View: " + key.Key))
+	b.WriteString("\n")
+
+	// Show effective value as pretty-printed JSON
+	cv := m.snapshot.Values[key.Key]
+	if cv != nil && !cv.IsDefault {
+		if obj, ok := cv.EffectiveValue.(map[string]interface{}); ok {
+			data, err := json.MarshalIndent(obj, "    ", "  ")
+			if err == nil {
+				b.WriteString("\n")
+				b.WriteString("    ")
+				b.WriteString(string(data))
+				b.WriteString("\n")
+			}
+		}
+	} else {
+		b.WriteString("  ")
+		b.WriteString(mutedStyle.Render("(using default — not explicitly set)"))
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n  ")
+	b.WriteString(mutedStyle.Render("Object values cannot be edited in the TUI."))
+	b.WriteString("\n  ")
+	b.WriteString(labelStyle.Render("Edit the settings file directly to modify this value."))
+	b.WriteString("\n  ")
+	b.WriteString(lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render(keyEsc))
+	b.WriteString(" close")
+
+	return b.String()
+}
+
+// renderArrayPanel renders the per-item list editor for TypeStringArray keys.
+func (m *ConfigModel) renderArrayPanel() string {
+	if m.cursor >= len(m.keys) {
+		return ""
+	}
+	key := m.keys[m.cursor]
+
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary)
+	labelStyle := lipgloss.NewStyle().Foreground(m.theme.Muted)
+	selectedStyle := lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true)
+	mutedStyle := lipgloss.NewStyle().Foreground(m.theme.Muted)
+
+	var b strings.Builder
+	b.WriteString("  ")
+	b.WriteString(headerStyle.Render("Edit array: " + key.Key))
+	b.WriteString("\n")
+
+	// Scope selector
+	b.WriteString("  ")
+	b.WriteString(labelStyle.Render("Scope: "))
+	for i, scope := range m.editScopes {
+		name := string(scope)
+		if i == m.editScopeIdx {
+			b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary).Render("[" + name + "]"))
+		} else {
+			b.WriteString(lipgloss.NewStyle().Foreground(m.theme.Muted).Render(" " + name + " "))
+		}
+		b.WriteString(" ")
+	}
+	b.WriteString("\n")
+
+	// Items list
+	fmt.Fprintf(&b, "\n  ")
+	b.WriteString(labelStyle.Render(fmt.Sprintf("Items in this scope (%d):", len(m.arrayItems))))
+	b.WriteString("\n")
+
+	if len(m.arrayItems) == 0 {
+		b.WriteString("    ")
+		b.WriteString(mutedStyle.Render("(none)"))
+		b.WriteString("\n")
+	} else {
+		for i, item := range m.arrayItems {
+			s := fmt.Sprintf("%v", item)
+			b.WriteString("  ")
+			if i == m.arrayCursor {
+				b.WriteString(selectedStyle.Render("> " + s))
+			} else {
+				b.WriteString("  " + s)
+			}
+			b.WriteString("\n")
+		}
+	}
+
+	// Add-item input or navigation help
+	if m.arrayAddMode {
+		b.WriteString("\n  ")
+		b.WriteString(labelStyle.Render("New item: "))
+		b.WriteString(m.arrayAddValue)
+		b.WriteString(lipgloss.NewStyle().Foreground(m.theme.Primary).Render("_"))
+		b.WriteString("\n  ")
+		help := fmt.Sprintf(
+			"%s add  %s cancel",
+			lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render(keyEnter),
+			lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render(keyEsc),
+		)
+		b.WriteString(help)
+	} else {
+		b.WriteString("\n  ")
+		help := fmt.Sprintf(
+			"%s add  %s remove  %s/%s navigate  %s scope  %s done",
+			lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render("a"),
+			lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render("d"),
+			lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render("j"),
+			lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render("k"),
+			lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render(keyTab),
+			lipgloss.NewStyle().Foreground(m.theme.Muted).Bold(true).Render(keyEsc),
+		)
+		b.WriteString(help)
+	}
 
 	return b.String()
 }
