@@ -416,6 +416,8 @@ func (sc *serviceChecker) checkGoogleCloud() string {
 }
 
 // checkAzureDevOps checks Azure DevOps status health.
+// Because the health API does not expose incident start times, onset is tracked
+// locally in <cacheDir>/azure-devops-onset.json and cleared when health returns to normal.
 func (sc *serviceChecker) checkAzureDevOps() string {
 	const ttl = 5 * time.Minute
 	data := sc.fetchCached("azure-devops", "https://status.dev.azure.com/_apis/status/health?api-version=7.1-preview.1", ttl)
@@ -428,7 +430,9 @@ func (sc *serviceChecker) checkAzureDevOps() string {
 			Message string `json:"message"`
 		} `json:"status"`
 	}
+	onsetFile := filepath.Join(sc.cacheDir, "azure-devops-onset.json")
 	if err := json.Unmarshal(data, &resp); err != nil || resp.Status.Health == "" || resp.Status.Health == "healthy" {
+		_ = os.Remove(onsetFile)
 		return ""
 	}
 	sev := severityMinor
@@ -439,7 +443,35 @@ func (sc *serviceChecker) checkAzureDevOps() string {
 	if msg == "" {
 		msg = "Issues detected"
 	}
-	return alertColor(sev, "Azure DevOps: "+msg)
+	text := "Azure DevOps: " + msg
+	if dur := formatDuration(sc.azureOnset(onsetFile)); dur != "" {
+		text += " (" + dur + ")"
+	}
+	return alertColor(sev, text)
+}
+
+// azureOnset returns the recorded onset time for an Azure DevOps outage.
+// If no onset file exists yet it creates one stamped with the current time.
+// Returns the zero time on any error.
+func (sc *serviceChecker) azureOnset(onsetFile string) time.Time {
+	type onsetRecord struct {
+		Onset string `json:"onset"`
+	}
+	if raw, err := os.ReadFile(onsetFile); err == nil {
+		var rec onsetRecord
+		if json.Unmarshal(raw, &rec) == nil {
+			if t := parseTime(rec.Onset); !t.IsZero() {
+				return t
+			}
+		}
+	}
+	now := time.Now().UTC()
+	rec := onsetRecord{Onset: now.Format(time.RFC3339)}
+	if raw, err := json.Marshal(rec); err == nil {
+		_ = os.MkdirAll(sc.cacheDir, 0755)
+		_ = os.WriteFile(onsetFile, raw, 0644)
+	}
+	return now
 }
 
 // ccReserveWidth returns the terminal columns reserved by CC's autocompact indicator,
