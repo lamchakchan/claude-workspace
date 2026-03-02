@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/lamchakchan/claude-workspace/internal/attach"
+	"github.com/lamchakchan/claude-workspace/internal/config"
 	"github.com/lamchakchan/claude-workspace/internal/cost"
 	"github.com/lamchakchan/claude-workspace/internal/doctor"
 	"github.com/lamchakchan/claude-workspace/internal/enrich"
@@ -35,6 +36,7 @@ var commands = map[string]func([]string) error{
 	"sandbox":    runSandbox,
 	"mcp":        runMCP,
 	"upgrade":    runUpgrade,
+	"config":     runConfig,
 	"doctor":     func(_ []string) error { return doctor.Run() },
 	"statusline": func(a []string) error { return statusline.Run(a[1:]) },
 	"memory":     func(a []string) error { return memory.Run(a[1:]) },
@@ -81,6 +83,12 @@ Commands:
     [--breakdown]                Per-model cost breakdown
     [--since YYYYMMDD]           Filter from date
     [--json]                     JSON output
+  config [subcommand]            View and edit all Claude Code configuration
+    (no args)                    Launch interactive TUI config viewer/editor
+    view                         Non-interactive formatted output of all config
+    get <key>                    Show a single key with all scope layers
+    set <key> <value>            Set a config value
+      [--scope user|project|local]  Which settings.json to write (default: user)
 
 Options:
   --help, -h       Show this help message
@@ -222,4 +230,13 @@ func runMCP(args []string) error {
 
 func runUpgrade(args []string) error {
 	return upgrade.Run(version, args[1:])
+}
+
+func runConfig(args []string) error {
+	subArgs := args[1:]
+	// No subcommand and connected to a TTY: launch TUI directly
+	if len(subArgs) == 0 && platform.IsTTY() {
+		return tui.Run(version)
+	}
+	return config.Run(subArgs)
 }

@@ -1,67 +1,67 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "alwaysThinkingEnabled": true,
+  "enableAllProjectMcpServers": false,
   "env": {
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80",
+    "CLAUDE_CODE_ENABLE_TASKS": "true",
     "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
-    "CLAUDE_CODE_ENABLE_TASKS": "true",
-    "CLAUDE_CODE_SUBAGENT_MODEL": "opus",
-    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"
+    "CLAUDE_CODE_SUBAGENT_MODEL": "opus"
   },
-  "model": "sonnet",
-  "teammateMode": "in-process",
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-dangerous-commands.sh",
-            "statusMessage": "Checking command safety..."
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/enforce-branch-policy.sh",
-            "statusMessage": "Checking branch policy..."
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validate-secrets.sh",
-            "statusMessage": "Scanning for secrets..."
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
         "hooks": [
           {
-            "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/auto-format.sh",
-            "statusMessage": "Auto-formatting..."
+            "statusMessage": "Auto-formatting...",
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "Write|Edit"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-dangerous-commands.sh",
+            "statusMessage": "Checking command safety...",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/enforce-branch-policy.sh",
+            "statusMessage": "Checking branch policy...",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validate-secrets.sh",
+            "statusMessage": "Scanning for secrets...",
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit"
       }
     ],
     "TaskCompleted": [
       {
         "hooks": [
           {
-            "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-task-completed.sh",
             "statusMessage": "Verifying task completion...",
-            "timeout": 60000
+            "timeout": 60000,
+            "type": "command"
           }
         ]
       }
@@ -70,17 +70,17 @@
       {
         "hooks": [
           {
-            "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-teammate-idle.sh",
-            "statusMessage": "Checking teammate status..."
+            "statusMessage": "Checking teammate status...",
+            "type": "command"
           }
         ]
       }
     ]
   },
-  "alwaysThinkingEnabled": true,
+  "model": "opus",
   "plansDirectory": "./plans",
+  "respectGitignore": true,
   "showTurnDuration": true,
-  "enableAllProjectMcpServers": false,
-  "respectGitignore": true
+  "teammateMode": "in-process"
 }

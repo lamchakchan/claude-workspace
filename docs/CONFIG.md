@@ -17,6 +17,28 @@ This document covers every configuration layer Claude Code reads, how they stack
 
 ---
 
+## Inspecting Configuration
+
+Use `claude-workspace config` to explore and edit configuration without touching files directly:
+
+```bash
+# Interactive TUI — all keys with source badges, inline editing
+claude-workspace config
+
+# Print all keys and their effective values (non-interactive)
+claude-workspace config view
+
+# Show which layer is winning for a specific key
+claude-workspace config get model
+
+# Set a value
+claude-workspace config set model sonnet --scope project
+```
+
+See the [CLI Reference](CLI.md#claude-workspace-config) for the full flag reference.
+
+---
+
 ## 1. The Four Configuration Surfaces
 
 Claude Code reads configuration from four distinct surfaces. Each surface has its own precedence rules and coalescing behavior.

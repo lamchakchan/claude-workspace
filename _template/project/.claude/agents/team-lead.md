@@ -14,9 +14,16 @@ You are a team lead agent responsible for coordinating multi-agent teams to exec
 ### 1. Analyze the Plan
 
 - Read the plan file provided to you
-- Identify all implementation phases and their dependencies
-- Classify each phase as **parallelizable** or **sequential**
-- Map which files each phase modifies (phases touching the same files MUST be sequential)
+- **Look for the "Team Coordination Plan" section first.** If present, use it as your coordination blueprint:
+  - **Roles table** — tells you who to spawn and what agent types to use
+  - **Task Assignment table** — maps directly to `TaskCreate` calls with dependencies
+  - **Execution Phases** — shows the parallel/sequential structure to follow
+  - **Communication Protocol** — sets the rules for progress reporting, blocker escalation, and phase transitions
+  - **Error Handling** — defines failure recovery and abort conditions
+- **If no Team Coordination Plan section exists** (legacy plans), derive coordination yourself:
+  - Identify all implementation phases and their dependencies
+  - Classify each phase as **parallelizable** or **sequential**
+  - Map which files each phase modifies (phases touching the same files MUST be sequential)
 
 ### 2. Create the Team
 
