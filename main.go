@@ -9,11 +9,13 @@ import (
 	"io/fs"
 	"os"
 
+	"github.com/lamchakchan/claude-workspace/internal/agents"
 	"github.com/lamchakchan/claude-workspace/internal/attach"
 	"github.com/lamchakchan/claude-workspace/internal/config"
 	"github.com/lamchakchan/claude-workspace/internal/cost"
 	"github.com/lamchakchan/claude-workspace/internal/doctor"
 	"github.com/lamchakchan/claude-workspace/internal/enrich"
+	"github.com/lamchakchan/claude-workspace/internal/hooks"
 	"github.com/lamchakchan/claude-workspace/internal/mcp"
 	"github.com/lamchakchan/claude-workspace/internal/memory"
 	"github.com/lamchakchan/claude-workspace/internal/platform"
@@ -38,6 +40,8 @@ var commands = map[string]func([]string) error{
 	"upgrade":    runUpgrade,
 	"config":     runConfig,
 	"doctor":     func(_ []string) error { return doctor.Run() },
+	"agents":     func(a []string) error { return agents.Run(a[1:]) },
+	"hooks":      func(a []string) error { return hooks.Run(a[1:]) },
 	"statusline": func(a []string) error { return statusline.Run(a[1:]) },
 	"memory":     func(a []string) error { return memory.Run(a[1:]) },
 	"sessions":   func(a []string) error { return sessions.Run(a[1:]) },
@@ -64,6 +68,8 @@ Commands:
   mcp list                       List all configured MCP servers
   upgrade [--self-only|--cli-only]  Upgrade claude-workspace and Claude Code CLI
   doctor                         Check platform configuration health
+  agents [list]                  List configured agents
+  hooks [list]                   List configured hooks and hook scripts
   statusline                     Configure Claude Code statusline (cost & context display)
     [--force]                    Overwrite existing statusLine configuration
   sessions [list|show] [options]   Browse and review session prompts

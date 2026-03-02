@@ -59,6 +59,8 @@ func newLauncher(version string, theme *Theme) *launcherModel {
 				{name: "Doctor", desc: "Check platform configuration health", icon: "🩺", command: "doctor"},
 				{name: "Config", desc: "View and edit configuration", icon: "🔧", command: "config"},
 				{name: "Skills", desc: "List available skills and personal commands", icon: "🛠 ", command: "skills"},
+				{name: "Agents", desc: "List configured agents", icon: "🤖", command: "agents"},
+				{name: "Hooks", desc: "List configured hooks", icon: "🪝", command: "hooks"},
 				{name: "Sessions", desc: "Browse and review session prompts", icon: "💬", command: "sessions"},
 				{name: "Memory", desc: "Inspect and manage memory layers", icon: "🧠", command: "memory"},
 				{name: "Cost", desc: "View usage and costs", icon: "💰", command: "cost"},
@@ -162,6 +164,10 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 		return pushView(NewDoctor(m.theme))
 	case "skills":
 		return pushView(NewSkills(m.theme))
+	case "agents":
+		return pushView(NewAgents(m.theme))
+	case "hooks":
+		return pushView(NewHooks(m.theme))
 	case "sessions":
 		return pushView(NewSessions(m.theme))
 	case "memory":

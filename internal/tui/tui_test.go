@@ -270,8 +270,24 @@ func TestNewLoadingViewer(t *testing.T) {
 func TestNewSkills(t *testing.T) {
 	theme := DefaultTheme()
 	m := NewSkills(&theme)
-	if m.viewer == nil {
-		t.Error("NewSkills viewer is nil")
+	if m.list == nil {
+		t.Error("NewSkills list is nil")
+	}
+}
+
+func TestNewAgents(t *testing.T) {
+	theme := DefaultTheme()
+	m := NewAgents(&theme)
+	if m.list == nil {
+		t.Error("NewAgents list is nil")
+	}
+}
+
+func TestNewHooks(t *testing.T) {
+	theme := DefaultTheme()
+	m := NewHooks(&theme)
+	if m.list == nil {
+		t.Error("NewHooks list is nil")
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 type Skill struct {
 	Name        string
 	Description string
+	Path        string
 }
 
 // Run routes the skills subcommand.
@@ -68,16 +69,6 @@ func list() error {
 		}
 	}
 
-	// 3. Platform built-in skills (from embedded FS)
-	if platform.FS != nil {
-		builtins := DiscoverEmbeddedSkills(platform.FS, ".claude/skills")
-		if len(builtins) > 0 {
-			anyFound = true
-			platform.PrintSection(os.Stdout, "Platform Built-in Skills")
-			printSkillTable(builtins)
-		}
-	}
-
 	if !anyFound {
 		fmt.Println("  No skills found.")
 		fmt.Println()
@@ -112,7 +103,7 @@ func DiscoverSkills(root string) []Skill {
 				// Fall back to directory name
 				name = filepath.Base(filepath.Dir(path))
 			}
-			skills = append(skills, Skill{Name: name, Description: desc})
+			skills = append(skills, Skill{Name: name, Description: desc, Path: path})
 		}
 		return nil
 	})
@@ -134,7 +125,7 @@ func DiscoverCommands(root string) []Skill {
 		}
 		name := strings.TrimSuffix(d.Name(), ".md")
 		desc := firstNonEmptyLine(path)
-		commands = append(commands, Skill{Name: name, Description: desc})
+		commands = append(commands, Skill{Name: name, Description: desc, Path: path})
 		return nil
 	})
 	return commands
