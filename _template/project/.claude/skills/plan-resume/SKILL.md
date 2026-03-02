@@ -33,7 +33,27 @@ Read the selected plan fully, then:
 2. Fall back to checking referenced files exist if the plan predates checkbox tracking
 3. Summarize: "X of Y steps complete"
 
-## Step 4: Update the Plan File
+## Step 4: Detect Team Context
+
+Check if this plan was previously executed with a team or is annotated for team execution:
+
+1. **Check for existing tasks**: Run `TaskList` to see if tasks from a prior session exist (team or standalone).
+2. **Check plan annotations**: Look for a `## Team Execution Feasibility` section in the plan. Check the `Recommended mode` field.
+
+### If existing tasks are found with incomplete items:
+- Present the status: "Found X completed and Y remaining tasks from a prior session"
+- Ask the user: "Resume with existing tasks, start fresh, or proceed without task tracking?"
+- If resuming: pick up from the next incomplete task
+
+### If no existing tasks but the plan has team annotations:
+- Check the plan's `Recommended mode` field
+- If it says `solo-team` or `multi-agent-team`, suggest: "This plan was designed for team execution. Create a team for the remaining phases?"
+- If the user agrees, follow the same team creation flow as plan-and-execute Phase 1.5
+
+### If no team context at all:
+- Proceed with sequential execution (existing behavior)
+
+## Step 5: Update the Plan File
 
 1. Set `Status: In Progress`
 2. Set or add `Last Updated: YYYY-MM-DD` (use today's date)
@@ -45,13 +65,13 @@ Read the selected plan fully, then:
    - Phase 3: Not started
    ```
 
-## Step 5: Create Todo List
+## Step 6: Create Todo List
 
 Generate todos from remaining incomplete items using TaskCreate/TaskUpdate:
 - One task per remaining phase or logical group of steps
 - Set dependencies between tasks where phases are sequential
 
-## Step 6: Session Hygiene
+## Step 7: Session Hygiene
 
 Suggest the user run `/rename <plan-description>` so this session is easy to find later with `claude --resume`.
 

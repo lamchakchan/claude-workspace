@@ -18,7 +18,8 @@ This guide walks you through setting up the platform, attaching it to your first
 10. [Agent Teams](#10-agent-teams)
 11. [Day-to-Day Workflow](#11-day-to-day-workflow)
 12. [Tips and Tricks](#12-tips-and-tricks)
-13. [Configuration Reference](#13-configuration-reference)
+13. [Security-First Development](#13-security-first-development)
+14. [Configuration Reference](#14-configuration-reference)
 
 ---
 
@@ -691,6 +692,40 @@ This runs in an isolated context and returns a concise summary, keeping your mai
 
 ---
 
-## 13. Configuration Reference
+## 13. Security-First Development
+
+The platform integrates security at every stage of development. Understanding these layers helps you work effectively with them.
+
+### When Security Checks Fire
+
+| Stage | What Happens | Automatic? |
+|-------|-------------|------------|
+| **Planning** | Planner prompts for STRIDE threat analysis when the plan touches auth, input, secrets, or file I/O | Yes (in plan template) |
+| **Execution** | Hooks block secrets in written files and dangerous shell commands in real-time | Yes (every tool call) |
+| **Execution** | Security-scanner runs mid-execution for security-sensitive steps | Yes (if flagged by plan) |
+| **Review** | Code-reviewer performs quick-check for obvious security anti-patterns | Yes (every review) |
+| **Review** | Security-scanner performs deep 9-area analysis | Yes (unless docs-only change) |
+| **CI/CD** | govulncheck scans for known Go CVEs; go mod verify checks dependency integrity | Yes (every PR) |
+
+### Working with Security Hooks
+
+The hooks run automatically on every tool call. If a hook blocks your action:
+
+1. **Secret detected**: Replace the credential with a placeholder or environment variable reference
+2. **Dangerous command blocked**: Use the safer alternative suggested in the error message
+3. **sudo warning**: Confirm the command is necessary -- the hook asks but does not block
+
+### Requesting a Security Scan
+
+```
+> Use the security scanner to check the authentication module
+> Run a security scan on the changes I just made
+```
+
+The scanner writes a full report to `.claude/audits/security-YYYY-MM-DD.md` and returns a summary.
+
+---
+
+## 14. Configuration Reference
 
 For the complete reference covering every configuration file, settings layering, permission coalescing, MCP scopes, model resolution, and environment variables, see **[CONFIG.md](CONFIG.md)**.

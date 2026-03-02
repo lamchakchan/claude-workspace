@@ -226,6 +226,28 @@ Once CI passes, check off the CI item in the PR body and update with `gh pr edit
 ### Updating the checklist
 Keep the PR body's test plan in sync with actual results. A reviewer should see which items have been verified and which are still pending.
 
+## Step 6.5: Parallel Verification Team (Optional)
+
+When the PR involves substantial changes across multiple verification domains, consider creating a team to run verification in parallel:
+
+**When to use**:
+- The PR touches 3+ verification domains (tests, code review, security scan, docs check, infra review)
+- Sequential verification would take significant wall-clock time
+
+**How**:
+1. Use `TeamCreate` to create a verification team
+2. Create one task per verification domain using `TaskCreate`:
+   - "Run test suite" → spawn `test-runner` subagent
+   - "Code review" → spawn `code-reviewer` subagent
+   - "Security scan" → spawn `security-scanner` subagent (if applicable)
+   - "Infra review" → spawn `infra-reviewer` subagent (if applicable)
+3. Spawn subagents in parallel via the `Agent` tool with `team_name`
+4. Collect results from all verification agents
+5. Update the PR test plan checkboxes based on results
+6. Use `TeamDelete` to clean up
+
+For most PRs, running verification steps sequentially within Step 6 is sufficient. Use this team pattern only when parallelism would save meaningful time.
+
 ## Step 7: Create or Update
 
 **Create:**

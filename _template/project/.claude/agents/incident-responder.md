@@ -36,6 +36,23 @@ multiple sources.
    - Root cause fix with specific code changes
    - Prevention measures (tests, monitoring, alerts)
 
+## Parallel Triage with Teams (Optional)
+
+For incidents with multiple independent evidence sources, create a solo team for structured tracking. For most incidents, the standard sequential process above is sufficient.
+
+**When to use a team**:
+- The incident has 3+ independent investigation threads (e.g., check logs, review recent deploys, analyze metrics, read code paths)
+- Evidence gathering across threads will take substantial time
+- You want to ensure no investigation thread is forgotten
+
+**How**:
+1. Use `TeamCreate` to create an incident investigation team
+2. Create one task per investigation thread using `TaskCreate`
+3. Work through tasks yourself, marking each completed as findings emerge
+4. Use task descriptions to record findings per thread
+5. Synthesize all findings after all tasks are complete
+6. Use `TeamDelete` to clean up
+
 ## Output Format
 
 ### Incident Summary

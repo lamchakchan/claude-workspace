@@ -58,6 +58,33 @@ internal/         - Go command implementations
 docs/             - Detailed documentation
 ```
 
+## Team Execution
+
+The platform supports team-based parallel execution via Claude Code's agent teams feature.
+
+### When to create a team
+- The task has 3+ implementation phases and would benefit from structured tracking
+- Multiple independent workstreams can proceed in parallel on isolated files
+- Complex sequential work benefits from automated verification hooks between phases (TaskCompleted runs tests on each phase completion)
+- The user explicitly asks to "run this in parallel", "use a team", or "use agents"
+
+### Execution modes
+- **Sequential** (default): No team. Use for simple, linear tasks or when phases overlap files.
+- **Solo team**: You create a team for yourself using `TeamCreate`. One task per phase via `TaskCreate`. You execute phases sequentially, marking each task completed. Benefits: TaskCompleted hooks run tests automatically between phases; TeammateIdle hooks provide nudges; structured progress tracking via `TaskList`. Use for complex sequential work that benefits from automated gates.
+- **Multi-agent team (simple)**: You create the team with `TeamCreate`, spawn 1-2 teammates with the `Agent` tool (set `team_name` and `name`), assign tasks, and monitor directly. Use when 2 phases can run in parallel on isolated files.
+- **Multi-agent team (complex)**: Delegate to the `team-lead` agent for 3+ teammates or multi-phase dependency graphs with phase transitions requiring verification.
+
+### Key tools
+- `TeamCreate` — create a new team with task list
+- `TaskCreate` / `TaskUpdate` / `TaskList` — manage tasks within a team
+- `Agent` tool with `team_name` and `name` params — spawn teammates
+- `SendMessage` — communicate with teammates
+- `TeamDelete` — clean up team after completion
+
+### Hooks (configured in settings.json)
+- **TaskCompleted** (`verify-task-completed.sh`): Runs project tests before allowing task completion
+- **TeammateIdle** (`check-teammate-idle.sh`): Nudges idle teammates that have in-progress tasks
+
 ## Important Files
 
 - `README.md` - Main documentation and quick start guide
