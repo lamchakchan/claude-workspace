@@ -20,10 +20,10 @@ claude-workspace
 |-------|----------|
 | Getting Started | Setup, Attach, Enrich, Sandbox |
 | MCP Servers | Add Server, List Servers |
-| Inspect & Manage | Doctor, Skills, Sessions, Memory, Cost |
+| Inspect & Manage | Doctor, Skills, Sessions, Memory, Cost, Config |
 | Maintenance | Upgrade, Statusline |
 
-Select a command to open its dedicated TUI view — form-based views (Attach, Enrich, Sandbox, MCP Add) include path autocomplete with tab completion, while data views (Doctor, Skills, Sessions, Cost) display output inline with scrolling and clipboard copy.
+Select a command to open its dedicated TUI view — form-based views (Attach, Enrich, Sandbox, MCP Add) include path autocomplete with tab completion, while data views (Doctor, Skills, Sessions, Cost, Config) display output inline with scrolling and clipboard copy.
 
 **Environment variables:**
 
@@ -58,6 +58,12 @@ Select a command to open its dedicated TUI view — form-based views (Attach, En
 | Confirmation | `← / → / tab` | Switch selection |
 | Cost tabs | `1`–`5` | Jump to tab |
 | Cost tabs | `tab` / `h` / `l` | Cycle tabs |
+| Config tabs | `1`–`9` | Jump to category tab |
+| Config tabs | `tab` / `shift+tab` / `h` / `l` | Cycle category tabs |
+| Config list | `/` | Enter filter mode |
+| Config list | `e` | Edit selected key inline |
+| Config edit | `tab` | Cycle scope (user / project / local) |
+| Config edit | `enter` | Save value |
 | Help | `?` | Toggle shortcut reference |
 
 **Example:**
@@ -84,6 +90,7 @@ Inspect & Manage
   💬 Sessions      Browse and review session prompts
   🧠 Memory        Inspect and manage memory layers
   💰 Cost          View usage and costs
+  🔧 Config        View and edit configuration
 
 Maintenance
   ⬆  Upgrade       Upgrade claude-workspace and CLI
@@ -665,6 +672,105 @@ claude-workspace cost --json
 ```
 
 **See also:** [ccusage](https://github.com/ryoppippi/ccusage)
+
+---
+
+## claude-workspace config
+
+View and edit all Claude Code configuration across every scope layer, with clear attribution showing which layer each value comes from.
+
+**Synopsis:**
+
+```
+claude-workspace config [subcommand] [options]
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| *(no args)* | Launch interactive TUI config viewer/editor (TTY required) |
+| `view` | Non-interactive formatted output of all config with scope badges |
+| `get <key>` | Show a single key with its value at every scope layer |
+| `set <key> <value>` | Write a config value to the target scope's `settings.json` |
+
+**Flags (set):**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--scope` | `user\|project\|local` | `user` | Which `settings.json` to write to |
+
+**TUI behavior:**
+
+Launches the full interactive config viewer when no subcommand is given and stdin is a TTY. The TUI displays all known Claude Code configuration keys organized by category with source badges showing where each value originates:
+
+| Badge | Meaning |
+|-------|---------|
+| `[MGD]` | Enterprise managed settings (highest priority, cannot be overridden) |
+| `[USR]` | User-level `~/.claude/settings.json` |
+| `[PRJ]` | Project-level `.claude/settings.json` |
+| `[LOC]` | Local override `.claude/settings.local.json` |
+| `[ENV]` | OS environment variable or `settings.json` `env` block |
+| `[DEF]` | Registry default (no active override) |
+
+**Examples:**
+
+```bash
+# Interactive TUI (TTY only)
+claude-workspace config
+
+# Non-interactive — show all config grouped by category
+claude-workspace config view
+
+# Show a single key with all scope layers
+claude-workspace config get model
+claude-workspace config get CLAUDE_CODE_MAX_OUTPUT_TOKENS
+
+# Write a value to user settings (default scope)
+claude-workspace config set model opus
+
+# Write a value to project settings
+claude-workspace config set model sonnet --scope project
+
+# Write a value to local settings (gitignored, personal override)
+claude-workspace config set model haiku --scope local
+```
+
+**Example output (`config view`):**
+
+```
+═══════════════════════════════════
+  Claude Code Configuration
+═══════════════════════════════════
+
+Core
+  [DEF] model = (none)  (Override the default model...)
+  [PRJ] CLAUDE_CODE_SUBAGENT_MODEL = opus  (Model for all subagents)
+  ...
+
+Env: Model & Tokens
+  [ENV] CLAUDE_CODE_MAX_OUTPUT_TOKENS = (none)  (Max tokens per response...)
+  ...
+```
+
+**Example output (`config get model`):**
+
+```
+═══════════════════════════════════
+  model
+═══════════════════════════════════
+  Type:        string
+  Description: Override the default model (alias or full model ID)
+
+  Effective Value
+  [PRJ] sonnet
+
+  Layer Values
+  [USR] opus
+  [PRJ] sonnet
+```
+
+**See also:** [Configuration Reference](CONFIG.md)
 
 ---
 
