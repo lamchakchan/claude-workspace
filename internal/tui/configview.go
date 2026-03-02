@@ -58,6 +58,7 @@ type ConfigModel struct {
 	arrayEditMode bool
 	arrayItems    []interface{} // items in the selected scope (not merged)
 	arrayCursor   int
+	arrayScroll   int
 	arrayAddMode  bool   // sub-mode: typing a new item to append
 	arrayAddValue string // text being entered for new item
 }
@@ -187,6 +188,26 @@ func (m *ConfigModel) handleNormalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 			m.cursor--
 			m.adjustScroll()
 		}
+	case keyPgDown, "f":
+		m.cursor += m.visibleKeyRows()
+		if m.cursor > len(m.keys)-1 {
+			m.cursor = len(m.keys) - 1
+		}
+		m.adjustScroll()
+	case keyPgUp, "b":
+		m.cursor -= m.visibleKeyRows()
+		if m.cursor < 0 {
+			m.cursor = 0
+		}
+		m.adjustScroll()
+	case "g":
+		m.cursor = 0
+		m.adjustScroll()
+	case "G":
+		if len(m.keys) > 0 {
+			m.cursor = len(m.keys) - 1
+		}
+		m.adjustScroll()
 	case "/":
 		m.filterMode = true
 	case "e":
@@ -221,9 +242,11 @@ func (m *ConfigModel) handleNormalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 		case config.TypeStringArray:
 			m.arrayEditMode = true
 			m.arrayCursor = 0
+			m.arrayScroll = 0
 			m.arrayAddMode = false
 			m.arrayAddValue = ""
 			m.refreshArrayItems()
+			m.adjustScroll() // key list shrinks to make room for array panel
 		default:
 			// TypeString, TypeBool, TypeInt — text editor
 			m.editMode = true
@@ -349,6 +372,12 @@ func (m *ConfigModel) handleEnumKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.editEnumIdx > 0 {
 			m.editEnumIdx--
 		}
+	case "g":
+		m.editEnumIdx = 0
+	case "G":
+		if len(key.EnumValues) > 0 {
+			m.editEnumIdx = len(key.EnumValues) - 1
+		}
 	case keyEnter:
 		if len(key.EnumValues) == 0 {
 			return m, nil
@@ -430,10 +459,32 @@ func (m *ConfigModel) handleArrayNavKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		if m.arrayCursor < len(m.arrayItems)-1 {
 			m.arrayCursor++
 		}
+		m.adjustArrayScroll()
 	case "k", keyUp:
 		if m.arrayCursor > 0 {
 			m.arrayCursor--
 		}
+		m.adjustArrayScroll()
+	case keyPgDown, "f":
+		m.arrayCursor += m.visibleArrayRows()
+		if m.arrayCursor > len(m.arrayItems)-1 {
+			m.arrayCursor = len(m.arrayItems) - 1
+		}
+		m.adjustArrayScroll()
+	case keyPgUp, "b":
+		m.arrayCursor -= m.visibleArrayRows()
+		if m.arrayCursor < 0 {
+			m.arrayCursor = 0
+		}
+		m.adjustArrayScroll()
+	case "g":
+		m.arrayCursor = 0
+		m.adjustArrayScroll()
+	case "G":
+		if len(m.arrayItems) > 0 {
+			m.arrayCursor = len(m.arrayItems) - 1
+		}
+		m.adjustArrayScroll()
 	case "a":
 		m.arrayAddMode = true
 		m.arrayAddValue = ""
@@ -456,6 +507,7 @@ func (m *ConfigModel) handleArrayNavKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		if m.arrayCursor >= len(m.arrayItems) {
 			m.arrayCursor = max(0, len(m.arrayItems)-1)
 		}
+		m.adjustArrayScroll()
 		return m, func() tea.Msg {
 			if err := config.RemoveFromArray(key.Key, item, scope, home, cwd); err != nil {
 				return configErrorMsg{err: err}
@@ -466,6 +518,7 @@ func (m *ConfigModel) handleArrayNavKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		m.editScopeIdx = (m.editScopeIdx + 1) % len(m.editScopes)
 		m.editScope = m.editScopes[m.editScopeIdx]
 		m.arrayCursor = 0
+		m.arrayScroll = 0
 		m.refreshArrayItems()
 	}
 	return m, nil
@@ -489,6 +542,7 @@ func (m *ConfigModel) handleArrayAddKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		m.arrayItems = append(m.arrayItems, val)
 		m.arrayAddMode = false
 		m.arrayAddValue = ""
+		m.adjustArrayScroll()
 		return m, func() tea.Msg {
 			if err := config.AppendToArray(key.Key, val, scope, home, cwd); err != nil {
 				return configErrorMsg{err: err}
@@ -530,6 +584,7 @@ func (m *ConfigModel) refreshArrayItems() {
 		m.arrayItems = nil
 	}
 	m.arrayCursor = 0
+	m.arrayScroll = 0
 }
 
 // switchCategory changes the active tab and resets the cursor.
@@ -568,6 +623,11 @@ func (m *ConfigModel) applyFilter() {
 // visibleKeyRows returns the number of key rows visible in the key list.
 func (m *ConfigModel) visibleKeyRows() int {
 	v := m.height - configHeaderLines - configFooterLines
+	// When an overlay is active, reserve space for it so it doesn't push
+	// the key list and footer off screen.
+	if m.arrayEditMode {
+		v -= m.arrayPanelHeight()
+	}
 	if v < 1 {
 		return 1
 	}
@@ -582,6 +642,55 @@ func (m *ConfigModel) adjustScroll() {
 	}
 	if m.cursor >= m.scroll+visible {
 		m.scroll = m.cursor - visible + 1
+	}
+}
+
+// arrayPanelChrome is the number of fixed chrome lines in the array panel:
+//   - "\n" separator before panel (rendered in View)  = 1
+//   - "Edit array: ..." header                        = 1
+//   - "Scope: ..." selector                           = 1
+//   - blank line + "Items in this scope (N):"         = 2
+//   - blank line + help text                          = 2
+const arrayPanelChrome = 7
+
+// arrayPanelHeight returns the total height the array panel will consume,
+// including both chrome lines and visible item rows.
+func (m *ConfigModel) arrayPanelHeight() int {
+	items := len(m.arrayItems)
+	if items == 0 {
+		// "(none)" placeholder = 1 line
+		return arrayPanelChrome + 1
+	}
+	// Budget: half the available content area (between header and footer),
+	// but at least 3 item rows and at most the actual item count.
+	available := m.height - configHeaderLines - configFooterLines
+	maxItems := available/2 - arrayPanelChrome
+	if maxItems < 3 {
+		maxItems = 3
+	}
+	if maxItems > items {
+		maxItems = items
+	}
+	return arrayPanelChrome + maxItems
+}
+
+// visibleArrayRows returns the number of item rows visible in the array editor.
+func (m *ConfigModel) visibleArrayRows() int {
+	v := m.arrayPanelHeight() - arrayPanelChrome
+	if v < 1 {
+		return 1
+	}
+	return v
+}
+
+// adjustArrayScroll ensures the array cursor is visible within the scroll window.
+func (m *ConfigModel) adjustArrayScroll() {
+	visible := m.visibleArrayRows()
+	if m.arrayCursor < m.arrayScroll {
+		m.arrayScroll = m.arrayCursor
+	}
+	if m.arrayCursor >= m.arrayScroll+visible {
+		m.arrayScroll = m.arrayCursor - visible + 1
 	}
 }
 
@@ -1044,15 +1153,36 @@ func (m *ConfigModel) renderArrayPanel() string {
 		b.WriteString(mutedStyle.Render("(none)"))
 		b.WriteString("\n")
 	} else {
-		for i, item := range m.arrayItems {
-			s := fmt.Sprintf("%v", item)
-			b.WriteString("  ")
+		total := len(m.arrayItems)
+		visible := m.visibleArrayRows()
+		start := m.arrayScroll
+		end := start + visible
+		if end > total {
+			end = total
+		}
+
+		var rows strings.Builder
+		for i := start; i < end; i++ {
+			s := fmt.Sprintf("%v", m.arrayItems[i])
+			rows.WriteString("  ")
 			if i == m.arrayCursor {
-				b.WriteString(selectedStyle.Render("> " + s))
+				rows.WriteString(selectedStyle.Render("> " + s))
 			} else {
-				b.WriteString("  " + s)
+				rows.WriteString("  " + s)
 			}
-			b.WriteString("\n")
+			rows.WriteString("\n")
+		}
+
+		// Scrollbar
+		var scrollPct float64
+		if total > visible {
+			scrollPct = float64(m.arrayScroll) / float64(total-visible)
+		}
+		bar := renderScrollbar(end-start, total, visible, scrollPct, m.theme)
+		if bar != "" {
+			b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, rows.String(), " ", bar))
+		} else {
+			b.WriteString(rows.String())
 		}
 	}
 
@@ -1158,6 +1288,8 @@ func (m *ConfigModel) renderFooter() string {
 		m.theme.HelpKey.Render("e") + m.theme.HelpDesc.Render(" edit"),
 		m.theme.HelpKey.Render("d") + m.theme.HelpDesc.Render(" delete"),
 		m.theme.HelpKey.Render("j/k") + m.theme.HelpDesc.Render(" scroll"),
+		m.theme.HelpKey.Render("pgup/pgdn") + m.theme.HelpDesc.Render(" page"),
+		m.theme.HelpKey.Render("g/G") + m.theme.HelpDesc.Render(" top/bottom"),
 		m.theme.HelpKey.Render(keyTab) + m.theme.HelpDesc.Render(" next tab"),
 		m.theme.HelpKey.Render("q") + m.theme.HelpDesc.Render(" back"),
 	}

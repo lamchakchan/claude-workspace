@@ -15,6 +15,8 @@ const (
 	keyLeft      = "left"
 	keyRight     = "right"
 	keyBackspace = "backspace"
+	keyPgUp      = "pgup"
+	keyPgDown    = "pgdown"
 )
 
 // IsQuit returns true if the key message is a quit key (q or ctrl+c).
