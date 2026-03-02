@@ -116,7 +116,7 @@ claude-workspace attach /path/to/your/project
 # .claude/settings.local.json.example - Template for personal overrides
 # .claude/CLAUDE.md                  - Project instructions (auto-detected tech stack)
 # .claude/CLAUDE.local.md.example    - Template for personal context
-# .claude/agents/                    - All 5 subagent definitions
+# .claude/agents/                    - All 10 subagent definitions
 # .claude/skills/                    - All 6 skill definitions
 # .claude/hooks/                     - All 4 safety hooks
 # .claude/.gitignore                 - Ignores local overrides
@@ -266,11 +266,16 @@ Subagents are specialized AI agents that run in isolated context windows. They'r
 
 | Agent | When to Use | How to Invoke |
 |-------|-------------|---------------|
-| **planner** | Complex multi-step tasks | "Use the planner to design the approach" |
 | **explorer** | Understanding unfamiliar code | "Use the explorer to map the auth module" |
+| **planner** | Complex multi-step tasks | "Use the planner to design the approach" |
 | **code-reviewer** | After making changes | "Run a code review on my changes" |
 | **test-runner** | After implementation | "Run the test suite and analyze results" |
 | **security-scanner** | Before shipping | "Scan for security vulnerabilities" |
+| **dependency-updater** | Updating packages | "Update dependencies and check for breaking changes" |
+| **infra-reviewer** | Reviewing infrastructure config | "Review the Dockerfile for best practices" |
+| **documentation-writer** | After code changes | "Update the docs to reflect these changes" |
+| **incident-responder** | Production incidents | "Diagnose this stack trace" |
+| **team-lead** | Parallel multi-agent execution | "Use a team to implement this plan in parallel" |
 
 ### Example: Planning a Feature
 

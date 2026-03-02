@@ -73,6 +73,7 @@ claude-workspace doctor
 |-------|----------|
 | [Getting Started](docs/GETTING-STARTED.md) | Installation, setup, first session, subagents, skills, MCP servers, parallel dev, agent teams |
 | [CLI Reference](docs/CLI.md) | Every command, flag, and option with examples |
+| [Agents](docs/AGENTS.md) | Built-in agents reference, configuration, creating custom agents |
 | [Architecture](docs/ARCHITECTURE.md) | Design philosophy, prompt layering, hook system, model strategy, sandboxing |
 | [Config](docs/CONFIG.md) | Settings layering, permission coalescing, MCP scopes, model resolution, env vars, all config file paths |
 | [MCP Configs](docs/MCP-CONFIGS.md) | Ready-to-use MCP server configurations by category (collaboration, databases, APIs, and more) |
