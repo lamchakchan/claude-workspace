@@ -25,13 +25,14 @@ ensure-golangci-lint:
 # ---------- build / test / lint ----------
 build: build-all
 
-install: build
+install: clean build
 	@if [ -w "$(INSTALL_DIR)" ]; then \
-		cp $(BINARY) $(INSTALL_DIR)/$(BINARY); \
+		install -m 755 $(BINARY) $(INSTALL_DIR)/$(BINARY); \
 	else \
-		echo "sudo cp $(BINARY) $(INSTALL_DIR)/$(BINARY)"; \
-		sudo cp $(BINARY) $(INSTALL_DIR)/$(BINARY); \
+		echo "sudo install -m 755 $(BINARY) $(INSTALL_DIR)/$(BINARY)"; \
+		sudo install -m 755 $(BINARY) $(INSTALL_DIR)/$(BINARY); \
 	fi
+	@codesign --force --sign - $(INSTALL_DIR)/$(BINARY) 2>/dev/null || true
 
 test: ensure-go
 	go test ./...
