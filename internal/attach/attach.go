@@ -45,13 +45,13 @@ func Run(targetPath string, allArgs []string) error {
 		filepath.Join(claudeDir, "agents"),
 		filepath.Join(claudeDir, "skills"),
 		filepath.Join(claudeDir, "hooks"),
-		filepath.Join(projectDir, "plans"),
+		filepath.Join(claudeDir, "plans"),
 	} {
 		_ = os.MkdirAll(dir, 0755)
 	}
 
-	// Create plans/.gitkeep to keep directory tracked while contents are gitignored
-	gitkeepPath := filepath.Join(projectDir, "plans", ".gitkeep")
+	// Create .claude/plans/.gitkeep to keep directory tracked while contents are gitignored
+	gitkeepPath := filepath.Join(claudeDir, "plans", ".gitkeep")
 	if !platform.FileExists(gitkeepPath) {
 		_ = os.WriteFile(gitkeepPath, []byte{}, 0644)
 	}

@@ -60,7 +60,7 @@ func newLauncher(version string, theme *Theme) *launcherModel {
 				{name: "Config", desc: "View and edit configuration", icon: "🔧", command: "config"},
 				{name: "Skills", desc: "List available skills and personal commands", icon: "🛠 ", command: "skills"},
 				{name: "Agents", desc: "List configured agents", icon: "🤖", command: "agents"},
-				{name: "Hooks", desc: "List configured hooks", icon: "🪝", command: "hooks"},
+				{name: "Hooks", desc: "List configured hooks", icon: "🪝 ", command: "hooks"},
 				{name: "Sessions", desc: "Browse and review session prompts", icon: "💬", command: "sessions"},
 				{name: "Memory", desc: "Inspect and manage memory layers", icon: "🧠", command: "memory"},
 				{name: "Cost", desc: "View usage and costs", icon: "💰", command: "cost"},
@@ -155,7 +155,7 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 		return pushView(NewUpgrade(m.version, m.theme))
 	case "mcp":
 		if len(item.args) > 0 && item.args[0] == "add" {
-			return pushView(NewMcpAdd(m.theme))
+			return pushView(NewMcpPicker(m.theme))
 		}
 		return pushView(NewMcpList(m.theme))
 

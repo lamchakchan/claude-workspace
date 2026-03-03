@@ -41,8 +41,6 @@ const rootGitignoreTemplate = `.claude/settings.local.json
 .claude/agent-memory-local/
 .claude/MEMORY.md
 .claude/*.jsonl
-plans/*.md
-!plans/.gitkeep
 `
 
 func setupMockFS(claudeGitignoreContent string) func() {
@@ -63,7 +61,7 @@ func setupMockFSWithRoot(rootContent string) func() {
 }
 
 func TestSetupGitignore_CreatesFromTemplate(t *testing.T) {
-	templateContent := "settings.local.json\nCLAUDE.local.md\nagent-memory-local/\nMEMORY.md\n*.jsonl\naudits/\n!*.example\n"
+	templateContent := "settings.local.json\nCLAUDE.local.md\nagent-memory-local/\nMEMORY.md\n*.jsonl\naudits/\nplans/*.md\n!plans/.gitkeep\n!*.example\n"
 	restore := setupMockFS(templateContent)
 	defer restore()
 
@@ -79,7 +77,7 @@ func TestSetupGitignore_CreatesFromTemplate(t *testing.T) {
 	}
 
 	s := string(content)
-	for _, entry := range []string{"settings.local.json", "MEMORY.md", "*.jsonl", "audits/", "!*.example"} {
+	for _, entry := range []string{"settings.local.json", "MEMORY.md", "*.jsonl", "audits/", "plans/*.md", "!plans/.gitkeep", "!*.example"} {
 		if !strings.Contains(s, entry) {
 			t.Errorf("should contain %q", entry)
 		}
@@ -87,7 +85,7 @@ func TestSetupGitignore_CreatesFromTemplate(t *testing.T) {
 }
 
 func TestSetupGitignore_UpdatesExisting(t *testing.T) {
-	templateContent := "settings.local.json\nCLAUDE.local.md\nagent-memory-local/\nMEMORY.md\n*.jsonl\naudits/\n!*.example\n"
+	templateContent := "settings.local.json\nCLAUDE.local.md\nagent-memory-local/\nMEMORY.md\n*.jsonl\naudits/\nplans/*.md\n!plans/.gitkeep\n!*.example\n"
 	restore := setupMockFS(templateContent)
 	defer restore()
 
@@ -139,8 +137,6 @@ func TestSetupRootGitignore_Creates(t *testing.T) {
 		".claude/agent-memory-local/",
 		".claude/MEMORY.md",
 		".claude/*.jsonl",
-		"plans/*.md",
-		"!plans/.gitkeep",
 	} {
 		if !strings.Contains(s, entry) {
 			t.Errorf("should contain %q", entry)

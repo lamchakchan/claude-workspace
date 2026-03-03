@@ -7,6 +7,3 @@
 .claude/MEMORY.md
 .claude/*.jsonl
 
-# Plans (generated, may contain sensitive info)
-plans/*.md
-!plans/.gitkeep

@@ -566,14 +566,13 @@ func ListTo(w io.Writer) error {
 	}
 
 	platform.PrintSection(w, "Quick Add Commands")
-	fmt.Fprintln(w, "  Local server (no auth):       claude-workspace mcp add <name> -- <cmd>")
-	fmt.Fprintln(w, "  Local server (API key):       claude-workspace mcp add <name> --api-key API_KEY -- <cmd>")
-	fmt.Fprintln(w, "  User-scoped server:           claude-workspace mcp add <name> --scope user -- <cmd>")
-	fmt.Fprintln(w, "  Remote server (OAuth):        claude-workspace mcp remote <url>")
-	fmt.Fprintln(w, "  Remote server (Bearer):       claude-workspace mcp remote <url> --bearer")
-	fmt.Fprintln(w, "  Remote server (client creds): claude-workspace mcp remote <url> --oauth --client-id <id> --client-secret")
+	fmt.Fprintln(w, "  Local server (no auth):       claude-workspace mcp add <name> --scope user -- <cmd>")
+	fmt.Fprintln(w, "  Local server (API key):       claude-workspace mcp add <name> --scope user --api-key API_KEY -- <cmd>")
+	fmt.Fprintln(w, "  Remote server (OAuth):        claude-workspace mcp remote <url> --scope user")
+	fmt.Fprintln(w, "  Remote server (Bearer):       claude-workspace mcp remote <url> --scope user --bearer")
+	fmt.Fprintln(w, "  Remote server (client creds): claude-workspace mcp remote <url> --scope user --oauth --client-id <id> --client-secret")
 	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "  Scopes: local (default, per-project) | user (cross-project) | project (shared via .mcp.json)")
+	fmt.Fprintln(w, "  Scopes: user (cross-project, default in examples) | local (per-project) | project (shared via .mcp.json)")
 	fmt.Fprintln(w)
 
 	return nil
@@ -606,19 +605,19 @@ Security:
 Examples:
 
   # Server requiring an API key (prompted securely)
-  claude-workspace mcp add brave-search --api-key BRAVE_API_KEY \
+  claude-workspace mcp add brave-search --scope user --api-key BRAVE_API_KEY \
     -- npx -y @modelcontextprotocol/server-brave-search
 
   # Database with connection string as secret
-  claude-workspace mcp add postgres --api-key DATABASE_URL \
+  claude-workspace mcp add postgres --scope user --api-key DATABASE_URL \
     -- npx -y @bytebase/dbhub
 
   # Remote server with OAuth (GitHub, Sentry, Notion, etc.)
-  claude-workspace mcp add github --transport http \
+  claude-workspace mcp add github --scope user --transport http \
     https://api.githubcopilot.com/mcp/
 
   # Remote server with Bearer token
-  claude-workspace mcp add my-api --bearer --transport http \
+  claude-workspace mcp add my-api --scope user --bearer --transport http \
     https://api.example.com/mcp
 
   # Share server with team (key stays local)
@@ -646,20 +645,20 @@ Other Options:
 Examples:
 
   # OAuth servers (most cloud services - authenticate via /mcp)
-  claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry
-  claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github
-  claude-workspace mcp remote https://mcp.notion.com/mcp --name notion
-  claude-workspace mcp remote https://mcp.linear.app/mcp --name linear
+  claude-workspace mcp remote https://mcp.sentry.dev/mcp --scope user --name sentry
+  claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --scope user --name github
+  claude-workspace mcp remote https://mcp.notion.com/mcp --scope user --name notion
+  claude-workspace mcp remote https://mcp.linear.app/mcp --scope user --name linear
 
   # Bearer token (prompted securely)
-  claude-workspace mcp remote https://mcp.example.com --bearer
+  claude-workspace mcp remote https://mcp.example.com --scope user --bearer
 
   # Pre-registered OAuth credentials
-  claude-workspace mcp remote https://mcp.example.com \
+  claude-workspace mcp remote https://mcp.example.com --scope user \
     --oauth --client-id my-client-id --client-secret
 
   # Organization gateway
-  claude-workspace mcp remote https://mcp-gateway.company.com --name company
-  claude-workspace mcp remote https://mcp-gateway.company.com --bearer --name company
+  claude-workspace mcp remote https://mcp-gateway.company.com --scope user --name company
+  claude-workspace mcp remote https://mcp-gateway.company.com --scope user --bearer --name company
 `)
 }

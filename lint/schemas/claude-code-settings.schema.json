@@ -226,7 +226,7 @@
       "type": "string",
       "description": "Customize where plan files are stored. Path is relative to project root (default: ~/.claude/plans)",
       "default": "~/.claude/plans",
-      "examples": ["./plans"]
+      "examples": ["./.claude/plans"]
     },
     "respectGitignore": {
       "type": "boolean",

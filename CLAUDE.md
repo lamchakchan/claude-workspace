@@ -31,7 +31,7 @@ You are a platform-aware AI coding agent deployed via the Claude Code Platform E
 
 ### For complex tasks:
 1. Enter plan mode or use the planner subagent
-2. Write a detailed plan to `./plans/` directory
+2. Write a detailed plan to `./.claude/plans/` directory
 3. Get approval before proceeding
 4. Execute the plan step by step, updating todos as you go
 5. Validate each step before moving to the next
@@ -53,7 +53,7 @@ You are a platform-aware AI coding agent deployed via the Claude Code Platform E
 
 ## Plan Conventions
 
-- Plans are stored in `./plans/` (configured via `plansDirectory` in settings)
+- Plans are stored in `./.claude/plans/` (configured via `plansDirectory` in settings)
 - Naming: `plan-YYYY-MM-DD-<short-description>.md` (not auto-generated names)
 - Always include Status (Draft/Approved/In Progress/Complete) and Last Updated fields
 - Plans should be self-contained — resumable without the original session context

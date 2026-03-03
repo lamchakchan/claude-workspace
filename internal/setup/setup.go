@@ -102,7 +102,7 @@ func runTo(w io.Writer, force, interactive bool) error {
 	fmt.Fprintln(w)
 	platform.PrintCommand(w, "claude-workspace attach /path/to/project")
 	platform.PrintCommand(w, "cd /path/to/project && claude")
-	platform.PrintCommand(w, "claude-workspace mcp add <name> -- <command>")
+	platform.PrintCommand(w, "claude-workspace mcp add <name> --scope user -- <command>")
 	fmt.Fprintln(w)
 
 	return nil

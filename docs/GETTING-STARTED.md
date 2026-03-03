@@ -121,7 +121,7 @@ claude-workspace attach /path/to/your/project
 # .claude/hooks/                     - All 4 safety hooks
 # .claude/.gitignore                 - Ignores local overrides
 # .mcp.json                         - MCP server configurations
-# plans/                            - Directory for implementation plans
+# .claude/plans/                    - Directory for implementation plans
 ```
 
 ### Symlink Attach (Keep in Sync)
@@ -282,7 +282,7 @@ Subagents are specialized AI agents that run in isolated context windows. They'r
 The planner will:
 1. Explore your auth setup
 2. Research relevant files
-3. Write a plan to `./plans/plan-2026-02-20-oauth2-login.md`
+3. Write a plan to `./.claude/plans/plan-2026-02-20-oauth2-login.md`
 4. Present it for your approval
 
 You can review the plan file directly and ask for changes before Claude proceeds.
@@ -356,41 +356,41 @@ claude mcp add --scope user engram -- engram mcp
 **Add a database (with API key):**
 ```bash
 # The --api-key flag prompts securely for the value (masked input)
-claude-workspace mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+claude-workspace mcp add postgres --scope user --api-key DATABASE_URL -- npx -y @bytebase/dbhub
 # You'll be prompted: Enter value for DATABASE_URL: ****
 # The key is stored as an env var in local Claude config (NOT in .mcp.json)
 ```
 
 **Add a search API:**
 ```bash
-claude-workspace mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
+claude-workspace mcp add brave --scope user --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
 ```
 
 **Add GitHub (remote):**
 ```bash
 # OAuth (browser-based):
-claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github
+claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --scope user --name github
 # Then in Claude Code: /mcp → Authenticate
 
 # PAT (token-based):
-claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github --bearer
+claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --scope user --name github --bearer
 # You'll be prompted: Enter Bearer token: ****
 ```
 
 **Add a remote server with Bearer token:**
 ```bash
-claude-workspace mcp remote https://mcp-gateway.company.com --name gateway --bearer
+claude-workspace mcp remote https://mcp-gateway.company.com --scope user --name gateway --bearer
 # You'll be prompted: Enter Bearer token: ****
 ```
 
 **Add Sentry for error monitoring:**
 ```bash
-claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry
+claude-workspace mcp remote https://mcp.sentry.dev/mcp --scope user --name sentry
 ```
 
 **Add Notion:**
 ```bash
-claude-workspace mcp remote https://mcp.notion.com/mcp --name notion
+claude-workspace mcp remote https://mcp.notion.com/mcp --scope user --name notion
 ```
 
 ### MCP Authentication Methods
@@ -407,7 +407,7 @@ All secrets are entered via **masked input** (not visible on screen or in shell 
 
 **OAuth with pre-registered app:**
 ```bash
-claude-workspace mcp remote https://mcp.example.com --name example \
+claude-workspace mcp remote https://mcp.example.com --scope user --name example \
   --oauth --client-id my-app-id --client-secret
 # Prompts for client secret (masked), then you authenticate via /mcp in Claude Code
 ```
@@ -432,13 +432,13 @@ If your organization runs a centralized MCP gateway:
 
 ```bash
 # Without auth (gateway handles auth internally)
-claude-workspace mcp remote https://mcp-gateway.company.com --name company-gateway
+claude-workspace mcp remote https://mcp-gateway.company.com --scope user --name company-gateway
 
 # With Bearer token auth
-claude-workspace mcp remote https://mcp-gateway.company.com --name company-gateway --bearer
+claude-workspace mcp remote https://mcp-gateway.company.com --scope user --name company-gateway --bearer
 
 # With OAuth
-claude-workspace mcp remote https://mcp-gateway.company.com --name company-gateway --oauth
+claude-workspace mcp remote https://mcp-gateway.company.com --scope user --name company-gateway --oauth
 ```
 
 ### Checking MCP Status
@@ -571,7 +571,7 @@ To disable either hook, remove its entry from `.claude/settings.json` under the 
 The `team-lead` agent is a specialized coordinator that decomposes plans into parallel tasks and manages teammates. You can use it directly:
 
 ```
-> Use the team-lead agent to execute this plan: ./plans/plan-2026-02-28-add-feature.md
+> Use the team-lead agent to execute this plan: ./.claude/plans/plan-2026-02-28-add-feature.md
 ```
 
 Or let `/plan-and-execute` suggest it automatically — after plan approval, it assesses whether the plan has parallelizable phases and recommends team execution when beneficial.

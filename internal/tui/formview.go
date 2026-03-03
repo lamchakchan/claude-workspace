@@ -13,11 +13,6 @@ func formViewUpdate(form *FormModel, msg tea.Msg, onSubmit func([]string) tea.Cm
 			return form, func() tea.Msg { return PopViewMsg{} }
 		}
 		return form, onSubmit(msg.Values)
-
-	case tea.KeyPressMsg:
-		if IsQuit(msg) || IsBack(msg) {
-			return form, func() tea.Msg { return PopViewMsg{} }
-		}
 	}
 
 	return form.Update(msg)

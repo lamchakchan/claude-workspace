@@ -59,7 +59,7 @@ Skills can be used in sequence within a session. A common pattern:
 
 Or across sessions:
 
-1. Session 1: `/plan-and-execute` → plan is saved to `./plans/`
+1. Session 1: `/plan-and-execute` → plan is saved to `./.claude/plans/`
 2. Session 2: `/plan-resume` → pick up where you left off
 
 ---
@@ -79,7 +79,7 @@ The platform ships with 6 skills:
 
 ### plan-and-execute
 
-Enforces a plan-first workflow for non-trivial tasks. Claude analyzes the request, researches the codebase, writes a plan to `./plans/`, gets your approval, then executes step by step with validation after each change.
+Enforces a plan-first workflow for non-trivial tasks. Claude analyzes the request, researches the codebase, writes a plan to `./.claude/plans/`, gets your approval, then executes step by step with validation after each change.
 
 **Workflow:** Resume check → Research → Write plan → Get approval → Execute → Validate → Update docs
 
@@ -87,7 +87,7 @@ Plans use status tracking (`Draft` → `Approved` → `In Progress` → `Complet
 
 ### plan-resume
 
-Picks up a previously parked plan. Lists all plans in `./plans/`, shows their status, assesses what's already done, and creates a todo list from the remaining steps.
+Picks up a previously parked plan. Lists all plans in `./.claude/plans/`, shows their status, assesses what's already done, and creates a todo list from the remaining steps.
 
 **Workflow:** Discover plans → Select one → Assess progress → Update status → Create todos → Resume execution
 
