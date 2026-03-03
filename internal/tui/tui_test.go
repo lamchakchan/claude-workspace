@@ -12,6 +12,13 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/sessions"
 )
 
+const (
+	scopeUser    = "user"
+	scopeProject = "project"
+)
+
+var scopeChoices = []string{"local", scopeUser, scopeProject}
+
 func TestDefaultTheme(t *testing.T) {
 	theme := DefaultTheme()
 	if theme.Primary == nil {
@@ -133,26 +140,26 @@ func TestSelectField_DefaultValue(t *testing.T) {
 func TestSelectField_RightCycles(t *testing.T) {
 	theme := DefaultTheme()
 	fields := []FormField{
-		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+		{Label: "Scope", Choices: scopeChoices},
 	}
 	form := NewForm("Test", fields, &theme)
 
 	right := tea.KeyPressMsg{Code: tea.KeyRight}
 	form, _ = form.handleFormKey(right)
-	if got := form.Values()[0]; got != "user" {
-		t.Errorf("after 1 right: choice = %q, want %q", got, "user")
+	if got := form.Values()[0]; got != scopeUser {
+		t.Errorf("after 1 right: choice = %q, want %q", got, scopeUser)
 	}
 
 	form, _ = form.handleFormKey(right)
-	if got := form.Values()[0]; got != "project" {
-		t.Errorf("after 2 right: choice = %q, want %q", got, "project")
+	if got := form.Values()[0]; got != scopeProject {
+		t.Errorf("after 2 right: choice = %q, want %q", got, scopeProject)
 	}
 }
 
 func TestSelectField_RightWraps(t *testing.T) {
 	theme := DefaultTheme()
 	fields := []FormField{
-		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+		{Label: "Scope", Choices: scopeChoices},
 	}
 	form := NewForm("Test", fields, &theme)
 
@@ -169,15 +176,15 @@ func TestSelectField_RightWraps(t *testing.T) {
 func TestSelectField_LeftWraps(t *testing.T) {
 	theme := DefaultTheme()
 	fields := []FormField{
-		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+		{Label: "Scope", Choices: scopeChoices},
 	}
 	form := NewForm("Test", fields, &theme)
 
 	// Left from index 0 should wrap to last choice.
 	left := tea.KeyPressMsg{Code: tea.KeyLeft}
 	form, _ = form.handleFormKey(left)
-	if got := form.Values()[0]; got != "project" {
-		t.Errorf("after left wrap: choice = %q, want %q", got, "project")
+	if got := form.Values()[0]; got != scopeProject {
+		t.Errorf("after left wrap: choice = %q, want %q", got, scopeProject)
 	}
 }
 
@@ -185,7 +192,7 @@ func TestSelectField_AdjacentTextFieldUnaffected(t *testing.T) {
 	theme := DefaultTheme()
 	fields := []FormField{
 		{Label: "Name"},
-		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+		{Label: "Scope", Choices: scopeChoices},
 	}
 	form := NewForm("Test", fields, &theme)
 
@@ -201,8 +208,8 @@ func TestSelectField_AdjacentTextFieldUnaffected(t *testing.T) {
 	if vals[0] != "" {
 		t.Errorf("text field value = %q, want empty", vals[0])
 	}
-	if vals[1] != "user" {
-		t.Errorf("select field after right = %q, want %q", vals[1], "user")
+	if vals[1] != scopeUser {
+		t.Errorf("select field after right = %q, want %q", vals[1], scopeUser)
 	}
 }
 
@@ -650,8 +657,8 @@ func TestNewMcpAddHTTP(t *testing.T) {
 	}
 	// Scope should default to "user"
 	vals := m.form.Values()
-	if vals[2] != "user" {
-		t.Errorf("HTTP default scope = %q, want %q", vals[2], "user")
+	if vals[2] != scopeUser {
+		t.Errorf("HTTP default scope = %q, want %q", vals[2], scopeUser)
 	}
 }
 
@@ -663,7 +670,7 @@ func TestNewMcpAddFromRecipe_Stdio(t *testing.T) {
 		Command:   "npx",
 		Args:      []string{"-y", "@modelcontextprotocol/server-brave-search"},
 		EnvVars:   map[string]string{"BRAVE_API_KEY": "${BRAVE_API_KEY}"},
-		Scope:     "user",
+		Scope:     scopeUser,
 	}
 	m := NewMcpAddFromRecipe(recipe, &theme)
 	if m.transport != mcpregistry.TransportStdio {
@@ -679,8 +686,8 @@ func TestNewMcpAddFromRecipe_Stdio(t *testing.T) {
 	if vals[2] != "npx -y @modelcontextprotocol/server-brave-search" {
 		t.Errorf("command = %q, want pre-filled command string", vals[2])
 	}
-	if vals[3] != "user" {
-		t.Errorf("scope = %q, want %q", vals[3], "user")
+	if vals[3] != scopeUser {
+		t.Errorf("scope = %q, want %q", vals[3], scopeUser)
 	}
 }
 
@@ -690,7 +697,7 @@ func TestNewMcpAddFromRecipe_HTTP(t *testing.T) {
 		Key:       "sentry",
 		Transport: mcpregistry.TransportHTTP,
 		URL:       "https://mcp.sentry.dev/mcp",
-		Scope:     "user",
+		Scope:     scopeUser,
 	}
 	m := NewMcpAddFromRecipe(recipe, &theme)
 	if m.transport != mcpregistry.TransportHTTP {
@@ -703,8 +710,8 @@ func TestNewMcpAddFromRecipe_HTTP(t *testing.T) {
 	if vals[1] != "https://mcp.sentry.dev/mcp" {
 		t.Errorf("url = %q, want %q", vals[1], "https://mcp.sentry.dev/mcp")
 	}
-	if vals[2] != "user" {
-		t.Errorf("scope = %q, want %q", vals[2], "user")
+	if vals[2] != scopeUser {
+		t.Errorf("scope = %q, want %q", vals[2], scopeUser)
 	}
 }
 
@@ -726,27 +733,27 @@ func TestFormSetValue(t *testing.T) {
 func TestFormSetChoice(t *testing.T) {
 	theme := DefaultTheme()
 	fields := []FormField{
-		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+		{Label: "Scope", Choices: scopeChoices},
 	}
 	form := NewForm("Test", fields, &theme)
 
-	form.SetChoice(0, "user")
-	if got := form.Values()[0]; got != "user" {
-		t.Errorf("SetChoice('user') = %q, want %q", got, "user")
+	form.SetChoice(0, scopeUser)
+	if got := form.Values()[0]; got != scopeUser {
+		t.Errorf("SetChoice('user') = %q, want %q", got, scopeUser)
 	}
 
-	form.SetChoice(0, "project")
-	if got := form.Values()[0]; got != "project" {
-		t.Errorf("SetChoice('project') = %q, want %q", got, "project")
+	form.SetChoice(0, scopeProject)
+	if got := form.Values()[0]; got != scopeProject {
+		t.Errorf("SetChoice('project') = %q, want %q", got, scopeProject)
 	}
 
 	// Non-existent choice should not change value
 	form.SetChoice(0, "nonexistent")
-	if got := form.Values()[0]; got != "project" {
-		t.Errorf("SetChoice('nonexistent') = %q, want %q (unchanged)", got, "project")
+	if got := form.Values()[0]; got != scopeProject {
+		t.Errorf("SetChoice('nonexistent') = %q, want %q (unchanged)", got, scopeProject)
 	}
 
 	// Out of bounds should not panic
-	form.SetChoice(-1, "user")
-	form.SetChoice(99, "user")
+	form.SetChoice(-1, scopeUser)
+	form.SetChoice(99, scopeUser)
 }

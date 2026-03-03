@@ -86,85 +86,102 @@ func LoadAll(configFS fs.FS) ([]Category, error) {
 			continue
 		}
 
-		data, err := fs.ReadFile(configFS, entry.Name())
-		if err != nil {
-			return nil, fmt.Errorf("reading %s: %w", entry.Name(), err)
-		}
-
-		var cf configFile
-		if err := json.Unmarshal(data, &cf); err != nil {
-			return nil, fmt.Errorf("parsing %s: %w", entry.Name(), err)
-		}
-
-		categoryName := strings.TrimSuffix(entry.Name(), ".json")
-
-		for key, raw := range cf.Examples {
-			var ex serverExample
-			if err := json.Unmarshal(raw, &ex); err != nil {
-				return nil, fmt.Errorf("parsing example %q in %s: %w", key, entry.Name(), err)
-			}
-
-			recipe := Recipe{
-				Key:      key,
-				Category: categoryName,
-				Notes:    cf.Notes[key],
-				SetupCmd: cf.SetupCommands[key],
-				Scope:    parseScope(cf.Notes[key]),
-			}
-
-			if ex.Type == "http" || ex.URL != "" {
-				recipe.Transport = TransportHTTP
-				recipe.URL = ex.URL
-			} else {
-				recipe.Transport = TransportStdio
-				recipe.Command = ex.Command
-				recipe.Args = ex.Args
-			}
-
-			// Collect env vars, filtering out empty ones
-			if len(ex.Env) > 0 {
-				recipe.EnvVars = make(map[string]string, len(ex.Env))
-				for k, v := range ex.Env {
-					recipe.EnvVars[k] = v
-				}
-			}
-
-			catMap[categoryName] = append(catMap[categoryName], recipe)
+		if err := loadConfigFile(configFS, entry.Name(), catMap); err != nil {
+			return nil, err
 		}
 	}
 
-	// Build ordered categories
+	return buildOrderedCategories(catMap), nil
+}
+
+// loadConfigFile reads a single JSON config file and populates catMap with its recipes.
+func loadConfigFile(configFS fs.FS, filename string, catMap map[string][]Recipe) error {
+	data, err := fs.ReadFile(configFS, filename)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", filename, err)
+	}
+
+	var cf configFile
+	if err := json.Unmarshal(data, &cf); err != nil {
+		return fmt.Errorf("parsing %s: %w", filename, err)
+	}
+
+	categoryName := strings.TrimSuffix(filename, ".json")
+
+	for key, raw := range cf.Examples {
+		recipe, err := parseRecipe(key, categoryName, raw, &cf)
+		if err != nil {
+			return fmt.Errorf("parsing example %q in %s: %w", key, filename, err)
+		}
+		catMap[categoryName] = append(catMap[categoryName], recipe)
+	}
+
+	return nil
+}
+
+// parseRecipe converts a raw JSON example into a Recipe.
+func parseRecipe(key, category string, raw json.RawMessage, cf *configFile) (Recipe, error) {
+	var ex serverExample
+	if err := json.Unmarshal(raw, &ex); err != nil {
+		return Recipe{}, err
+	}
+
+	recipe := Recipe{
+		Key:      key,
+		Category: category,
+		Notes:    cf.Notes[key],
+		SetupCmd: cf.SetupCommands[key],
+		Scope:    parseScope(cf.Notes[key]),
+	}
+
+	if ex.Type == "http" || ex.URL != "" {
+		recipe.Transport = TransportHTTP
+		recipe.URL = ex.URL
+	} else {
+		recipe.Transport = TransportStdio
+		recipe.Command = ex.Command
+		recipe.Args = ex.Args
+	}
+
+	if len(ex.Env) > 0 {
+		recipe.EnvVars = make(map[string]string, len(ex.Env))
+		for k, v := range ex.Env {
+			recipe.EnvVars[k] = v
+		}
+	}
+
+	return recipe, nil
+}
+
+// buildOrderedCategories creates a sorted slice of categories from catMap,
+// following the predefined categoryOrder, then appending any extras.
+func buildOrderedCategories(catMap map[string][]Recipe) []Category {
 	categories := make([]Category, 0, len(catMap))
+	seen := make(map[string]bool, len(categoryOrder))
+
 	for _, name := range categoryOrder {
 		recipes, ok := catMap[name]
 		if !ok {
 			continue
 		}
-		// Sort recipes by key within each category for stable ordering
+		sort.Slice(recipes, func(i, j int) bool {
+			return recipes[i].Key < recipes[j].Key
+		})
+		categories = append(categories, Category{Name: name, Recipes: recipes})
+		seen[name] = true
+	}
+
+	for name, recipes := range catMap {
+		if seen[name] {
+			continue
+		}
 		sort.Slice(recipes, func(i, j int) bool {
 			return recipes[i].Key < recipes[j].Key
 		})
 		categories = append(categories, Category{Name: name, Recipes: recipes})
 	}
 
-	// Append any categories not in the predefined order
-	for name, recipes := range catMap {
-		found := false
-		for _, ordered := range categoryOrder {
-			if name == ordered {
-				found = true
-				break
-			}
-		}
-		if !found {
-			sort.Slice(recipes, func(i, j int) bool {
-				return recipes[i].Key < recipes[j].Key
-			})
-			categories = append(categories, Category{Name: name, Recipes: recipes})
-		}
-	}
-
-	return categories, nil
+	return categories
 }
 
 // parseScope extracts the recommended scope from a notes string.

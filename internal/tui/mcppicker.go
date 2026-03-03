@@ -71,9 +71,11 @@ func (m *McpPickerModel) buildEntries(categories []mcpregistry.Category) {
 	m.entries = make([]mcpPickerEntry, 0, count)
 
 	// Custom entries at the top
-	m.entries = append(m.entries, mcpPickerEntry{isHeader: true, header: "Custom"})
-	m.entries = append(m.entries, mcpPickerEntry{isCustom: true, transport: mcpregistry.TransportStdio})
-	m.entries = append(m.entries, mcpPickerEntry{isCustom: true, transport: mcpregistry.TransportHTTP})
+	m.entries = append(m.entries,
+		mcpPickerEntry{isHeader: true, header: "Custom"},
+		mcpPickerEntry{isCustom: true, transport: mcpregistry.TransportStdio},
+		mcpPickerEntry{isCustom: true, transport: mcpregistry.TransportHTTP},
+	)
 
 	// Recipe entries by category
 	for _, cat := range categories {
@@ -144,7 +146,8 @@ func (m *McpPickerModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.clampScroll()
 
 	case keyEnter:
-		return m, m.activateEntry()
+		cmd := m.activateEntry()
+		return m, cmd
 	}
 	return m, nil
 }
