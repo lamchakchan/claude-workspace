@@ -85,6 +85,25 @@ func (m *FormModel) Values() []string {
 	return vals
 }
 
+// SetValue sets the text input value at field index i.
+func (m *FormModel) SetValue(i int, value string) {
+	if i >= 0 && i < len(m.inputs) {
+		m.inputs[i].SetValue(value)
+	}
+}
+
+// SetChoice selects the choice matching value at field index i.
+func (m *FormModel) SetChoice(i int, value string) {
+	if i >= 0 && i < len(m.Fields) && len(m.Fields[i].Choices) > 0 {
+		for j, c := range m.Fields[i].Choices {
+			if c == value {
+				m.choiceIdx[i] = j
+				break
+			}
+		}
+	}
+}
+
 func (m *FormModel) Init() tea.Cmd {
 	if len(m.Fields) > 0 && len(m.Fields[0].Choices) == 0 {
 		return textinput.Blink
@@ -134,15 +153,21 @@ func (m *FormModel) handleFormKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
 		if len(m.Fields[m.cursor].Choices) > 0 {
 			n := len(m.Fields[m.cursor].Choices)
 			m.choiceIdx[m.cursor] = (m.choiceIdx[m.cursor] - 1 + n) % n
+			return m, nil
 		}
-		return m, nil
+		var cmd tea.Cmd
+		m.inputs[m.cursor], cmd = m.inputs[m.cursor].Update(msg)
+		return m, cmd
 
 	case keyRight:
 		if len(m.Fields[m.cursor].Choices) > 0 {
 			n := len(m.Fields[m.cursor].Choices)
 			m.choiceIdx[m.cursor] = (m.choiceIdx[m.cursor] + 1) % n
+			return m, nil
 		}
-		return m, nil
+		var cmd tea.Cmd
+		m.inputs[m.cursor], cmd = m.inputs[m.cursor].Update(msg)
+		return m, cmd
 
 	case keyTab:
 		return m.handleTabKey(msg)
@@ -166,6 +191,13 @@ func (m *FormModel) handleFormKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
 		m.cursor++
 		if len(m.Fields[m.cursor].Choices) == 0 {
 			m.inputs[m.cursor].Focus()
+		}
+
+	default:
+		if len(m.Fields[m.cursor].Choices) == 0 {
+			var cmd tea.Cmd
+			m.inputs[m.cursor], cmd = m.inputs[m.cursor].Update(msg)
+			return m, cmd
 		}
 	}
 	return m, nil

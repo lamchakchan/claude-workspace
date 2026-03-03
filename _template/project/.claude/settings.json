@@ -79,7 +79,7 @@
     ]
   },
   "alwaysThinkingEnabled": true,
-  "plansDirectory": "./plans",
+  "plansDirectory": "./.claude/plans",
   "showTurnDuration": true,
   "enableAllProjectMcpServers": false,
   "respectGitignore": true

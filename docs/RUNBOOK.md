@@ -44,7 +44,7 @@ Procedures for maintaining the Claude Code Platform, troubleshooting issues, and
 | Review permission rules | Read `.claude/settings.json` | Adjust as needed |
 | Review CLAUDE.md files | Read all CLAUDE.md layers | Keep context current |
 | Clean old worktrees | `git worktree list` → remove stale ones | Free disk space |
-| Clean old plans | `ls plans/` → archive old ones | Keep directory manageable |
+| Clean old plans | `ls .claude/plans/` → archive old ones | Keep directory manageable |
 
 ### Quarterly
 
@@ -363,22 +363,22 @@ claude-workspace mcp list
 
 ```bash
 # Local stdio server (no auth)
-claude-workspace mcp add <name> -- <command> [args...]
+claude-workspace mcp add <name> --scope user -- <command> [args...]
 
 # Local server with API key (securely prompted, masked input)
-claude-workspace mcp add <name> --api-key ENV_VAR_NAME -- <command> [args...]
+claude-workspace mcp add <name> --scope user --api-key ENV_VAR_NAME -- <command> [args...]
 
 # Remote HTTP server (no auth or OAuth via /mcp)
-claude-workspace mcp remote <url> --name <name>
+claude-workspace mcp remote <url> --scope user --name <name>
 
 # Remote server with Bearer token (securely prompted)
-claude-workspace mcp remote <url> --name <name> --bearer
+claude-workspace mcp remote <url> --scope user --name <name> --bearer
 
 # Remote server with OAuth + pre-registered client
-claude-workspace mcp remote <url> --name <name> --oauth --client-id <id> --client-secret
+claude-workspace mcp remote <url> --scope user --name <name> --oauth --client-id <id> --client-secret
 
 # Directly via Claude Code CLI
-claude mcp add --transport http <name> <url>
+claude mcp add --scope user --transport http <name> <url>
 ```
 
 ### Manage MCP Secrets
@@ -387,7 +387,7 @@ Secrets added via `--api-key`, `--bearer`, or `--client-secret` are stored in yo
 
 ```bash
 # Re-run the add command to update a secret (will overwrite)
-claude-workspace mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+claude-workspace mcp add postgres --scope user --api-key DATABASE_URL -- npx -y @bytebase/dbhub
 
 # Check where secrets are stored
 # Local servers: env vars in Claude's local MCP config
@@ -640,17 +640,17 @@ MCP_TIMEOUT=30000 claude
 
 # Remove and re-add
 claude mcp remove <name>
-claude mcp add --transport stdio <name> -- <command>
+claude mcp add --scope user --transport stdio <name> -- <command>
 ```
 
 ### "MCP server authentication failed"
 
 ```bash
 # Re-add with fresh credentials (masked prompt)
-claude-workspace mcp add <name> --api-key ENV_VAR_NAME -- <command>
+claude-workspace mcp add <name> --scope user --api-key ENV_VAR_NAME -- <command>
 
 # For remote servers with expired Bearer token
-claude-workspace mcp remote <url> --name <name> --bearer
+claude-workspace mcp remote <url> --scope user --name <name> --bearer
 
 # For OAuth servers, re-authenticate in Claude Code
 # /mcp → select server → Authenticate

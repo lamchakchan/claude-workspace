@@ -263,18 +263,18 @@ claude-workspace mcp add <name> [options] [-- <command> [args...]]
 
 ```bash
 # Local server with API key (prompted securely)
-claude-workspace mcp add brave-search --api-key BRAVE_API_KEY \
+claude-workspace mcp add brave-search --scope user --api-key BRAVE_API_KEY \
   -- npx -y @modelcontextprotocol/server-brave-search
 
 # Database server
-claude-workspace mcp add postgres --api-key DATABASE_URL \
+claude-workspace mcp add postgres --scope user --api-key DATABASE_URL \
   -- npx -y @bytebase/dbhub
 
 # GitHub (OAuth — authenticate via /mcp in Claude Code)
-claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github
+claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --scope user --name github
 
 # GitHub (PAT — you'll be prompted for your Personal Access Token)
-claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --name github --bearer
+claude-workspace mcp remote https://api.githubcopilot.com/mcp/ --scope user --name github --bearer
 ```
 
 **See also:** [Getting Started - MCP Servers](GETTING-STARTED.md)
@@ -307,14 +307,14 @@ claude-workspace mcp remote <url> [options]
 
 ```bash
 # OAuth servers (authenticate via /mcp in Claude Code)
-claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry
-claude-workspace mcp remote https://mcp.notion.com/mcp --name notion
+claude-workspace mcp remote https://mcp.sentry.dev/mcp --scope user --name sentry
+claude-workspace mcp remote https://mcp.notion.com/mcp --scope user --name notion
 
 # Bearer token authentication
-claude-workspace mcp remote https://mcp.example.com --bearer
+claude-workspace mcp remote https://mcp.example.com --scope user --bearer
 
 # Organization gateway
-claude-workspace mcp remote https://mcp-gateway.company.com --name company
+claude-workspace mcp remote https://mcp-gateway.company.com --scope user --name company
 ```
 
 **See also:** [Getting Started - MCP Servers](GETTING-STARTED.md)

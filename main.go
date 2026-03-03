@@ -111,10 +111,10 @@ Examples:
   claude-workspace setup
   claude-workspace attach /path/to/my-project
   claude-workspace sandbox /path/to/my-project feature-auth
-  claude-workspace mcp add postgres --api-key DATABASE_URL -- npx -y @bytebase/dbhub
-  claude-workspace mcp add brave --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
-  claude-workspace mcp remote https://mcp.sentry.dev/mcp --name sentry
-  claude-workspace mcp remote https://mcp-gateway.company.com --bearer
+  claude-workspace mcp add postgres --scope user --api-key DATABASE_URL -- npx -y @bytebase/dbhub
+  claude-workspace mcp add brave --scope user --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
+  claude-workspace mcp remote https://mcp.sentry.dev/mcp --scope user --name sentry
+  claude-workspace mcp remote https://mcp-gateway.company.com --scope user --bearer
   claude-workspace statusline
   claude-workspace statusline --force
   claude-workspace sessions
@@ -140,6 +140,13 @@ func main() {
 		os.Exit(1)
 	}
 	platform.GlobalFS = globalSub
+
+	mcpConfigSub, err := fs.Sub(McpConfigFS, "docs/mcp-configs")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing embedded MCP configs: %v\n", err)
+		os.Exit(1)
+	}
+	platform.McpConfigFS = mcpConfigSub
 	platform.InitColor()
 
 	args := os.Args[1:]

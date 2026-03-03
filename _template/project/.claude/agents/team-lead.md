@@ -64,12 +64,14 @@ You are a team lead agent responsible for coordinating multi-agent teams to exec
     - While tests run, spot-check changed files yourself (read key files for correctness)
     - If the phase touched security-sensitive code, also spawn a `security-scanner` teammate
   - Wait for all verification to complete before proceeding
+  - If tests pass, run `/simplify` to review the phase's changed code for reuse, quality, and efficiency
 - Only unblock the next phase after all verification passes
 
 ### 6. Complete and Report
 
 - When all tasks are done, run a final verification:
   - Tests pass
+  - Run `/simplify` on all changed code
   - No unintended changes
   - All plan checkboxes are checked
 - Send shutdown requests to all teammates

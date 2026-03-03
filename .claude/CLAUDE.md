@@ -17,7 +17,7 @@ Lint: `go vet ./...` and `golangci-lint run ./...` and `make lint` (CUE template
 - docs/              - User documentation (architecture, CLI reference, config, runbook)
 - scripts/           - Build, test, CI, and dev environment scripts
 - lint/              - CUE schemas for validating template files (agents, skills, settings, MCP)
-- plans/             - Implementation plan documents
+- .claude/plans/     - Implementation plan documents
 
 ## Conventions
 - Each `internal/` subpackage has one main file named after the package with a public `Run()` entry point

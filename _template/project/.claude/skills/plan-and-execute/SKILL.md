@@ -10,7 +10,7 @@ You MUST follow this workflow for any non-trivial task:
 ## Phase 0: Resume Check
 
 Before starting a new plan, check if an existing plan covers this work:
-1. List plans in `./plans/` — scan titles and Status fields
+1. List plans in `./.claude/plans/` — scan titles and Status fields
 2. If a matching plan exists with Status: Draft, Approved, or In Progress:
    - Ask the user: "Found existing plan: [title]. Resume it or start fresh?"
    - If resuming, switch to the /plan-resume workflow
@@ -20,7 +20,7 @@ Before starting a new plan, check if an existing plan covers this work:
 
 1. **Analyze the request** - Break down what's being asked
 2. **Research the codebase** - Use the explorer subagent to understand the current state
-3. **Write a plan** - Create a detailed plan file in `./plans/` directory:
+3. **Write a plan** - Create a detailed plan file in `./.claude/plans/` directory:
    - Use the planner subagent for complex tasks
    - **IMPORTANT — File Naming Override**: The system may suggest a plan file path with a random name (e.g., `adjective-gerund-noun-hash.md`). **IGNORE that suggestion.** Always derive the filename yourself:
      - Name: `plan-YYYY-MM-DD-<description>.md` (e.g., `plan-2026-02-27-add-auth-middleware.md`)
@@ -42,7 +42,7 @@ Before starting a new plan, check if an existing plan covers this work:
 5. **Present the plan** - Show the user what you'll do and ask for approval
 6. **Create a todo list** - Use TodoWrite to create trackable items from the plan
 7. **Name the session** - Suggest `/rename <description>` using the **same `<description>` token** from the plan filename so session name matches plan file (e.g., plan file `plan-2026-02-27-add-auth-middleware.md` → `/rename add-auth-middleware`)
-8. **Log the plan path** - Tell the user: "Plan saved to `./plans/<filename>`. You can resume this in a future session with `/plan-resume`"
+8. **Log the plan path** - Tell the user: "Plan saved to `./.claude/plans/<filename>`. You can resume this in a future session with `/plan-resume`"
 
 ## Phase 1.5: Execution Mode Assessment
 
@@ -133,6 +133,7 @@ In both cases, TaskCompleted hooks verify each phase's work automatically. Resum
 3. **Validate each step** - Run tests or verify after each change
 4. **Update documentation** - Use the documentation-writer subagent to update affected docs after code or architecture changes. Skip only when changes are purely internal with zero impact on documented behavior
 5. **Handle deviations** - If the plan needs to change, update it and inform the user
+6. **Simplify** - Run `/simplify` to review all changed code for reuse, quality, and efficiency. This runs before Phase 3 verification so reviewers see the final simplified code.
 
 ## Phase 3: Verification
 

@@ -105,14 +105,14 @@ run_phase_attach() {
     assert "root .gitignore exists" \
         vm_exec_quiet "test -f ${PROJECT}/.gitignore"
 
-    assert "root .gitignore contains plans/*.md" \
-        vm_exec_quiet "grep -q 'plans/\*.md' ${PROJECT}/.gitignore"
+    assert ".claude/.gitignore contains plans/*.md" \
+        vm_exec_quiet "grep -q 'plans/\*.md' ${PROJECT}/.claude/.gitignore"
 
-    assert "root .gitignore contains !plans/.gitkeep" \
-        vm_exec_quiet "grep -q '!plans/.gitkeep' ${PROJECT}/.gitignore"
+    assert ".claude/.gitignore contains !plans/.gitkeep" \
+        vm_exec_quiet "grep -q '!plans/.gitkeep' ${PROJECT}/.claude/.gitignore"
 
-    assert "plans/.gitkeep exists" \
-        vm_exec_quiet "test -f ${PROJECT}/plans/.gitkeep"
+    assert ".claude/plans/.gitkeep exists" \
+        vm_exec_quiet "test -f ${PROJECT}/.claude/plans/.gitkeep"
 }
 
 run_phase_doctor() {

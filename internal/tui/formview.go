@@ -7,17 +7,11 @@ import tea "charm.land/bubbletea/v2"
 // It returns the updated form, and a tea.Cmd. When the cmd is non-nil, the caller
 // should return itself as the model along with the cmd.
 func formViewUpdate(form *FormModel, msg tea.Msg, onSubmit func([]string) tea.Cmd) (*FormModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case FormResult:
+	if msg, ok := msg.(FormResult); ok {
 		if msg.Cancelled {
 			return form, func() tea.Msg { return PopViewMsg{} }
 		}
 		return form, onSubmit(msg.Values)
-
-	case tea.KeyPressMsg:
-		if IsQuit(msg) || IsBack(msg) {
-			return form, func() tea.Msg { return PopViewMsg{} }
-		}
 	}
 
 	return form.Update(msg)

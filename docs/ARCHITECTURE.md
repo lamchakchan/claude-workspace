@@ -376,7 +376,7 @@ Large projects (100K+ lines) can fill Claude's 200K context window quickly. When
 | Setting | Value | Purpose |
 |---------|-------|---------|
 | `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | `80%` | Trigger compaction earlier (default is ~90%) |
-| `plansDirectory` | `./plans` | Plans written to files, not kept in context |
+| `plansDirectory` | `./.claude/plans` | Plans written to files, not kept in context |
 | `alwaysThinkingEnabled` | `true` | Extended thinking for better reasoning |
 | Explorer model | `haiku` | Cheap enough to run frequently |
 

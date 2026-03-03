@@ -79,7 +79,7 @@
     ]
   },
   "model": "opus",
-  "plansDirectory": "./plans",
+  "plansDirectory": "./.claude/plans",
   "respectGitignore": true,
   "showTurnDuration": true,
   "teammateMode": "in-process"

@@ -8,8 +8,16 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/lamchakchan/claude-workspace/internal/mcpregistry"
 	"github.com/lamchakchan/claude-workspace/internal/sessions"
 )
+
+const (
+	scopeUser    = "user"
+	scopeProject = "project"
+)
+
+var scopeChoices = []string{"local", scopeUser, scopeProject}
 
 func TestDefaultTheme(t *testing.T) {
 	theme := DefaultTheme()
@@ -132,26 +140,26 @@ func TestSelectField_DefaultValue(t *testing.T) {
 func TestSelectField_RightCycles(t *testing.T) {
 	theme := DefaultTheme()
 	fields := []FormField{
-		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+		{Label: "Scope", Choices: scopeChoices},
 	}
 	form := NewForm("Test", fields, &theme)
 
 	right := tea.KeyPressMsg{Code: tea.KeyRight}
 	form, _ = form.handleFormKey(right)
-	if got := form.Values()[0]; got != "user" {
-		t.Errorf("after 1 right: choice = %q, want %q", got, "user")
+	if got := form.Values()[0]; got != scopeUser {
+		t.Errorf("after 1 right: choice = %q, want %q", got, scopeUser)
 	}
 
 	form, _ = form.handleFormKey(right)
-	if got := form.Values()[0]; got != "project" {
-		t.Errorf("after 2 right: choice = %q, want %q", got, "project")
+	if got := form.Values()[0]; got != scopeProject {
+		t.Errorf("after 2 right: choice = %q, want %q", got, scopeProject)
 	}
 }
 
 func TestSelectField_RightWraps(t *testing.T) {
 	theme := DefaultTheme()
 	fields := []FormField{
-		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+		{Label: "Scope", Choices: scopeChoices},
 	}
 	form := NewForm("Test", fields, &theme)
 
@@ -168,15 +176,15 @@ func TestSelectField_RightWraps(t *testing.T) {
 func TestSelectField_LeftWraps(t *testing.T) {
 	theme := DefaultTheme()
 	fields := []FormField{
-		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+		{Label: "Scope", Choices: scopeChoices},
 	}
 	form := NewForm("Test", fields, &theme)
 
 	// Left from index 0 should wrap to last choice.
 	left := tea.KeyPressMsg{Code: tea.KeyLeft}
 	form, _ = form.handleFormKey(left)
-	if got := form.Values()[0]; got != "project" {
-		t.Errorf("after left wrap: choice = %q, want %q", got, "project")
+	if got := form.Values()[0]; got != scopeProject {
+		t.Errorf("after left wrap: choice = %q, want %q", got, scopeProject)
 	}
 }
 
@@ -184,7 +192,7 @@ func TestSelectField_AdjacentTextFieldUnaffected(t *testing.T) {
 	theme := DefaultTheme()
 	fields := []FormField{
 		{Label: "Name"},
-		{Label: "Scope", Choices: []string{"local", "user", "project"}},
+		{Label: "Scope", Choices: scopeChoices},
 	}
 	form := NewForm("Test", fields, &theme)
 
@@ -200,8 +208,8 @@ func TestSelectField_AdjacentTextFieldUnaffected(t *testing.T) {
 	if vals[0] != "" {
 		t.Errorf("text field value = %q, want empty", vals[0])
 	}
-	if vals[1] != "user" {
-		t.Errorf("select field after right = %q, want %q", vals[1], "user")
+	if vals[1] != scopeUser {
+		t.Errorf("select field after right = %q, want %q", vals[1], scopeUser)
 	}
 }
 
@@ -541,7 +549,211 @@ func TestFormIsPath(t *testing.T) {
 	}
 }
 
+func TestFormTextInput_CharacterInsertion(t *testing.T) {
+	theme := DefaultTheme()
+	fields := []FormField{{Label: "Name", Required: true}}
+	form := NewForm("Test", fields, &theme)
+
+	form, _ = form.handleFormKey(tea.KeyPressMsg{Code: 'a', Text: "a"})
+	if got := form.Values()[0]; got != "a" {
+		t.Errorf("after typing 'a': value = %q, want %q", got, "a")
+	}
+
+	form, _ = form.handleFormKey(tea.KeyPressMsg{Code: 'b', Text: "b"})
+	if got := form.Values()[0]; got != "ab" {
+		t.Errorf("after typing 'b': value = %q, want %q", got, "ab")
+	}
+}
+
+func TestFormTextInput_QInsertsQ(t *testing.T) {
+	theme := DefaultTheme()
+	fields := []FormField{{Label: "Name"}}
+	form := NewForm("Test", fields, &theme)
+
+	form, _ = form.handleFormKey(tea.KeyPressMsg{Code: 'q', Text: "q"})
+	if got := form.Values()[0]; got != "q" {
+		t.Errorf("after typing 'q': value = %q, want %q", got, "q")
+	}
+}
+
+func TestFormTextInput_Backspace(t *testing.T) {
+	theme := DefaultTheme()
+	fields := []FormField{{Label: "Name"}}
+	form := NewForm("Test", fields, &theme)
+
+	form, _ = form.handleFormKey(tea.KeyPressMsg{Code: 'a', Text: "a"})
+	form, _ = form.handleFormKey(tea.KeyPressMsg{Code: 'b', Text: "b"})
+	form, _ = form.handleFormKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	if got := form.Values()[0]; got != "a" {
+		t.Errorf("after backspace: value = %q, want %q", got, "a")
+	}
+}
+
+func TestFormTextInput_EscCancels(t *testing.T) {
+	theme := DefaultTheme()
+	fields := []FormField{{Label: "Name"}}
+	form := NewForm("Test", fields, &theme)
+
+	_, cmd := form.handleFormKey(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if cmd == nil {
+		t.Fatal("esc should produce a command")
+	}
+	msg := cmd()
+	result, ok := msg.(FormResult)
+	if !ok {
+		t.Fatalf("esc command should produce FormResult, got %T", msg)
+	}
+	if !result.Cancelled {
+		t.Error("esc should produce cancelled FormResult")
+	}
+}
+
+func TestFormViewUpdate_QForwardsToForm(t *testing.T) {
+	theme := DefaultTheme()
+	fields := []FormField{{Label: "Name"}}
+	form := NewForm("Test", fields, &theme)
+
+	form, cmd := formViewUpdate(form, tea.KeyPressMsg{Code: 'q', Text: "q"}, nil)
+	if cmd != nil {
+		msg := cmd()
+		if _, ok := msg.(PopViewMsg); ok {
+			t.Error("pressing 'q' should not pop the view in a form")
+		}
+	}
+	if got := form.Values()[0]; got != "q" {
+		t.Errorf("form should contain 'q', got %q", got)
+	}
+}
+
 func TestIsAccessible(_ *testing.T) {
 	// Just verify it doesn't panic.
 	_ = IsAccessible()
+}
+
+func TestNewMcpPicker(t *testing.T) {
+	theme := DefaultTheme()
+	m := NewMcpPicker(&theme)
+	if !m.loading {
+		t.Error("NewMcpPicker should start in loading state")
+	}
+	if len(m.entries) != 0 {
+		t.Errorf("NewMcpPicker entries = %d, want 0 before loading", len(m.entries))
+	}
+}
+
+func TestNewMcpAddHTTP(t *testing.T) {
+	theme := DefaultTheme()
+	m := NewMcpAddHTTP(&theme)
+	if len(m.form.Fields) != 3 {
+		t.Errorf("McpAddHTTP fields = %d, want 3", len(m.form.Fields))
+	}
+	// Name field should not be required
+	if m.form.Fields[0].Required {
+		t.Error("HTTP name field should not be required")
+	}
+	// URL field should be required
+	if !m.form.Fields[1].Required {
+		t.Error("HTTP URL field should be required")
+	}
+	// Scope should default to "user"
+	vals := m.form.Values()
+	if vals[2] != scopeUser {
+		t.Errorf("HTTP default scope = %q, want %q", vals[2], scopeUser)
+	}
+}
+
+func TestNewMcpAddFromRecipe_Stdio(t *testing.T) {
+	theme := DefaultTheme()
+	recipe := &mcpregistry.Recipe{
+		Key:       "brave-search",
+		Transport: mcpregistry.TransportStdio,
+		Command:   "npx",
+		Args:      []string{"-y", "@modelcontextprotocol/server-brave-search"},
+		EnvVars:   map[string]string{"BRAVE_API_KEY": "${BRAVE_API_KEY}"},
+		Scope:     scopeUser,
+	}
+	m := NewMcpAddFromRecipe(recipe, &theme)
+	if m.transport != mcpregistry.TransportStdio {
+		t.Errorf("transport = %q, want stdio", m.transport)
+	}
+	vals := m.form.Values()
+	if vals[0] != "brave-search" {
+		t.Errorf("name = %q, want %q", vals[0], "brave-search")
+	}
+	if vals[1] != "BRAVE_API_KEY" {
+		t.Errorf("env var = %q, want %q", vals[1], "BRAVE_API_KEY")
+	}
+	if vals[2] != "npx -y @modelcontextprotocol/server-brave-search" {
+		t.Errorf("command = %q, want pre-filled command string", vals[2])
+	}
+	if vals[3] != scopeUser {
+		t.Errorf("scope = %q, want %q", vals[3], scopeUser)
+	}
+}
+
+func TestNewMcpAddFromRecipe_HTTP(t *testing.T) {
+	theme := DefaultTheme()
+	recipe := &mcpregistry.Recipe{
+		Key:       "sentry",
+		Transport: mcpregistry.TransportHTTP,
+		URL:       "https://mcp.sentry.dev/mcp",
+		Scope:     scopeUser,
+	}
+	m := NewMcpAddFromRecipe(recipe, &theme)
+	if m.transport != mcpregistry.TransportHTTP {
+		t.Errorf("transport = %q, want http", m.transport)
+	}
+	vals := m.form.Values()
+	if vals[0] != "sentry" {
+		t.Errorf("name = %q, want %q", vals[0], "sentry")
+	}
+	if vals[1] != "https://mcp.sentry.dev/mcp" {
+		t.Errorf("url = %q, want %q", vals[1], "https://mcp.sentry.dev/mcp")
+	}
+	if vals[2] != scopeUser {
+		t.Errorf("scope = %q, want %q", vals[2], scopeUser)
+	}
+}
+
+func TestFormSetValue(t *testing.T) {
+	theme := DefaultTheme()
+	fields := []FormField{{Label: "Name"}, {Label: "Value"}}
+	form := NewForm("Test", fields, &theme)
+
+	form.SetValue(0, "hello")
+	if got := form.Values()[0]; got != "hello" {
+		t.Errorf("SetValue(0) = %q, want %q", got, "hello")
+	}
+
+	// Out of bounds should not panic
+	form.SetValue(-1, "bad")
+	form.SetValue(99, "bad")
+}
+
+func TestFormSetChoice(t *testing.T) {
+	theme := DefaultTheme()
+	fields := []FormField{
+		{Label: "Scope", Choices: scopeChoices},
+	}
+	form := NewForm("Test", fields, &theme)
+
+	form.SetChoice(0, scopeUser)
+	if got := form.Values()[0]; got != scopeUser {
+		t.Errorf("SetChoice('user') = %q, want %q", got, scopeUser)
+	}
+
+	form.SetChoice(0, scopeProject)
+	if got := form.Values()[0]; got != scopeProject {
+		t.Errorf("SetChoice('project') = %q, want %q", got, scopeProject)
+	}
+
+	// Non-existent choice should not change value
+	form.SetChoice(0, "nonexistent")
+	if got := form.Values()[0]; got != scopeProject {
+		t.Errorf("SetChoice('nonexistent') = %q, want %q (unchanged)", got, scopeProject)
+	}
+
+	// Out of bounds should not panic
+	form.SetChoice(-1, scopeUser)
+	form.SetChoice(99, scopeUser)
 }

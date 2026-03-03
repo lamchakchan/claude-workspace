@@ -42,7 +42,7 @@ If no MCP tool covers a capability, fall back to built-in tools normally.
 
 ## Plan Conventions
 
-- Plans live in `./plans/` — use naming: `plan-YYYY-MM-DD-<short-description>.md`
+- Plans live in `./.claude/plans/` — use naming: `plan-YYYY-MM-DD-<short-description>.md`
 - Include Status (Draft/Approved/In Progress/Complete) and Last Updated fields
 - Plans should be self-contained — resumable without the original session context
 - Use `/plan-resume` to pick up parked plans in a new session

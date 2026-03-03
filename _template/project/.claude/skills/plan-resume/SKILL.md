@@ -5,11 +5,11 @@ description: Resume a previously parked plan. Use when the user wants to pick up
 
 # Plan Resume Workflow
 
-Use this skill to resume a previously created plan from `./plans/`.
+Use this skill to resume a previously created plan from `./.claude/plans/`.
 
 ## Step 1: Discover Plans
 
-1. List all `./plans/*.md` files
+1. List all `./.claude/plans/*.md` files
 2. Read the first 5 lines of each to extract:
    - Title (first `# ` line)
    - `Status:` field
@@ -74,6 +74,10 @@ Generate todos from remaining incomplete items using TaskCreate/TaskUpdate:
 ## Step 7: Session Hygiene
 
 Suggest the user run `/rename <plan-description>` so this session is easy to find later with `claude --resume`.
+
+## Step 8: Simplify After Execution
+
+After all remaining implementation steps are complete, run `/simplify` to review changed code for reuse, quality, and efficiency before proceeding to verification.
 
 ## Status Values
 

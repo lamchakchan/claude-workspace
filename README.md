@@ -17,7 +17,7 @@ A preconfigured, batteries-included platform for deploying Claude Code AI agents
 | `.claude/hooks/*.sh` | 4 safety hook scripts |
 | `.claude/.gitignore` | Ignores local overrides |
 | `.mcp.json` | MCP server configurations |
-| `plans/` | Directory for implementation plans |
+| `.claude/plans/` | Directory for implementation plans |
 
 ## Quick Start
 
@@ -59,7 +59,7 @@ claude-workspace doctor
 ## Key Features
 
 - **Safe defaults** — Hooks block dangerous commands (rm -rf, force push), detect secrets, and enforce branch policies
-- **Plan-first workflow** — Every significant task starts with a visible plan written to `./plans/` for review
+- **Plan-first workflow** — Every significant task starts with a visible plan written to `./.claude/plans/` for review
 - **Multi-project support** — `claude-workspace attach` copies or symlinks config into any repo; `--symlink` keeps projects in sync
 - **Parallel sandboxing** — `claude-workspace sandbox` creates git worktrees for multiple Claude instances on the same repo
 - **Layered prompt system** — Global, team, project, and personal instructions merge automatically by priority
