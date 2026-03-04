@@ -40,6 +40,33 @@ brews:
     test: |
       system "#{bin}/claude-workspace", "version"
 
+nfpms:
+  - id: default
+    package_name: claude-workspace
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - deb
+      - rpm
+    vendor: "Lam Chan"
+    homepage: "https://github.com/lamchakchan/claude-workspace"
+    maintainer: "Lam Chan <lamchakchan@gmail.com>"
+    description: "Platform engineering kit for deploying Claude Code AI agents"
+    license: "Apache-2.0"
+    section: "devel"
+    priority: "optional"
+    bindir: /usr/bin
+    dependencies:
+      - git
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/claude-workspace/LICENSE
+        file_info:
+          mode: 0644
+    deb:
+      lintian_overrides:
+        - statically-linked-binary
+        - changelog-file-missing-in-native-package
+
 changelog:
   sort: asc
   filters:

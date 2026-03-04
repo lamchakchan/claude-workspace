@@ -465,6 +465,8 @@ claude-workspace upgrade [--check] [--yes] [--self-only | --cli-only]
 3. **Global settings** — non-destructive merge of new platform defaults into `~/.claude/settings.json`.
 4. **Claude Code CLI** — runs the official installer (`claude.ai/install.sh`) to install or upgrade the Claude Code CLI. If installed via Homebrew, delegates to `brew upgrade claude-code`.
 
+If installed via `.deb` or `.rpm`, download the latest package from the [releases page](https://github.com/lamchakchan/claude-workspace/releases/latest) and reinstall.
+
 Projects using `--symlink` mode pick up new agents, hooks, and skills automatically. Projects using copy mode should re-run `claude-workspace attach --force`.
 
 **Examples:**
