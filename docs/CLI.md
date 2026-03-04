@@ -460,10 +460,10 @@ claude-workspace upgrade [--check] [--yes] [--self-only | --cli-only]
 
 **What gets upgraded:**
 
-1. **Binary** — downloads the latest release from GitHub and replaces the installed binary.
+1. **Binary** — downloads the latest release from GitHub and replaces the installed binary. If installed via Homebrew, delegates to `brew upgrade claude-workspace` instead.
 2. **Shared assets** — re-extracts `~/.claude-workspace/assets/` so symlinked projects auto-update.
 3. **Global settings** — non-destructive merge of new platform defaults into `~/.claude/settings.json`.
-4. **Claude Code CLI** — runs the official installer (`claude.ai/install.sh`) to install or upgrade the Claude Code CLI.
+4. **Claude Code CLI** — runs the official installer (`claude.ai/install.sh`) to install or upgrade the Claude Code CLI. If installed via Homebrew, delegates to `brew upgrade claude-code`.
 
 Projects using `--symlink` mode pick up new agents, hooks, and skills automatically. Projects using copy mode should re-run `claude-workspace attach --force`.
 

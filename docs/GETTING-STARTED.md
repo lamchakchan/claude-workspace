@@ -34,6 +34,12 @@ Node.js 18+ and npm are required for MCP servers but installed automatically by 
 
 ## 2. Installation
 
+**Homebrew (macOS / Linux):**
+
+```bash
+brew install lamchakchan/tap/claude-workspace
+```
+
 **One-liner (macOS / Linux):**
 
 ```bash

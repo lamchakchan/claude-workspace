@@ -27,6 +27,19 @@ release:
     name: claude-workspace
   prerelease: auto
 
+brews:
+  - repository:
+      owner: lamchakchan
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/lamchakchan/claude-workspace
+    description: "Platform engineering kit for deploying Claude Code AI agents"
+    license: "Apache-2.0"
+    install: |
+      bin.install "claude-workspace"
+    test: |
+      system "#{bin}/claude-workspace", "version"
+
 changelog:
   sort: asc
   filters:
