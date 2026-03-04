@@ -43,7 +43,14 @@ func newLauncher(version string, theme *Theme) *launcherModel {
 				{name: "Setup", desc: "First-time setup & API key provisioning", icon: "⚙ ", command: "setup"},
 				{name: "Attach", desc: "Overlay platform config onto a project", icon: "📎", command: "attach"},
 				{name: "Enrich", desc: "Re-generate CLAUDE.md with AI analysis", icon: "✨", command: "enrich"},
-				{name: "Sandbox", desc: "Create a sandboxed branch worktree", icon: "🔀", command: "sandbox"},
+			},
+		},
+		{
+			title: "Sandbox",
+			items: []commandItem{
+				{name: "Create", desc: "Create a sandboxed branch worktree", icon: "🔀", command: "sandbox", args: []string{"create"}},
+				{name: "List", desc: "List sandboxes for a project", icon: "📋", command: "sandbox", args: []string{"list"}},
+				{name: "Remove", desc: "Remove a sandboxed branch worktree", icon: "🗑 ", command: "sandbox", args: []string{"remove"}},
 			},
 		},
 		{
@@ -151,7 +158,13 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 	case "enrich":
 		return pushView(NewEnrich(m.theme))
 	case "sandbox":
-		return pushView(NewSandbox(m.theme))
+		if len(item.args) > 0 && item.args[0] == "create" {
+			return pushView(NewSandbox(m.theme))
+		}
+		if len(item.args) > 0 && item.args[0] == "remove" {
+			return pushView(NewSandboxRemove(m.theme))
+		}
+		return pushView(NewSandboxList(m.theme))
 	case "upgrade":
 		return pushView(NewUpgrade(m.version, m.theme))
 	case "mcp":

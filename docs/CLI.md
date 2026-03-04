@@ -78,7 +78,11 @@ Getting Started
 > ⚙  Setup         First-time setup & API key provisioning
   📎 Attach        Overlay platform config onto a project
   ✨ Enrich        Re-generate CLAUDE.md with AI analysis
-  🔀 Sandbox       Create a sandboxed branch worktree
+
+Sandbox
+  🔀 Create        Create a sandboxed branch worktree
+  📋 List          List sandboxes for a project
+  🗑  Remove        Remove a sandboxed branch worktree
 
 MCP Servers
   ➕ Add Server    Add a local or remote MCP server
@@ -209,14 +213,14 @@ claude-workspace enrich /path/to/my-project --scaffold-only
 
 ---
 
-## claude-workspace sandbox
+## claude-workspace sandbox create
 
 Create a sandboxed git worktree branch for parallel Claude Code sessions on the same repository.
 
 **Synopsis:**
 
 ```
-claude-workspace sandbox <project-path> <branch-name>
+claude-workspace sandbox create <project-path> <branch-name>
 ```
 
 **Flags:** None (positional arguments only).
@@ -225,11 +229,71 @@ claude-workspace sandbox <project-path> <branch-name>
 
 ```bash
 # Create a sandboxed worktree for a feature branch
-claude-workspace sandbox /path/to/my-project feature-auth
+claude-workspace sandbox create /path/to/my-project feature-auth
 
 # Multiple sandboxes for parallel work
+claude-workspace sandbox create /path/to/my-project feature-auth
+claude-workspace sandbox create /path/to/my-project bugfix-login
+
+# Backward-compatible shorthand (defaults to create)
 claude-workspace sandbox /path/to/my-project feature-auth
-claude-workspace sandbox /path/to/my-project bugfix-login
+```
+
+**See also:** [Architecture - Sandboxing](ARCHITECTURE.md)
+
+---
+
+## claude-workspace sandbox list
+
+List all sandboxed worktrees for a project.
+
+**Synopsis:**
+
+```
+claude-workspace sandbox list <project-path>
+```
+
+**Flags:** None (positional arguments only).
+
+**Behavior:**
+- Runs `git worktree list` and filters to worktrees under `<project>-worktrees/`
+- Shows branch name and directory for each sandbox
+- Displays total count
+
+**Examples:**
+
+```bash
+# List all sandboxes for a project
+claude-workspace sandbox list /path/to/my-project
+```
+
+**See also:** [Architecture - Sandboxing](ARCHITECTURE.md)
+
+---
+
+## claude-workspace sandbox remove
+
+Remove a sandboxed git worktree previously created with `sandbox create`.
+
+**Synopsis:**
+
+```
+claude-workspace sandbox remove <project-path> <branch-name>
+```
+
+**Flags:** None (positional arguments only).
+
+**Behavior:**
+- Removes the git worktree at `<project>-worktrees/<branch-name>`
+- Prunes stale worktree references
+- Removes the worktrees base directory if empty
+- Fails if the worktree has uncommitted changes (commit or discard them first)
+
+**Examples:**
+
+```bash
+# Remove a sandbox when done
+claude-workspace sandbox remove /path/to/my-project feature-auth
 ```
 
 **See also:** [Architecture - Sandboxing](ARCHITECTURE.md)

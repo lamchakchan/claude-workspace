@@ -229,6 +229,22 @@ func TestNewSandbox(t *testing.T) {
 	}
 }
 
+func TestNewSandboxRemove(t *testing.T) {
+	theme := DefaultTheme()
+	m := NewSandboxRemove(&theme)
+	if len(m.form.Fields) != 2 {
+		t.Errorf("SandboxRemove fields = %d, want 2", len(m.form.Fields))
+	}
+}
+
+func TestNewSandboxList(t *testing.T) {
+	theme := DefaultTheme()
+	m := NewSandboxList(&theme)
+	if len(m.form.Fields) != 1 {
+		t.Errorf("SandboxList fields = %d, want 1", len(m.form.Fields))
+	}
+}
+
 func TestNewViewer(t *testing.T) {
 	theme := DefaultTheme()
 	v := NewViewer("Test Title", "Hello world", &theme)

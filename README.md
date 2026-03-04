@@ -49,8 +49,8 @@ claude-workspace attach /path/to/your/project
 # 3. Start coding
 cd /path/to/your/project && claude
 
-# 4. Run /onboarding to complete project setup (detects MCP servers, initializes memory)
-> /onboarding
+# 4. Inside the Claude REPL, run /onboarding to complete project setup
+/onboarding
 
 # 5. Verify everything works
 claude-workspace doctor
@@ -59,7 +59,7 @@ claude-workspace doctor
 ## Key Features
 
 - **Safe defaults** — Hooks block dangerous commands (rm -rf, force push), detect secrets, and enforce branch policies
-- **Plan-first workflow** — Every significant task starts with a visible plan written to `./.claude/plans/` for review
+- **Plan-first workflow** — `/plan-and-execute` ensures every significant task starts with a visible plan written to `./.claude/plans/` for review
 - **Multi-project support** — `claude-workspace attach` copies or symlinks config into any repo; `--symlink` keeps projects in sync
 - **Parallel sandboxing** — `claude-workspace sandbox` creates git worktrees for multiple Claude instances on the same repo
 - **Layered prompt system** — Global, team, project, and personal instructions merge automatically by priority
@@ -80,4 +80,5 @@ claude-workspace doctor
 | [Runbook](docs/RUNBOOK.md) | Maintenance, troubleshooting, onboarding, security, rollback procedures |
 | [Skills](docs/SKILLS.md) | Built-in skills reference, usage guide, creating custom skills |
 | [Memory](docs/MEMORY.md) | Memory layers, auto-memory, CLAUDE.md files, Memory MCP, clearing procedures, and gitignore rules |
+| [Sandbox](docs/SANDBOX.md) | Git worktree sandboxing: parallel sessions, auto-config, dependency install, cleanup |
 | [Statusline](docs/STATUSLINE.md) | Live session statusline: indicators, data sources, call flow, output examples, and setup |

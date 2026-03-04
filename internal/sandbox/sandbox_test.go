@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -8,24 +9,24 @@ import (
 	"testing"
 )
 
-func TestRun_NonexistentProject(t *testing.T) {
-	err := Run("/nonexistent/project/path/xyz", "feature-branch")
+func TestCreate_NonexistentProject(t *testing.T) {
+	err := Create("/nonexistent/project/path/xyz", "feature-branch")
 	if err == nil {
-		t.Fatal("Run() expected error for nonexistent project")
+		t.Fatal("Create() expected error for nonexistent project")
 	}
 	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("Run() error = %q, want contains 'not found'", err.Error())
+		t.Errorf("Create() error = %q, want contains 'not found'", err.Error())
 	}
 }
 
-func TestRun_NotGitRepo(t *testing.T) {
+func TestCreate_NotGitRepo(t *testing.T) {
 	dir := t.TempDir()
-	err := Run(dir, "feature-branch")
+	err := Create(dir, "feature-branch")
 	if err == nil {
-		t.Fatal("Run() expected error for non-git directory")
+		t.Fatal("Create() expected error for non-git directory")
 	}
 	if !strings.Contains(err.Error(), "not a git repository") {
-		t.Errorf("Run() error = %q, want contains 'not a git repository'", err.Error())
+		t.Errorf("Create() error = %q, want contains 'not a git repository'", err.Error())
 	}
 }
 
@@ -44,7 +45,7 @@ func initGitRepo(t *testing.T, dir string) {
 	}
 }
 
-func TestRun_CreatesWorktree(t *testing.T) {
+func TestCreate_CreatesWorktree(t *testing.T) {
 	parent := t.TempDir()
 	projectDir := filepath.Join(parent, "myproject")
 	_ = os.MkdirAll(projectDir, 0755)
@@ -56,9 +57,9 @@ func TestRun_CreatesWorktree(t *testing.T) {
 		_ = exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
 	})
 
-	err := Run(projectDir, "test-branch")
+	err := Create(projectDir, "test-branch")
 	if err != nil {
-		t.Fatalf("Run() error = %v", err)
+		t.Fatalf("Create() error = %v", err)
 	}
 
 	if _, err := os.Stat(worktreeDir); os.IsNotExist(err) {
@@ -75,7 +76,7 @@ func TestRun_CreatesWorktree(t *testing.T) {
 	}
 }
 
-func TestRun_ExistingWorktreeReturnsEarly(t *testing.T) {
+func TestCreate_ExistingWorktreeReturnsEarly(t *testing.T) {
 	parent := t.TempDir()
 	projectDir := filepath.Join(parent, "myproject")
 	_ = os.MkdirAll(projectDir, 0755)
@@ -87,18 +88,18 @@ func TestRun_ExistingWorktreeReturnsEarly(t *testing.T) {
 		_ = exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
 	})
 
-	// First run creates the worktree
-	if err := Run(projectDir, "test-branch"); err != nil {
-		t.Fatalf("first Run() error = %v", err)
+	// First call creates the worktree
+	if err := Create(projectDir, "test-branch"); err != nil {
+		t.Fatalf("first Create() error = %v", err)
 	}
 
-	// Second run should return nil (worktree already exists)
-	if err := Run(projectDir, "test-branch"); err != nil {
-		t.Errorf("second Run() error = %v, want nil", err)
+	// Second call should return nil (worktree already exists)
+	if err := Create(projectDir, "test-branch"); err != nil {
+		t.Errorf("second Create() error = %v, want nil", err)
 	}
 }
 
-func TestRun_CopiesClaudeConfig(t *testing.T) {
+func TestCreate_CopiesClaudeConfig(t *testing.T) {
 	parent := t.TempDir()
 	projectDir := filepath.Join(parent, "myproject")
 	_ = os.MkdirAll(projectDir, 0755)
@@ -116,8 +117,8 @@ func TestRun_CopiesClaudeConfig(t *testing.T) {
 		_ = exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
 	})
 
-	if err := Run(projectDir, "config-branch"); err != nil {
-		t.Fatalf("Run() error = %v", err)
+	if err := Create(projectDir, "config-branch"); err != nil {
+		t.Fatalf("Create() error = %v", err)
 	}
 
 	// Verify config files were copied
@@ -136,7 +137,7 @@ func TestRun_CopiesClaudeConfig(t *testing.T) {
 	}
 }
 
-func TestRun_CopiesMcpJson(t *testing.T) {
+func TestCreate_CopiesMcpJson(t *testing.T) {
 	parent := t.TempDir()
 	projectDir := filepath.Join(parent, "myproject")
 	_ = os.MkdirAll(projectDir, 0755)
@@ -152,8 +153,8 @@ func TestRun_CopiesMcpJson(t *testing.T) {
 		_ = exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
 	})
 
-	if err := Run(projectDir, "mcp-branch"); err != nil {
-		t.Fatalf("Run() error = %v", err)
+	if err := Create(projectDir, "mcp-branch"); err != nil {
+		t.Fatalf("Create() error = %v", err)
 	}
 
 	content, err := os.ReadFile(filepath.Join(worktreeDir, ".mcp.json"))
@@ -165,7 +166,7 @@ func TestRun_CopiesMcpJson(t *testing.T) {
 	}
 }
 
-func TestRun_RelativePath(t *testing.T) {
+func TestCreate_RelativePath(t *testing.T) {
 	parent := t.TempDir()
 	projectDir := filepath.Join(parent, "myproject")
 	_ = os.MkdirAll(projectDir, 0755)
@@ -177,13 +178,136 @@ func TestRun_RelativePath(t *testing.T) {
 		_ = exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
 	})
 
-	// Run with the absolute path (simulating that filepath.Abs resolves it)
-	err := Run(projectDir, "rel-branch")
+	err := Create(projectDir, "rel-branch")
 	if err != nil {
-		t.Fatalf("Run() error = %v", err)
+		t.Fatalf("Create() error = %v", err)
 	}
 
 	if _, err := os.Stat(worktreeDir); os.IsNotExist(err) {
 		t.Error("worktree not created with resolved path")
+	}
+}
+
+func TestRemove_NonexistentProject(t *testing.T) {
+	err := Remove("/nonexistent/project/path/xyz", "feature-branch")
+	if err == nil {
+		t.Fatal("Remove() expected error for nonexistent project")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("Remove() error = %q, want contains 'not found'", err.Error())
+	}
+}
+
+func TestRemove_NotGitRepo(t *testing.T) {
+	dir := t.TempDir()
+	err := Remove(dir, "feature-branch")
+	if err == nil {
+		t.Fatal("Remove() expected error for non-git directory")
+	}
+	if !strings.Contains(err.Error(), "not a git repository") {
+		t.Errorf("Remove() error = %q, want contains 'not a git repository'", err.Error())
+	}
+}
+
+func TestRemove_MissingSandbox(t *testing.T) {
+	parent := t.TempDir()
+	projectDir := filepath.Join(parent, "myproject")
+	_ = os.MkdirAll(projectDir, 0755)
+
+	initGitRepo(t, projectDir)
+
+	err := Remove(projectDir, "nonexistent-branch")
+	if err == nil {
+		t.Fatal("Remove() expected error for missing sandbox")
+	}
+	if !strings.Contains(err.Error(), "sandbox not found") {
+		t.Errorf("Remove() error = %q, want contains 'sandbox not found'", err.Error())
+	}
+}
+
+func TestListTo_NotGitRepo(t *testing.T) {
+	dir := t.TempDir()
+	var buf bytes.Buffer
+	err := ListTo(&buf, dir)
+	if err == nil {
+		t.Fatal("ListTo() expected error for non-git directory")
+	}
+	if !strings.Contains(err.Error(), "not a git repository") {
+		t.Errorf("ListTo() error = %q, want contains 'not a git repository'", err.Error())
+	}
+}
+
+func TestListTo_NoSandboxes(t *testing.T) {
+	parent := t.TempDir()
+	projectDir := filepath.Join(parent, "myproject")
+	_ = os.MkdirAll(projectDir, 0755)
+
+	initGitRepo(t, projectDir)
+
+	var buf bytes.Buffer
+	if err := ListTo(&buf, projectDir); err != nil {
+		t.Fatalf("ListTo() error = %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "No sandboxes found") {
+		t.Errorf("ListTo() output = %q, want contains 'No sandboxes found'", out)
+	}
+}
+
+func TestListTo_ShowsSandboxes(t *testing.T) {
+	parent := t.TempDir()
+	projectDir := filepath.Join(parent, "myproject")
+	_ = os.MkdirAll(projectDir, 0755)
+
+	initGitRepo(t, projectDir)
+
+	worktreeDir := filepath.Join(parent, "myproject-worktrees", "list-branch")
+	t.Cleanup(func() {
+		_ = exec.Command("git", "-C", projectDir, "worktree", "remove", "--force", worktreeDir).Run()
+	})
+
+	if err := Create(projectDir, "list-branch"); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := ListTo(&buf, projectDir); err != nil {
+		t.Fatalf("ListTo() error = %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "list-branch") {
+		t.Errorf("ListTo() output missing branch name, got %q", out)
+	}
+	if !strings.Contains(out, "Total: 1 sandbox(es)") {
+		t.Errorf("ListTo() output missing total count, got %q", out)
+	}
+}
+
+func TestRemove_RemovesWorktree(t *testing.T) {
+	parent := t.TempDir()
+	projectDir := filepath.Join(parent, "myproject")
+	_ = os.MkdirAll(projectDir, 0755)
+
+	initGitRepo(t, projectDir)
+
+	// Create a sandbox first
+	if err := Create(projectDir, "remove-branch"); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	worktreeDir := filepath.Join(parent, "myproject-worktrees", "remove-branch")
+	if _, err := os.Stat(worktreeDir); os.IsNotExist(err) {
+		t.Fatal("worktree was not created")
+	}
+
+	// Remove it
+	if err := Remove(projectDir, "remove-branch"); err != nil {
+		t.Fatalf("Remove() error = %v", err)
+	}
+
+	if _, err := os.Stat(worktreeDir); !os.IsNotExist(err) {
+		t.Error("worktree directory still exists after removal")
 	}
 }
