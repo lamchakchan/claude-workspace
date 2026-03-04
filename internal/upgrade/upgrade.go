@@ -110,6 +110,15 @@ func Run(version string, args []string) error {
 func upgradeSelf(version string, f upgradeFlags, s *stepper) error {
 	platform.PrintBanner(os.Stdout, "Upgrading claude-workspace")
 
+	if isSelfHomebrew() {
+		fmt.Println("  Detected Homebrew installation. Running: brew upgrade claude-workspace...")
+		if err := platform.Run("brew", "upgrade", "claude-workspace"); err != nil {
+			fmt.Println("  claude-workspace is already up to date (or brew upgrade failed).")
+			fmt.Println("  To upgrade manually: brew upgrade claude-workspace")
+		}
+		return nil
+	}
+
 	release, upToDate, err := checkForUpdates(version, s)
 	if err != nil {
 		return err
@@ -458,6 +467,20 @@ func isHomebrewBinary(path string) bool {
 	return strings.Contains(path, "/opt/homebrew/") ||
 		strings.Contains(path, "/usr/local/Cellar/") ||
 		strings.Contains(path, "/usr/local/opt/")
+}
+
+// isSelfHomebrew reports whether the currently running claude-workspace binary
+// was installed via Homebrew.
+func isSelfHomebrew() bool {
+	exe, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	resolved, err := filepath.EvalSymlinks(exe)
+	if err != nil {
+		return false
+	}
+	return isHomebrewBinary(resolved)
 }
 
 // extractBinary extracts the claude-workspace binary from a .tar.gz archive.
