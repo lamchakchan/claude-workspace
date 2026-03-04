@@ -114,6 +114,60 @@ func TestLoadAll_EnvVars(t *testing.T) {
 	}
 }
 
+func TestLoadAll_Headers(t *testing.T) {
+	categories, err := LoadAll(testFS())
+	if err != nil {
+		t.Fatalf("LoadAll() error: %v", err)
+	}
+
+	recipeMap := make(map[string]Recipe)
+	for _, c := range categories {
+		for _, r := range c.Recipes {
+			recipeMap[r.Key] = r
+		}
+	}
+
+	// github_pat has an Authorization header
+	pat := recipeMap["github_pat"]
+	if pat.Headers == nil {
+		t.Fatal("github_pat should have headers")
+	}
+	if got := pat.Headers["Authorization"]; got != "Bearer <your_pat>" {
+		t.Errorf("github_pat Authorization = %q, want %q", got, "Bearer <your_pat>")
+	}
+
+	// github (no headers) should have nil headers
+	gh := recipeMap["github"]
+	if gh.Headers != nil {
+		t.Errorf("github should have nil headers, got %v", gh.Headers)
+	}
+
+	// stdio recipe (brave-search) should have nil headers
+	bs := recipeMap["brave-search"]
+	if bs.Headers != nil {
+		t.Errorf("brave-search should have nil headers, got %v", bs.Headers)
+	}
+}
+
+func TestRecipe_FirstHeader(t *testing.T) {
+	r := Recipe{Headers: map[string]string{"Authorization": "Bearer tok123"}}
+	key, val := r.FirstHeader()
+	if key != "Authorization" {
+		t.Errorf("FirstHeader() key = %q, want %q", key, "Authorization")
+	}
+	if val != "Bearer tok123" {
+		t.Errorf("FirstHeader() val = %q, want %q", val, "Bearer tok123")
+	}
+}
+
+func TestRecipe_FirstHeader_Empty(t *testing.T) {
+	r := Recipe{}
+	key, val := r.FirstHeader()
+	if key != "" || val != "" {
+		t.Errorf("FirstHeader() = (%q, %q), want empty", key, val)
+	}
+}
+
 func TestLoadAll_SuggestedScope(t *testing.T) {
 	categories, err := LoadAll(testFS())
 	if err != nil {

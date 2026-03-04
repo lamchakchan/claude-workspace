@@ -30,6 +30,7 @@ type Recipe struct {
 	Args      []string          // stdio: command arguments
 	URL       string            // http: server URL
 	EnvVars   map[string]string // environment variables needed
+	Headers   map[string]string // custom HTTP headers (e.g. Authorization)
 	Notes     string            // human-readable description
 	SetupCmd  string            // CLI command to add this server
 	Scope     string            // suggested scope ("user" or "local")
@@ -65,6 +66,7 @@ type serverExample struct {
 	Args    []string          `json:"args"`
 	URL     string            `json:"url"`
 	Env     map[string]string `json:"env"`
+	Headers map[string]string `json:"headers"`
 }
 
 // LoadAll reads all JSON config files from configFS and returns categorized recipes.
@@ -150,6 +152,13 @@ func parseRecipe(key, category string, raw json.RawMessage, cf *configFile) (Rec
 		}
 	}
 
+	if len(ex.Headers) > 0 {
+		recipe.Headers = make(map[string]string, len(ex.Headers))
+		for k, v := range ex.Headers {
+			recipe.Headers[k] = v
+		}
+	}
+
 	return recipe, nil
 }
 
@@ -213,6 +222,15 @@ func (r *Recipe) CommandString() string {
 	parts = append(parts, r.Command)
 	parts = append(parts, r.Args...)
 	return strings.Join(parts, " ")
+}
+
+// FirstHeader returns the first header key-value pair from the recipe, or empty strings.
+// Useful for pre-filling header fields in TUI forms.
+func (r *Recipe) FirstHeader() (string, string) {
+	for k, v := range r.Headers {
+		return k, v
+	}
+	return "", ""
 }
 
 // NotesFirstLine returns the first sentence of the notes, trimming scope prefix.

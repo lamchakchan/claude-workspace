@@ -66,6 +66,7 @@ Commands:
   mcp add <name> [options]       Add an MCP server (local or remote)
   mcp remote <url>               Connect to a remote MCP server/gateway
   mcp list                       List all configured MCP servers
+  mcp remove <name>              Remove an MCP server
   upgrade [--self-only|--cli-only]  Upgrade claude-workspace and Claude Code CLI
   doctor                         Check platform configuration health
   agents [list]                  List configured agents
@@ -106,6 +107,7 @@ MCP Authentication:
   --oauth                Use OAuth 2.0 (authenticate via /mcp in session)
   --client-id <id>       OAuth client ID for pre-registered apps
   --client-secret        Prompt for OAuth client secret (masked input)
+  --header 'Key: Value'  Add custom HTTP header (repeatable)
 
 Examples:
   claude-workspace setup
@@ -115,6 +117,8 @@ Examples:
   claude-workspace mcp add brave --scope user --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
   claude-workspace mcp remote https://mcp.sentry.dev/mcp --scope user --name sentry
   claude-workspace mcp remote https://mcp-gateway.company.com --scope user --bearer
+  claude-workspace mcp remote https://mcp.example.com --scope user --header 'X-API-Key: mykey'
+  claude-workspace mcp remove brave-search
   claude-workspace statusline
   claude-workspace statusline --force
   claude-workspace sessions
@@ -222,7 +226,7 @@ func runSandbox(args []string) error {
 
 func runMCP(args []string) error {
 	if len(args) < 2 {
-		return fmt.Errorf("usage: claude-workspace mcp <add|remote|list>")
+		return fmt.Errorf("usage: claude-workspace mcp <add|remote|remove|list>")
 	}
 	subcmd := args[1]
 	switch subcmd {
@@ -236,8 +240,10 @@ func runMCP(args []string) error {
 		return mcp.Remote(url, args[3:])
 	case "list":
 		return mcp.List()
+	case "remove":
+		return mcp.Remove(args[2:])
 	default:
-		return fmt.Errorf("unknown mcp subcommand: %s (available: add, remote, list)", subcmd)
+		return fmt.Errorf("unknown mcp subcommand: %s (available: add, remote, remove, list)", subcmd)
 	}
 }
 
