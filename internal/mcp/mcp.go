@@ -20,6 +20,7 @@ import (
 const (
 	flagHeader    = "--header"
 	flagClientSec = "--client-secret"
+	flagScope     = "--scope"
 
 	transportStdio = "stdio"
 	transportHTTP  = "http"
@@ -197,7 +198,7 @@ func parseAddArgs(args []string) (*addConfig, error) {
 
 func parseAddFlag(args []string, i *int, cfg *addConfig) {
 	switch args[*i] {
-	case "--scope":
+	case flagScope:
 		(*i)++
 		if *i < len(args) {
 			cfg.Scope = args[*i]
@@ -250,7 +251,7 @@ func parseRemoteArgs(mcpURL string, extraArgs []string) (*remoteConfig, error) {
 			if i < len(extraArgs) {
 				cfg.Name = extraArgs[i]
 			}
-		case "--scope":
+		case flagScope:
 			i++
 			if i < len(extraArgs) {
 				cfg.Scope = extraArgs[i]
@@ -293,7 +294,7 @@ func deriveServerName(mcpURL string) string {
 }
 
 func buildAddClaudeArgs(cfg *addConfig) ([]string, error) {
-	claudeArgs := []string{"mcp", "add", "--transport", cfg.Transport, "--scope", cfg.Scope}
+	claudeArgs := []string{"mcp", "add", "--transport", cfg.Transport, flagScope, cfg.Scope}
 
 	if cfg.ClientID != "" {
 		claudeArgs = append(claudeArgs, "--client-id", cfg.ClientID)
@@ -330,7 +331,7 @@ func buildAddClaudeArgs(cfg *addConfig) ([]string, error) {
 }
 
 func buildRemoteClaudeArgs(cfg *remoteConfig) []string {
-	claudeArgs := []string{"mcp", "add", "--transport", cfg.Transport, "--scope", cfg.Scope}
+	claudeArgs := []string{"mcp", "add", "--transport", cfg.Transport, flagScope, cfg.Scope}
 
 	if cfg.ClientID != "" {
 		claudeArgs = append(claudeArgs, "--client-id", cfg.ClientID)
@@ -566,11 +567,12 @@ func ListTo(w io.Writer) error {
 	}
 
 	platform.PrintSection(w, "Quick Add Commands")
-	fmt.Fprintln(w, "  Local server (no auth):       claude-workspace mcp add <name> --scope user -- <cmd>")
-	fmt.Fprintln(w, "  Local server (API key):       claude-workspace mcp add <name> --scope user --api-key API_KEY -- <cmd>")
-	fmt.Fprintln(w, "  Remote server (OAuth):        claude-workspace mcp remote <url> --scope user")
-	fmt.Fprintln(w, "  Remote server (Bearer):       claude-workspace mcp remote <url> --scope user --bearer")
-	fmt.Fprintln(w, "  Remote server (client creds): claude-workspace mcp remote <url> --scope user --oauth --client-id <id> --client-secret")
+	fmt.Fprintln(w, "  Local server (no auth):        claude-workspace mcp add <name> --scope user -- <cmd>")
+	fmt.Fprintln(w, "  Local server (API key):        claude-workspace mcp add <name> --scope user --api-key API_KEY -- <cmd>")
+	fmt.Fprintln(w, "  Remote server (OAuth):         claude-workspace mcp remote <url> --scope user")
+	fmt.Fprintln(w, "  Remote server (Bearer):        claude-workspace mcp remote <url> --scope user --bearer")
+	fmt.Fprintln(w, "  Remote server (client creds):  claude-workspace mcp remote <url> --scope user --oauth --client-id <id> --client-secret")
+	fmt.Fprintln(w, "  Remote server (custom header): claude-workspace mcp remote <url> --scope user --header 'Key: Value'")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  Scopes: user (cross-project, default in examples) | local (per-project) | project (shared via .mcp.json)")
 	fmt.Fprintln(w)
@@ -660,5 +662,84 @@ Examples:
   # Organization gateway
   claude-workspace mcp remote https://mcp-gateway.company.com --scope user --name company
   claude-workspace mcp remote https://mcp-gateway.company.com --scope user --bearer --name company
+`)
+}
+
+type removeConfig struct {
+	Name  string
+	Scope string
+}
+
+func parseRemoveArgs(args []string) (*removeConfig, error) {
+	if len(args) < 1 || args[0] == "--help" || args[0] == "-h" {
+		printMcpRemoveHelp()
+		return nil, fmt.Errorf("server name is required")
+	}
+
+	cfg := &removeConfig{
+		Name:  args[0],
+		Scope: "user",
+	}
+
+	for i := 1; i < len(args); i++ {
+		if args[i] == flagScope {
+			i++
+			if i < len(args) {
+				cfg.Scope = args[i]
+			}
+		}
+	}
+
+	return cfg, nil
+}
+
+func buildRemoveClaudeArgs(cfg *removeConfig) []string {
+	return []string{"mcp", "remove", cfg.Name, flagScope, cfg.Scope}
+}
+
+// Remove removes an MCP server from the specified scope.
+func Remove(args []string) error {
+	cfg, err := parseRemoveArgs(args)
+	if err != nil {
+		return err
+	}
+
+	claudeArgs := buildRemoveClaudeArgs(cfg)
+
+	fmt.Printf("Removing MCP server '%s' (scope: %s)...\n", cfg.Name, cfg.Scope)
+	fmt.Printf("  > claude %s\n\n", strings.Join(claudeArgs, " "))
+
+	exitCode, err := platform.RunSpawn("claude", claudeArgs...)
+	if err != nil {
+		return fmt.Errorf("could not run 'claude' command. Is Claude Code installed?")
+	}
+
+	if exitCode == 0 {
+		fmt.Fprintf(os.Stdout, "\n%s\n", platform.Green(fmt.Sprintf("MCP server '%s' removed.", cfg.Name)))
+	} else {
+		fmt.Fprintf(os.Stderr, "\n%s\n", platform.Red(fmt.Sprintf("Failed to remove MCP server. Exit code: %d", exitCode)))
+	}
+
+	return nil
+}
+
+func printMcpRemoveHelp() {
+	fmt.Print(`Usage: claude-workspace mcp remove <name> [options]
+
+Remove an MCP server from your configuration.
+
+Options:
+  --scope local|project|user    Which config to remove from (default: user)
+
+Examples:
+
+  # Remove a server from user config (default)
+  claude-workspace mcp remove brave-search
+
+  # Remove a server from project config
+  claude-workspace mcp remove sentry --scope project
+
+  # Remove a server from local config
+  claude-workspace mcp remove postgres --scope local
 `)
 }

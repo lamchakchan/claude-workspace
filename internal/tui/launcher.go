@@ -51,6 +51,7 @@ func newLauncher(version string, theme *Theme) *launcherModel {
 			items: []commandItem{
 				{name: "Add Server", desc: "Add a local or remote MCP server", icon: "➕", command: "mcp", args: []string{"add"}},
 				{name: "List Servers", desc: "Show all configured servers", icon: "📋", command: "mcp", args: []string{"list"}},
+				{name: "Remove Server", desc: "Remove an MCP server", icon: "➖", command: "mcp", args: []string{"remove"}},
 			},
 		},
 		{
@@ -156,6 +157,9 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 	case "mcp":
 		if len(item.args) > 0 && item.args[0] == "add" {
 			return pushView(NewMcpPicker(m.theme))
+		}
+		if len(item.args) > 0 && item.args[0] == "remove" {
+			return pushView(NewMcpRemove(m.theme))
 		}
 		return pushView(NewMcpList(m.theme))
 

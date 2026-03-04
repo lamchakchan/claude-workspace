@@ -11,6 +11,24 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/mcpregistry"
 )
 
+const (
+	headerPresetNone   = "none"
+	headerPresetCustom = "Custom"
+)
+
+// headerPresets lists the well-known HTTP header presets available in the
+// header choice picker. The first entry ("none") means no header.
+// "Custom" allows the user to type a full "Header-Name: Value" string.
+var headerPresets = []string{
+	headerPresetNone,
+	"Authorization: Bearer",
+	"X-API-Key",
+	"api-key",
+	"OpenAI-Organization",
+	"OpenAI-Project",
+	headerPresetCustom,
+}
+
 // McpAddModel is the interactive MCP server add form screen.
 type McpAddModel struct {
 	theme     *Theme
@@ -41,6 +59,8 @@ func NewMcpAddHTTP(theme *Theme) *McpAddModel {
 	fields := []FormField{
 		{Label: "Server name", Placeholder: "e.g. sentry, github (optional, derived from URL if blank)"},
 		{Label: "URL", Placeholder: "e.g. https://mcp.sentry.dev/mcp", Required: true},
+		{Label: "Header", Choices: headerPresets},
+		{Label: "Header value", Placeholder: "token or full Header-Name: Value for Custom"},
 		{Label: "Scope", Choices: []string{"user", "local", "project"}},
 	}
 
@@ -59,7 +79,8 @@ func NewMcpAddFromRecipe(recipe *mcpregistry.Recipe, theme *Theme) *McpAddModel 
 		m.title = "Add " + recipe.Key
 		m.form.SetValue(0, recipe.Key)
 		m.form.SetValue(1, recipe.URL)
-		m.form.SetChoice(2, recipe.Scope)
+		prefillRecipeHeader(m.form, recipe)
+		m.form.SetChoice(4, recipe.Scope)
 		return m
 	}
 
@@ -70,6 +91,42 @@ func NewMcpAddFromRecipe(recipe *mcpregistry.Recipe, theme *Theme) *McpAddModel 
 	m.form.SetValue(2, recipe.CommandString())
 	m.form.SetChoice(3, recipe.Scope)
 	return m
+}
+
+// prefillRecipeHeader sets the header choice and value fields from a recipe's headers.
+// Field index 2 = header choice picker, field index 3 = header value text input.
+func prefillRecipeHeader(form *FormModel, recipe *mcpregistry.Recipe) {
+	headerKey, headerVal := recipe.FirstHeader()
+	if headerKey == "" {
+		return
+	}
+
+	// Check if the header key matches a well-known preset prefix.
+	// Presets like "Authorization: Bearer" match key "Authorization" with
+	// value starting with "Bearer ".
+	for _, preset := range headerPresets {
+		if preset == headerPresetNone || preset == headerPresetCustom {
+			continue
+		}
+		// Split preset into name and optional value prefix (e.g. "Authorization: Bearer")
+		parts := strings.SplitN(preset, ": ", 2)
+		if !strings.EqualFold(parts[0], headerKey) {
+			continue
+		}
+		form.SetChoice(2, preset)
+		// Strip the preset value prefix from the header value
+		if len(parts) == 2 {
+			trimmed := strings.TrimPrefix(headerVal, parts[1]+" ")
+			form.SetValue(3, trimmed)
+		} else {
+			form.SetValue(3, headerVal)
+		}
+		return
+	}
+
+	// No matching preset — use Custom
+	form.SetChoice(2, headerPresetCustom)
+	form.SetValue(3, headerKey+": "+headerVal)
 }
 
 func (m *McpAddModel) Init() tea.Cmd {
@@ -119,11 +176,17 @@ func (m *McpAddModel) runStdioAdd(values []string) tea.Cmd {
 func (m *McpAddModel) runHTTPAdd(values []string) tea.Cmd {
 	name := strings.TrimSpace(values[0])
 	url := strings.TrimSpace(values[1])
-	scope := values[2]
+	headerChoice := values[2]
+	headerValue := strings.TrimSpace(values[3])
+	scope := values[4]
 
 	args := []string{"mcp", "remote", url, "--scope", scope}
 	if name != "" {
 		args = append(args, "--name", name)
+	}
+
+	if header := composeHeader(headerChoice, headerValue); header != "" {
+		args = append(args, "--header", header)
 	}
 
 	exe, _ := os.Executable()
@@ -134,6 +197,27 @@ func (m *McpAddModel) runHTTPAdd(values []string) tea.Cmd {
 	return tea.ExecProcess(cmd, func(_ error) tea.Msg {
 		return PopViewMsg{}
 	})
+}
+
+// composeHeader builds a full HTTP header string from a preset choice and value.
+// Returns empty string when no header should be sent.
+func composeHeader(choice, value string) string {
+	switch choice {
+	case headerPresetNone, "":
+		return ""
+	case headerPresetCustom:
+		return value
+	default:
+		if value == "" {
+			return ""
+		}
+		// Presets like "Authorization: Bearer" already contain ": " —
+		// append value with a space. Bare names like "X-API-Key" need ": ".
+		if strings.Contains(choice, ": ") {
+			return choice + " " + value
+		}
+		return choice + ": " + value
+	}
 }
 
 func (m *McpAddModel) View() tea.View {

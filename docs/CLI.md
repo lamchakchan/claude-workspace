@@ -19,7 +19,7 @@ claude-workspace
 | Group | Commands |
 |-------|----------|
 | Getting Started | Setup, Attach, Enrich, Sandbox |
-| MCP Servers | Add Server, List Servers |
+| MCP Servers | Add Server, List Servers, Remove Server |
 | Inspect & Manage | Doctor, Skills, Agents, Hooks, Sessions, Memory, Cost, Config |
 | Maintenance | Upgrade, Statusline |
 
@@ -83,6 +83,7 @@ Getting Started
 MCP Servers
   ➕ Add Server    Add a local or remote MCP server
   📋 List Servers  Show all configured servers
+  ➖ Remove Server Remove an MCP server
 
 Inspect & Manage
   🩺 Doctor        Check platform configuration health
@@ -337,6 +338,37 @@ claude-workspace mcp list
 
 ```bash
 claude-workspace mcp list
+```
+
+---
+
+## claude-workspace mcp remove
+
+Remove an MCP server from your configuration.
+
+**Synopsis:**
+
+```
+claude-workspace mcp remove <name> [options]
+```
+
+**Flags:**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--scope` | `local\|project\|user` | `user` | Which config to remove from. |
+
+**Examples:**
+
+```bash
+# Remove a server from user config (default)
+claude-workspace mcp remove brave-search
+
+# Remove a server from project config
+claude-workspace mcp remove sentry --scope project
+
+# Remove a server from local config
+claude-workspace mcp remove postgres --scope local
 ```
 
 ---

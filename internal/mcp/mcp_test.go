@@ -4,9 +4,7 @@ import (
 	"testing"
 )
 
-const (
-	scopeProject = "project"
-)
+// scopeProject is now defined in discover.go as a package-level constant.
 
 //nolint:gocyclo
 func TestParseAddArgs(t *testing.T) {
@@ -288,8 +286,8 @@ func TestParseRemoteArgs(t *testing.T) {
 			name:   "default scope is user",
 			mcpURL: "https://example.com/mcp",
 			check: func(t *testing.T, cfg *remoteConfig) {
-				if cfg.Scope != "user" {
-					t.Errorf("Scope = %q, want %q", cfg.Scope, "user")
+				if cfg.Scope != scopeUser {
+					t.Errorf("Scope = %q, want %q", cfg.Scope, scopeUser)
 				}
 			},
 		},
@@ -623,6 +621,124 @@ func TestMaskSensitiveArgs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := maskSensitiveArgs(tt.args)
 			assertSliceEqual(t, got, tt.want)
+		})
+	}
+}
+
+func TestParseRemoveArgs(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr bool
+		check   func(t *testing.T, cfg *removeConfig)
+	}{
+		{
+			name:    "empty args returns error",
+			args:    []string{},
+			wantErr: true,
+		},
+		{
+			name:    "help flag returns error",
+			args:    []string{"--help"},
+			wantErr: true,
+		},
+		{
+			name:    "short help flag returns error",
+			args:    []string{"-h"},
+			wantErr: true,
+		},
+		{
+			name: "name only with default scope",
+			args: []string{"brave-search"},
+			check: func(t *testing.T, cfg *removeConfig) {
+				if cfg.Name != "brave-search" {
+					t.Errorf("Name = %q, want %q", cfg.Name, "brave-search")
+				}
+				if cfg.Scope != scopeUser {
+					t.Errorf("Scope = %q, want %q", cfg.Scope, scopeUser)
+				}
+			},
+		},
+		{
+			name: "scope flag overrides default",
+			args: []string{"sentry", "--scope", scopeProject},
+			check: func(t *testing.T, cfg *removeConfig) {
+				if cfg.Name != "sentry" {
+					t.Errorf("Name = %q, want %q", cfg.Name, "sentry")
+				}
+				if cfg.Scope != scopeProject {
+					t.Errorf("Scope = %q, want %q", cfg.Scope, scopeProject)
+				}
+			},
+		},
+		{
+			name: "scope local",
+			args: []string{"postgres", "--scope", "local"},
+			check: func(t *testing.T, cfg *removeConfig) {
+				if cfg.Scope != "local" {
+					t.Errorf("Scope = %q, want %q", cfg.Scope, "local")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := parseRemoveArgs(tt.args)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.check != nil {
+				tt.check(t, cfg)
+			}
+		})
+	}
+}
+
+func TestBuildRemoveClaudeArgs(t *testing.T) {
+	tests := []struct {
+		name  string
+		cfg   *removeConfig
+		check func(t *testing.T, args []string)
+	}{
+		{
+			name: "basic remove args",
+			cfg:  &removeConfig{Name: "brave-search", Scope: scopeUser},
+			check: func(t *testing.T, args []string) {
+				want := []string{"mcp", "remove", "brave-search", "--scope", scopeUser}
+				assertSliceEqual(t, args, want)
+			},
+		},
+		{
+			name: "project scope",
+			cfg:  &removeConfig{Name: "sentry", Scope: scopeProject},
+			check: func(t *testing.T, args []string) {
+				want := []string{"mcp", "remove", "sentry", "--scope", scopeProject}
+				assertSliceEqual(t, args, want)
+			},
+		},
+		{
+			name: "local scope",
+			cfg:  &removeConfig{Name: "postgres", Scope: "local"},
+			check: func(t *testing.T, args []string) {
+				want := []string{"mcp", "remove", "postgres", "--scope", "local"}
+				assertSliceEqual(t, args, want)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := buildRemoveClaudeArgs(tt.cfg)
+			if tt.check != nil {
+				tt.check(t, args)
+			}
 		})
 	}
 }

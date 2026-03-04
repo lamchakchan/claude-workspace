@@ -644,8 +644,8 @@ func TestNewMcpPicker(t *testing.T) {
 func TestNewMcpAddHTTP(t *testing.T) {
 	theme := DefaultTheme()
 	m := NewMcpAddHTTP(&theme)
-	if len(m.form.Fields) != 3 {
-		t.Errorf("McpAddHTTP fields = %d, want 3", len(m.form.Fields))
+	if len(m.form.Fields) != 5 {
+		t.Errorf("McpAddHTTP fields = %d, want 5", len(m.form.Fields))
 	}
 	// Name field should not be required
 	if m.form.Fields[0].Required {
@@ -655,10 +655,18 @@ func TestNewMcpAddHTTP(t *testing.T) {
 	if !m.form.Fields[1].Required {
 		t.Error("HTTP URL field should be required")
 	}
-	// Scope should default to "user"
+	// Header field should be a choice picker
+	if len(m.form.Fields[2].Choices) == 0 {
+		t.Error("HTTP header field should have choices")
+	}
+	// Default header should be "none"
 	vals := m.form.Values()
-	if vals[2] != scopeUser {
-		t.Errorf("HTTP default scope = %q, want %q", vals[2], scopeUser)
+	if vals[2] != headerPresetNone {
+		t.Errorf("HTTP default header = %q, want %q", vals[2], headerPresetNone)
+	}
+	// Scope should default to "user" (field index 4)
+	if vals[4] != scopeUser {
+		t.Errorf("HTTP default scope = %q, want %q", vals[4], scopeUser)
 	}
 }
 
@@ -710,8 +718,101 @@ func TestNewMcpAddFromRecipe_HTTP(t *testing.T) {
 	if vals[1] != "https://mcp.sentry.dev/mcp" {
 		t.Errorf("url = %q, want %q", vals[1], "https://mcp.sentry.dev/mcp")
 	}
-	if vals[2] != scopeUser {
-		t.Errorf("scope = %q, want %q", vals[2], scopeUser)
+	// Header should default to "none" for recipes without headers
+	if vals[2] != headerPresetNone {
+		t.Errorf("header = %q, want %q", vals[2], headerPresetNone)
+	}
+	if vals[4] != scopeUser {
+		t.Errorf("scope = %q, want %q", vals[4], scopeUser)
+	}
+}
+
+func TestNewMcpAddFromRecipe_HTTPWithHeaders(t *testing.T) {
+	theme := DefaultTheme()
+	recipe := &mcpregistry.Recipe{
+		Key:       "github_pat",
+		Transport: mcpregistry.TransportHTTP,
+		URL:       "https://api.githubcopilot.com/mcp/",
+		Headers:   map[string]string{"Authorization": "Bearer <your_pat>"},
+		Scope:     scopeUser,
+	}
+	m := NewMcpAddFromRecipe(recipe, &theme)
+	vals := m.form.Values()
+	if vals[2] != "Authorization: Bearer" {
+		t.Errorf("header choice = %q, want %q", vals[2], "Authorization: Bearer")
+	}
+	if vals[3] != "<your_pat>" {
+		t.Errorf("header value = %q, want %q", vals[3], "<your_pat>")
+	}
+}
+
+func TestNewMcpAddFromRecipe_HTTPWithCustomHeader(t *testing.T) {
+	theme := DefaultTheme()
+	recipe := &mcpregistry.Recipe{
+		Key:       "my-api",
+		Transport: mcpregistry.TransportHTTP,
+		URL:       "https://example.com/mcp",
+		Headers:   map[string]string{"X-Custom-Key": "secret"},
+		Scope:     scopeUser,
+	}
+	m := NewMcpAddFromRecipe(recipe, &theme)
+	vals := m.form.Values()
+	// Unknown header key should fall back to Custom
+	if vals[2] != "Custom" {
+		t.Errorf("header choice = %q, want %q", vals[2], "Custom")
+	}
+	if vals[3] != "X-Custom-Key: secret" {
+		t.Errorf("header value = %q, want %q", vals[3], "X-Custom-Key: secret")
+	}
+}
+
+func TestNewMcpAddFromRecipe_HTTPWithBarePreset(t *testing.T) {
+	theme := DefaultTheme()
+	recipe := &mcpregistry.Recipe{
+		Key:       "azure-api",
+		Transport: mcpregistry.TransportHTTP,
+		URL:       "https://example.com/mcp",
+		Headers:   map[string]string{"X-API-Key": "abc123"},
+		Scope:     scopeUser,
+	}
+	m := NewMcpAddFromRecipe(recipe, &theme)
+	vals := m.form.Values()
+	if vals[2] != "X-API-Key" {
+		t.Errorf("header choice = %q, want %q", vals[2], "X-API-Key")
+	}
+	if vals[3] != "abc123" {
+		t.Errorf("header value = %q, want %q", vals[3], "abc123")
+	}
+}
+
+func TestComposeHeader(t *testing.T) {
+	tests := []struct {
+		name   string
+		choice string
+		value  string
+		want   string
+	}{
+		{"none with empty value", headerPresetNone, "", ""},
+		{"none with value", headerPresetNone, "ignored", ""},
+		{"empty choice", "", "anything", ""},
+		{"custom full header", "Custom", "X-Foo: bar", "X-Foo: bar"},
+		{"custom empty value", "Custom", "", ""},
+		{"bearer preset", "Authorization: Bearer", "tok123", "Authorization: Bearer tok123"},
+		{"bearer empty value", "Authorization: Bearer", "", ""},
+		{"bare name X-API-Key", "X-API-Key", "abc", "X-API-Key: abc"},
+		{"bare name api-key", "api-key", "key123", "api-key: key123"},
+		{"bare name OpenAI-Organization", "OpenAI-Organization", "org-1", "OpenAI-Organization: org-1"},
+		{"bare name OpenAI-Project", "OpenAI-Project", "proj-1", "OpenAI-Project: proj-1"},
+		{"bare name empty value", "X-API-Key", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := composeHeader(tt.choice, tt.value)
+			if got != tt.want {
+				t.Errorf("composeHeader(%q, %q) = %q, want %q", tt.choice, tt.value, got, tt.want)
+			}
+		})
 	}
 }
 
