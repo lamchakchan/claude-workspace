@@ -5,21 +5,23 @@ package sandbox
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
 
-// Run creates a git worktree sandbox for the given project path and branch name.
+// Create creates a git worktree sandbox for the given project path and branch name.
 // It copies Claude configuration and installs dependencies in the new worktree.
-func Run(projectPath, branchName string) error {
+func Create(projectPath, branchName string) error {
 	if projectPath == "" || branchName == "" {
-		fmt.Fprintln(os.Stderr, "Usage: claude-workspace sandbox <project-path> <branch-name>")
+		fmt.Fprintln(os.Stderr, "Usage: claude-workspace sandbox create <project-path> <branch-name>")
 		fmt.Println("\nExamples:")
-		fmt.Println("  claude-workspace sandbox ./my-project feature-auth")
-		fmt.Println("  claude-workspace sandbox ./my-project feature-api")
-		fmt.Println("  claude-workspace sandbox ./my-project bugfix-login")
+		fmt.Println("  claude-workspace sandbox create ./my-project feature-auth")
+		fmt.Println("  claude-workspace sandbox create ./my-project feature-api")
+		fmt.Println("  claude-workspace sandbox create ./my-project bugfix-login")
 		os.Exit(1)
 	}
 
@@ -365,4 +367,147 @@ func installScalaDeps(dir string) bool {
 		}
 	}
 	return true
+}
+
+// Remove removes a git worktree sandbox for the given project path and branch name.
+func Remove(projectPath, branchName string) error {
+	if projectPath == "" || branchName == "" {
+		fmt.Fprintln(os.Stderr, "Usage: claude-workspace sandbox remove <project-path> <branch-name>")
+		fmt.Println("\nExamples:")
+		fmt.Println("  claude-workspace sandbox remove ./my-project feature-auth")
+		os.Exit(1)
+	}
+
+	projectDir, err := filepath.Abs(projectPath)
+	if err != nil {
+		return fmt.Errorf("resolving path: %w", err)
+	}
+
+	if !platform.FileExists(projectDir) {
+		return fmt.Errorf("project directory not found: %s", projectDir)
+	}
+
+	if err := platform.RunQuietDir(projectDir, "git", "rev-parse", "--git-dir"); err != nil {
+		return fmt.Errorf("not a git repository: %s", projectDir)
+	}
+
+	projectName := filepath.Base(projectDir)
+	worktreeBase := filepath.Join(filepath.Dir(projectDir), projectName+"-worktrees")
+	worktreeDir := filepath.Join(worktreeBase, branchName)
+
+	if !platform.FileExists(worktreeDir) {
+		return fmt.Errorf("sandbox not found: %s", worktreeDir)
+	}
+
+	platform.PrintBanner(os.Stdout, fmt.Sprintf("Removing Sandbox: %s", branchName))
+	fmt.Println()
+
+	platform.PrintStep(os.Stdout, 1, 3, "Removing git worktree...")
+	if err := platform.RunDir(projectDir, "git", "worktree", "remove", worktreeDir); err != nil {
+		return fmt.Errorf("removing worktree: %w\nIf the worktree has uncommitted changes, commit or discard them first", err)
+	}
+
+	platform.PrintStep(os.Stdout, 2, 3, "Pruning worktree references...")
+	_ = platform.RunQuietDir(projectDir, "git", "worktree", "prune")
+
+	platform.PrintStep(os.Stdout, 3, 3, "Cleaning up...")
+	removeEmptyDir(worktreeBase)
+
+	platform.PrintBanner(os.Stdout, "Sandbox Removed")
+	fmt.Printf("\nBranch: %s\n", branchName)
+	fmt.Println()
+
+	return nil
+}
+
+// List lists all sandboxed worktrees for the given project, writing to stdout.
+func List(projectPath string) error {
+	return ListTo(os.Stdout, projectPath)
+}
+
+// ListTo lists all sandboxed worktrees for the given project, writing to w.
+func ListTo(w io.Writer, projectPath string) error {
+	if projectPath == "" {
+		fmt.Fprintln(os.Stderr, "Usage: claude-workspace sandbox list <project-path>")
+		fmt.Println("\nExamples:")
+		fmt.Println("  claude-workspace sandbox list ./my-project")
+		os.Exit(1)
+	}
+
+	projectDir, err := filepath.Abs(projectPath)
+	if err != nil {
+		return fmt.Errorf("resolving path: %w", err)
+	}
+
+	if !platform.FileExists(projectDir) {
+		return fmt.Errorf("project directory not found: %s", projectDir)
+	}
+
+	if err := platform.RunQuietDir(projectDir, "git", "rev-parse", "--git-dir"); err != nil {
+		return fmt.Errorf("not a git repository: %s", projectDir)
+	}
+
+	// Resolve symlinks so paths match git worktree list output (macOS /var -> /private/var)
+	if resolved, err := filepath.EvalSymlinks(projectDir); err == nil {
+		projectDir = resolved
+	}
+
+	projectName := filepath.Base(projectDir)
+	worktreeBase := filepath.Join(filepath.Dir(projectDir), projectName+"-worktrees")
+
+	platform.PrintBanner(w, fmt.Sprintf("Sandboxes: %s", projectName))
+	fmt.Fprintln(w)
+
+	out, err := platform.OutputDir(projectDir, "git", "worktree", "list")
+	if err != nil {
+		return fmt.Errorf("listing worktrees: %w", err)
+	}
+
+	// Filter to only worktrees under <project>-worktrees/
+	var sandboxes []string
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// git worktree list format: <path> <commit> [<branch>]
+		if strings.HasPrefix(line, worktreeBase+string(filepath.Separator)) {
+			sandboxes = append(sandboxes, line)
+		}
+	}
+
+	if len(sandboxes) == 0 {
+		fmt.Fprintln(w, "  No sandboxes found.")
+		fmt.Fprintf(w, "\n  Create one with: claude-workspace sandbox create %s <branch-name>\n", projectPath)
+		fmt.Fprintln(w)
+		return nil
+	}
+
+	for _, line := range sandboxes {
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+		dir := fields[0]
+		branch := strings.Trim(fields[2], "[]")
+		fmt.Fprintf(w, "  %s\n", platform.Bold(branch))
+		fmt.Fprintf(w, "    Directory: %s\n", dir)
+		fmt.Fprintln(w)
+	}
+
+	fmt.Fprintf(w, "  Total: %d sandbox(es)\n", len(sandboxes))
+	fmt.Fprintln(w)
+
+	return nil
+}
+
+// removeEmptyDir removes the directory if it is empty.
+func removeEmptyDir(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	if len(entries) == 0 {
+		os.Remove(dir)
+	}
 }

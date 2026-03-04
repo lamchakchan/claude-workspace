@@ -11,15 +11,28 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+// PathType controls path autocomplete behavior and validation for a form field.
+type PathType int
+
+const (
+	PathNone PathType = iota // no path autocomplete
+	PathDir                  // directories only
+	PathFile                 // files only
+	PathAny                  // files and directories
+)
+
 // FormField defines a single field in a form.
 type FormField struct {
 	Label       string
 	Placeholder string
 	Password    bool
 	Required    bool
-	IsPath      bool     // enables path autocomplete with tab completion
+	PathType    PathType // enables path autocomplete with type filtering and validation
 	Choices     []string // if non-nil, renders as a cycle picker instead of a text input
 }
+
+// isPath returns true if the field has any path autocomplete behavior.
+func (f FormField) isPath() bool { return f.PathType != PathNone }
 
 // FormResult is sent when the user submits or cancels the form.
 type FormResult struct {
@@ -54,7 +67,7 @@ func NewForm(title string, fields []FormField, theme *Theme) *FormModel {
 		if f.Password {
 			ti.EchoMode = textinput.EchoPassword
 		}
-		if f.IsPath {
+		if f.isPath() {
 			ti.ShowSuggestions = true
 		}
 		if i == 0 && len(f.Choices) == 0 {
@@ -105,10 +118,14 @@ func (m *FormModel) SetChoice(i int, value string) {
 }
 
 func (m *FormModel) Init() tea.Cmd {
+	var cmds []tea.Cmd
 	if len(m.Fields) > 0 && len(m.Fields[0].Choices) == 0 {
-		return textinput.Blink
+		cmds = append(cmds, textinput.Blink)
 	}
-	return nil
+	if cmd := m.pathSuggestionsForCurrent(); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m *FormModel) Update(msg tea.Msg) (*FormModel, tea.Cmd) {
@@ -134,8 +151,8 @@ func (m *FormModel) Update(msg tea.Msg) (*FormModel, tea.Cmd) {
 	m.inputs[m.cursor], cmd = m.inputs[m.cursor].Update(msg)
 
 	// If this is a path field and the value changed, refresh suggestions
-	if m.Fields[m.cursor].IsPath && m.inputs[m.cursor].Value() != prevValue {
-		sugCmd := readDirSuggestions(m.cursor, m.inputs[m.cursor].Value())
+	if m.Fields[m.cursor].isPath() && m.inputs[m.cursor].Value() != prevValue {
+		sugCmd := readDirSuggestions(m.cursor, m.inputs[m.cursor].Value(), m.Fields[m.cursor].PathType)
 		return m, tea.Batch(cmd, sugCmd)
 	}
 
@@ -180,6 +197,8 @@ func (m *FormModel) handleFormKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
 
 	case keyShiftTab:
 		m.focusPrev()
+		cmd := m.pathSuggestionsForCurrent()
+		return m, cmd
 
 	case keyEnter:
 		if m.cursor == len(m.Fields)-1 {
@@ -192,6 +211,8 @@ func (m *FormModel) handleFormKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
 		if len(m.Fields[m.cursor].Choices) == 0 {
 			m.inputs[m.cursor].Focus()
 		}
+		cmd := m.pathSuggestionsForCurrent()
+		return m, cmd
 
 	default:
 		if len(m.Fields[m.cursor].Choices) == 0 {
@@ -205,35 +226,38 @@ func (m *FormModel) handleFormKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
 
 // handleTabKey handles tab in the form (path suggestion accept or field advance).
 func (m *FormModel) handleTabKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
-	if m.Fields[m.cursor].IsPath && m.inputs[m.cursor].CurrentSuggestion() != "" {
+	if m.Fields[m.cursor].isPath() && m.inputs[m.cursor].CurrentSuggestion() != "" {
 		var cmd tea.Cmd
 		m.inputs[m.cursor], cmd = m.inputs[m.cursor].Update(msg)
-		return m, tea.Batch(cmd, readDirSuggestions(m.cursor, m.inputs[m.cursor].Value()))
+		return m, tea.Batch(cmd, readDirSuggestions(m.cursor, m.inputs[m.cursor].Value(), m.Fields[m.cursor].PathType))
 	}
 	m.focusNext()
-	return m, nil
+	sugCmd := m.pathSuggestionsForCurrent()
+	return m, sugCmd
 }
 
 // handleDownKey handles down arrow in the form (suggestion cycling or field advance).
 func (m *FormModel) handleDownKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
-	if m.Fields[m.cursor].IsPath && len(m.inputs[m.cursor].MatchedSuggestions()) > 0 {
+	if m.Fields[m.cursor].isPath() && len(m.inputs[m.cursor].MatchedSuggestions()) > 0 {
 		var cmd tea.Cmd
 		m.inputs[m.cursor], cmd = m.inputs[m.cursor].Update(msg)
 		return m, cmd
 	}
 	m.focusNext()
-	return m, nil
+	sugCmd := m.pathSuggestionsForCurrent()
+	return m, sugCmd
 }
 
 // handleUpKey handles up arrow in the form (suggestion cycling or field retreat).
 func (m *FormModel) handleUpKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
-	if m.Fields[m.cursor].IsPath && len(m.inputs[m.cursor].MatchedSuggestions()) > 0 {
+	if m.Fields[m.cursor].isPath() && len(m.inputs[m.cursor].MatchedSuggestions()) > 0 {
 		var cmd tea.Cmd
 		m.inputs[m.cursor], cmd = m.inputs[m.cursor].Update(msg)
 		return m, cmd
 	}
 	m.focusPrev()
-	return m, nil
+	sugCmd := m.pathSuggestionsForCurrent()
+	return m, sugCmd
 }
 
 // focusNext moves focus to the next input field.
@@ -261,11 +285,37 @@ func (m *FormModel) focusPrev() {
 func (m *FormModel) submit() (*FormModel, tea.Cmd) {
 	for i, f := range m.Fields {
 		if f.Required && len(f.Choices) == 0 && strings.TrimSpace(m.inputs[i].Value()) == "" {
-			if len(m.Fields[m.cursor].Choices) == 0 {
-				m.inputs[m.cursor].Blur()
-			}
-			m.cursor = i
-			m.inputs[i].Focus()
+			m.focusField(i)
+			return m, nil
+		}
+	}
+
+	// Validate path fields: check existence and type
+	for i, f := range m.Fields {
+		if f.PathType == PathNone {
+			continue
+		}
+		val := strings.TrimSpace(m.inputs[i].Value())
+		if val == "" {
+			continue // optional empty path is fine
+		}
+		expanded, _ := expandTilde(val)
+		absPath, err := filepath.Abs(expanded)
+		if err != nil {
+			m.focusField(i)
+			return m, nil
+		}
+		info, err := os.Stat(absPath)
+		if err != nil {
+			m.focusField(i)
+			return m, nil
+		}
+		if f.PathType == PathDir && !info.IsDir() {
+			m.focusField(i)
+			return m, nil
+		}
+		if f.PathType == PathFile && info.IsDir() {
+			m.focusField(i)
 			return m, nil
 		}
 	}
@@ -273,6 +323,17 @@ func (m *FormModel) submit() (*FormModel, tea.Cmd) {
 	vals := m.Values()
 	m.done = true
 	return m, func() tea.Msg { return FormResult{Values: vals} }
+}
+
+// focusField moves focus to field i, blurring the current field.
+func (m *FormModel) focusField(i int) {
+	if len(m.Fields[m.cursor].Choices) == 0 {
+		m.inputs[m.cursor].Blur()
+	}
+	m.cursor = i
+	if len(m.Fields[i].Choices) == 0 {
+		m.inputs[i].Focus()
+	}
 }
 
 func (m *FormModel) View() string {
@@ -305,7 +366,7 @@ func (m *FormModel) View() string {
 			b.WriteString("  " + m.inputs[i].View() + "\n")
 
 			// Render suggestion dropdown for focused path fields
-			if i == m.cursor && f.IsPath {
+			if i == m.cursor && f.isPath() {
 				matches := m.inputs[i].MatchedSuggestions()
 				if len(matches) > 0 {
 					selectedIdx := m.inputs[i].CurrentSuggestionIndex()
@@ -327,7 +388,7 @@ func (m *FormModel) View() string {
 			m.theme.HelpKey.Render(keyEnter) + " " + m.theme.HelpDesc.Render("submit") + "  " +
 			m.theme.HelpKey.Render("esc") + " " + m.theme.HelpDesc.Render("cancel")
 		b.WriteString(help)
-	case m.Fields[m.cursor].IsPath:
+	case m.Fields[m.cursor].isPath():
 		help := m.theme.HelpKey.Render("↑/↓") + " " + m.theme.HelpDesc.Render("select") + "  " +
 			m.theme.HelpKey.Render("tab") + " " + m.theme.HelpDesc.Render("accept") + "  " +
 			m.theme.HelpKey.Render(keyEnter) + " " + m.theme.HelpDesc.Render("submit") + "  " +
@@ -400,11 +461,20 @@ func (m *FormModel) renderSuggestionList(matches []string, selectedIdx int) stri
 	return b.String()
 }
 
+// pathSuggestionsForCurrent returns a Cmd that loads path suggestions for the
+// currently focused field, or nil if the field is not a path field.
+func (m *FormModel) pathSuggestionsForCurrent() tea.Cmd {
+	if m.cursor >= 0 && m.cursor < len(m.Fields) && m.Fields[m.cursor].isPath() {
+		return readDirSuggestions(m.cursor, m.inputs[m.cursor].Value(), m.Fields[m.cursor].PathType)
+	}
+	return nil
+}
+
 // readDirSuggestions returns a Cmd that reads directory entries and produces
 // path suggestions matching the current input value.
-func readDirSuggestions(fieldIndex int, value string) tea.Cmd {
+func readDirSuggestions(fieldIndex int, value string, pt PathType) tea.Cmd {
 	return func() tea.Msg {
-		suggestions := listPathSuggestions(value)
+		suggestions := listPathSuggestions(value, pt)
 		return pathSuggestionsMsg{
 			fieldIndex:  fieldIndex,
 			suggestions: suggestions,
@@ -415,9 +485,9 @@ func readDirSuggestions(fieldIndex int, value string) tea.Cmd {
 // listPathSuggestions generates file/directory completion suggestions for the
 // given path prefix. It expands ~ to the home directory, hides dotfiles unless
 // the user explicitly types a dot, and appends / to directories.
-func listPathSuggestions(prefix string) []string {
+func listPathSuggestions(prefix string, pt PathType) []string {
 	if prefix == "" {
-		return nil
+		return listCurrentDir(pt)
 	}
 
 	expanded, tilde := expandTilde(prefix)
@@ -432,7 +502,7 @@ func listPathSuggestions(prefix string) []string {
 		return nil
 	}
 
-	return buildSuggestions(entries, prefix, partial, tilde)
+	return buildSuggestions(entries, prefix, partial, tilde, pt)
 }
 
 // expandTilde expands ~ to the home directory. Returns the expanded path and
@@ -458,12 +528,18 @@ func splitDirPartial(prefix, expanded string) (string, string) {
 }
 
 // buildSuggestions filters directory entries and builds suggestion strings.
-func buildSuggestions(entries []os.DirEntry, prefix, partial string, tilde bool) []string {
+func buildSuggestions(entries []os.DirEntry, prefix, partial string, tilde bool, pt PathType) []string {
 	showDotfiles := strings.HasPrefix(partial, ".")
 	endsWithSep := strings.HasSuffix(prefix, "/") || strings.HasSuffix(prefix, string(filepath.Separator))
 
 	suggestions := make([]string, 0, len(entries))
 	for _, e := range entries {
+		if pt == PathDir && !e.IsDir() {
+			continue
+		}
+		if pt == PathFile && e.IsDir() {
+			continue
+		}
 		name := e.Name()
 		if !showDotfiles && strings.HasPrefix(name, ".") {
 			continue
@@ -477,6 +553,37 @@ func buildSuggestions(entries []os.DirEntry, prefix, partial string, tilde bool)
 			suggestion += "/"
 		}
 		suggestions = append(suggestions, suggestion)
+	}
+	return suggestions
+}
+
+// listCurrentDir returns suggestions for the current directory, including
+// navigation shortcuts ../ and ~/. Dotfiles are hidden.
+func listCurrentDir(pt PathType) []string {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		return nil
+	}
+	suggestions := make([]string, 0, len(entries)+2)
+	// Navigation shortcuts are directories — include unless filtering to files only
+	if pt != PathFile {
+		suggestions = append(suggestions, "../", "~/")
+	}
+	for _, e := range entries {
+		if pt == PathDir && !e.IsDir() {
+			continue
+		}
+		if pt == PathFile && e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		if e.IsDir() {
+			name += "/"
+		}
+		suggestions = append(suggestions, name)
 	}
 	return suggestions
 }

@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -226,6 +228,22 @@ func TestNewSandbox(t *testing.T) {
 	m := NewSandbox(&theme)
 	if len(m.form.Fields) != 2 {
 		t.Errorf("Sandbox fields = %d, want 2", len(m.form.Fields))
+	}
+}
+
+func TestNewSandboxRemove(t *testing.T) {
+	theme := DefaultTheme()
+	m := NewSandboxRemove(&theme)
+	if len(m.form.Fields) != 2 {
+		t.Errorf("SandboxRemove fields = %d, want 2", len(m.form.Fields))
+	}
+}
+
+func TestNewSandboxList(t *testing.T) {
+	theme := DefaultTheme()
+	m := NewSandboxList(&theme)
+	if len(m.form.Fields) != 1 {
+		t.Errorf("SandboxList fields = %d, want 1", len(m.form.Fields))
 	}
 }
 
@@ -496,14 +514,37 @@ func TestNewStatusline(t *testing.T) {
 }
 
 func TestListPathSuggestions_Empty(t *testing.T) {
-	suggestions := listPathSuggestions("")
-	if suggestions != nil {
-		t.Errorf("listPathSuggestions(\"\") = %v, want nil", suggestions)
+	suggestions := listPathSuggestions("", PathAny)
+	if len(suggestions) == 0 {
+		t.Fatal("listPathSuggestions(\"\") returned no suggestions, want current directory entries")
+	}
+	// Should include navigation shortcuts
+	hasParent := false
+	hasHome := false
+	for _, s := range suggestions {
+		if s == "../" {
+			hasParent = true
+		}
+		if s == "~/" {
+			hasHome = true
+		}
+	}
+	if !hasParent {
+		t.Error("listPathSuggestions(\"\") missing ../ navigation shortcut")
+	}
+	if !hasHome {
+		t.Error("listPathSuggestions(\"\") missing ~/ navigation shortcut")
+	}
+	// Should not include dotfiles
+	for _, s := range suggestions {
+		if s != "../" && s != "~/" && strings.HasPrefix(s, ".") {
+			t.Errorf("listPathSuggestions(\"\") includes dotfile %q", s)
+		}
 	}
 }
 
 func TestListPathSuggestions_Root(t *testing.T) {
-	suggestions := listPathSuggestions("/")
+	suggestions := listPathSuggestions("/", PathAny)
 	if len(suggestions) == 0 {
 		t.Error("listPathSuggestions(\"/\") returned no suggestions")
 	}
@@ -516,7 +557,7 @@ func TestListPathSuggestions_Root(t *testing.T) {
 }
 
 func TestListPathSuggestions_TildeExpansion(t *testing.T) {
-	suggestions := listPathSuggestions("~/")
+	suggestions := listPathSuggestions("~/", PathAny)
 	if len(suggestions) == 0 {
 		t.Error("listPathSuggestions(\"~/\") returned no suggestions")
 	}
@@ -529,23 +570,115 @@ func TestListPathSuggestions_TildeExpansion(t *testing.T) {
 }
 
 func TestListPathSuggestions_DirSuffix(_ *testing.T) {
-	suggestions := listPathSuggestions("/tmp/")
+	suggestions := listPathSuggestions("/tmp/", PathAny)
 	// Verify we get suggestions — directories end with /, files don't.
 	_ = suggestions
 }
 
-func TestFormIsPath(t *testing.T) {
+func TestListPathSuggestions_DirOnly(t *testing.T) {
+	dir := t.TempDir()
+	// Create a file and a subdirectory
+	if err := os.WriteFile(filepath.Join(dir, "file.txt"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "subdir"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	suggestions := listPathSuggestions(dir+"/", PathDir)
+	for _, s := range suggestions {
+		if !strings.HasSuffix(s, "/") {
+			t.Errorf("PathDir suggestion %q is not a directory (missing trailing /)", s)
+		}
+	}
+	// Should contain the subdirectory
+	found := false
+	for _, s := range suggestions {
+		if strings.Contains(s, "subdir") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("PathDir suggestions %v missing 'subdir'", suggestions)
+	}
+}
+
+func TestListPathSuggestions_FileOnly(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "file.txt"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "subdir"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	suggestions := listPathSuggestions(dir+"/", PathFile)
+	for _, s := range suggestions {
+		if strings.HasSuffix(s, "/") {
+			t.Errorf("PathFile suggestion %q is a directory", s)
+		}
+	}
+	found := false
+	for _, s := range suggestions {
+		if strings.Contains(s, "file.txt") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("PathFile suggestions %v missing 'file.txt'", suggestions)
+	}
+}
+
+func TestFormPathType(t *testing.T) {
 	theme := DefaultTheme()
 	fields := []FormField{
-		{Label: "Path", IsPath: true},
+		{Label: "Path", PathType: PathDir},
 		{Label: "Name"},
 	}
 	form := NewForm("Test", fields, &theme)
-	if !form.Fields[0].IsPath {
-		t.Error("field 0 should have IsPath=true")
+	if !form.Fields[0].isPath() {
+		t.Error("field 0 should be a path field")
 	}
-	if form.Fields[1].IsPath {
-		t.Error("field 1 should have IsPath=false")
+	if form.Fields[1].isPath() {
+		t.Error("field 1 should not be a path field")
+	}
+}
+
+func TestSubmitValidation_RejectsFileForDirField(t *testing.T) {
+	// Create a temp file (not a directory)
+	f, err := os.CreateTemp("", "testfile-*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	defer os.Remove(f.Name())
+
+	theme := DefaultTheme()
+	fields := []FormField{
+		{Label: "Project path", PathType: PathDir, Required: true},
+	}
+	form := NewForm("Test", fields, &theme)
+	form.SetValue(0, f.Name())
+
+	result, _ := form.submit()
+	if result.done {
+		t.Error("submit() should reject a file path when PathType is PathDir")
+	}
+}
+
+func TestSubmitValidation_AcceptsDirForDirField(t *testing.T) {
+	dir := t.TempDir()
+
+	theme := DefaultTheme()
+	fields := []FormField{
+		{Label: "Project path", PathType: PathDir, Required: true},
+	}
+	form := NewForm("Test", fields, &theme)
+	form.SetValue(0, dir)
+
+	result, _ := form.submit()
+	if !result.done {
+		t.Error("submit() should accept a directory path when PathType is PathDir")
 	}
 }
 

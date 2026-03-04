@@ -62,7 +62,9 @@ Commands:
     [--no-enrich]                Skip AI-powered CLAUDE.md enrichment
   enrich [project-path]          Re-generate .claude/CLAUDE.md with AI analysis
     [--scaffold-only]            Generate static scaffold only (skip AI enrichment)
-  sandbox <project-path> <name>  Create a sandboxed branch worktree
+  sandbox create <path> <name>   Create a sandboxed branch worktree
+  sandbox list <path>            List sandboxes for a project
+  sandbox remove <path> <name>   Remove a sandboxed branch worktree
   mcp add <name> [options]       Add an MCP server (local or remote)
   mcp remote <url>               Connect to a remote MCP server/gateway
   mcp list                       List all configured MCP servers
@@ -112,7 +114,8 @@ MCP Authentication:
 Examples:
   claude-workspace setup
   claude-workspace attach /path/to/my-project
-  claude-workspace sandbox /path/to/my-project feature-auth
+  claude-workspace sandbox create /path/to/my-project feature-auth
+  claude-workspace sandbox list /path/to/my-project
   claude-workspace mcp add postgres --scope user --api-key DATABASE_URL -- npx -y @bytebase/dbhub
   claude-workspace mcp add brave --scope user --api-key BRAVE_API_KEY -- npx -y @modelcontextprotocol/server-brave-search
   claude-workspace mcp remote https://mcp.sentry.dev/mcp --scope user --name sentry
@@ -214,14 +217,44 @@ func runEnrich(args []string) error {
 }
 
 func runSandbox(args []string) error {
-	var projectPath, branchName string
+	subcmd := ""
 	if len(args) > 1 {
-		projectPath = args[1]
+		subcmd = args[1]
 	}
-	if len(args) > 2 {
-		branchName = args[2]
+
+	switch subcmd {
+	case "create":
+		var projectPath, branchName string
+		if len(args) > 2 {
+			projectPath = args[2]
+		}
+		if len(args) > 3 {
+			branchName = args[3]
+		}
+		return sandbox.Create(projectPath, branchName)
+	case "remove":
+		var projectPath, branchName string
+		if len(args) > 2 {
+			projectPath = args[2]
+		}
+		if len(args) > 3 {
+			branchName = args[3]
+		}
+		return sandbox.Remove(projectPath, branchName)
+	case "list":
+		var projectPath string
+		if len(args) > 2 {
+			projectPath = args[2]
+		}
+		return sandbox.List(projectPath)
+	default:
+		// Backward compat: sandbox <path> <branch> defaults to create
+		var branchName string
+		if len(args) > 2 {
+			branchName = args[2]
+		}
+		return sandbox.Create(subcmd, branchName)
 	}
-	return sandbox.Run(projectPath, branchName)
 }
 
 func runMCP(args []string) error {
