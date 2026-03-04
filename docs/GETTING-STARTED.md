@@ -40,6 +40,26 @@ Node.js 18+ and npm are required for MCP servers but installed automatically by 
 brew install lamchakchan/tap/claude-workspace
 ```
 
+**Snap (Ubuntu / any distro with snapd):**
+
+```bash
+snap install claude-workspace --classic
+```
+
+**Debian / Ubuntu (.deb):**
+
+Download from the [latest release](https://github.com/lamchakchan/claude-workspace/releases/latest):
+
+```bash
+sudo dpkg -i claude-workspace_*.deb
+```
+
+**Fedora / RHEL (.rpm):**
+
+```bash
+sudo rpm -i claude-workspace_*.rpm
+```
+
 **One-liner (macOS / Linux):**
 
 ```bash

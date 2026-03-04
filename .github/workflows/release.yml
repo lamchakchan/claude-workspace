@@ -66,6 +66,9 @@ jobs:
       - name: Run tests
         run: go test ./... -v 2>&1 | tee /tmp/test-output.txt
 
+      - name: Install Snapcraft
+        run: sudo snap install snapcraft --classic
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -74,6 +77,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
 
       - name: Job Summary
         if: always()
