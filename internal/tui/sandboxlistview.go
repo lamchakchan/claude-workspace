@@ -17,7 +17,7 @@ type SandboxListModel struct {
 // NewSandboxList creates a new sandbox list form screen.
 func NewSandboxList(theme *Theme) *SandboxListModel {
 	fields := []FormField{
-		{Label: "Project path", Placeholder: "e.g. ./my-project or /abs/path", Required: true, IsPath: true},
+		{Label: "Project path", Placeholder: "e.g. ./my-project or /abs/path", Required: true, PathType: PathDir},
 	}
 	return &SandboxListModel{
 		theme: theme,

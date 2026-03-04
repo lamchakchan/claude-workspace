@@ -18,7 +18,7 @@ type SandboxModel struct {
 
 func newSandboxForm(title, subcmd string, theme *Theme) *SandboxModel {
 	fields := []FormField{
-		{Label: "Project path", Placeholder: "e.g. ./my-project or /abs/path", Required: true, IsPath: true},
+		{Label: "Project path", Placeholder: "e.g. ./my-project or /abs/path", Required: true, PathType: PathDir},
 		{Label: "Branch name", Placeholder: "e.g. feature-auth, bugfix-login", Required: true},
 	}
 	return &SandboxModel{
