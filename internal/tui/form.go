@@ -197,7 +197,8 @@ func (m *FormModel) handleFormKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
 
 	case keyShiftTab:
 		m.focusPrev()
-		return m, m.pathSuggestionsForCurrent()
+		cmd := m.pathSuggestionsForCurrent()
+		return m, cmd
 
 	case keyEnter:
 		if m.cursor == len(m.Fields)-1 {
@@ -210,7 +211,8 @@ func (m *FormModel) handleFormKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
 		if len(m.Fields[m.cursor].Choices) == 0 {
 			m.inputs[m.cursor].Focus()
 		}
-		return m, m.pathSuggestionsForCurrent()
+		cmd := m.pathSuggestionsForCurrent()
+		return m, cmd
 
 	default:
 		if len(m.Fields[m.cursor].Choices) == 0 {
@@ -230,7 +232,8 @@ func (m *FormModel) handleTabKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
 		return m, tea.Batch(cmd, readDirSuggestions(m.cursor, m.inputs[m.cursor].Value(), m.Fields[m.cursor].PathType))
 	}
 	m.focusNext()
-	return m, m.pathSuggestionsForCurrent()
+	sugCmd := m.pathSuggestionsForCurrent()
+	return m, sugCmd
 }
 
 // handleDownKey handles down arrow in the form (suggestion cycling or field advance).
@@ -241,7 +244,8 @@ func (m *FormModel) handleDownKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
 		return m, cmd
 	}
 	m.focusNext()
-	return m, m.pathSuggestionsForCurrent()
+	sugCmd := m.pathSuggestionsForCurrent()
+	return m, sugCmd
 }
 
 // handleUpKey handles up arrow in the form (suggestion cycling or field retreat).
@@ -252,7 +256,8 @@ func (m *FormModel) handleUpKey(msg tea.KeyPressMsg) (*FormModel, tea.Cmd) {
 		return m, cmd
 	}
 	m.focusPrev()
-	return m, m.pathSuggestionsForCurrent()
+	sugCmd := m.pathSuggestionsForCurrent()
+	return m, sugCmd
 }
 
 // focusNext moves focus to the next input field.

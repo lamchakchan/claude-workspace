@@ -578,8 +578,12 @@ func TestListPathSuggestions_DirSuffix(_ *testing.T) {
 func TestListPathSuggestions_DirOnly(t *testing.T) {
 	dir := t.TempDir()
 	// Create a file and a subdirectory
-	os.WriteFile(filepath.Join(dir, "file.txt"), []byte("x"), 0644)
-	os.MkdirAll(filepath.Join(dir, "subdir"), 0755)
+	if err := os.WriteFile(filepath.Join(dir, "file.txt"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "subdir"), 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	suggestions := listPathSuggestions(dir+"/", PathDir)
 	for _, s := range suggestions {
@@ -601,8 +605,12 @@ func TestListPathSuggestions_DirOnly(t *testing.T) {
 
 func TestListPathSuggestions_FileOnly(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "file.txt"), []byte("x"), 0644)
-	os.MkdirAll(filepath.Join(dir, "subdir"), 0755)
+	if err := os.WriteFile(filepath.Join(dir, "file.txt"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "subdir"), 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	suggestions := listPathSuggestions(dir+"/", PathFile)
 	for _, s := range suggestions {
