@@ -55,10 +55,10 @@ Use TodoWrite as working memory:
 ## Strategy 6: Persistent Cross-Session Memory
 
 For facts that should survive context compaction and new sessions:
-Use your configured memory MCP server's tools (default: `engram`):
-- **search** — load relevant prior context at session start
-- **save/create** — record stable cross-project facts (user preferences, recurring patterns, architectural decisions)
-- **delete** — prune stale or wrong knowledge
+Check your available tool list for memory MCP tools (e.g., `mcp__mcp-memory-libsql__*`). If found:
+- **read_graph / search_nodes** — load relevant prior context at session start
+- **create_entities** — record stable cross-project facts (user preferences, recurring patterns, architectural decisions)
+- **delete_entity** — prune stale or wrong knowledge
 
 Use memory MCP for cross-project facts only. Project-specific notes belong in auto-memory (`~/.claude/projects/<project>/memory/MEMORY.md`), which is automatically loaded every session. Run `claude-workspace memory` to see your configured provider. See `docs/MEMORY.md` for the full memory layer reference.
 
