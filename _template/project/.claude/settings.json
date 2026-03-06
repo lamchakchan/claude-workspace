@@ -7,7 +7,7 @@
     "CLAUDE_CODE_SUBAGENT_MODEL": "opus",
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"
   },
-  "model": "sonnet",
+  "model": "opus",
   "teammateMode": "in-process",
   "hooks": {
     "PreToolUse": [
