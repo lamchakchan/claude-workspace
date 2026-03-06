@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 	"github.com/lamchakchan/claude-workspace/internal/statusline"
@@ -58,41 +59,44 @@ func RunTo(w io.Writer, args []string) error {
 func runTo(w io.Writer, force, interactive bool) error {
 	platform.PrintBanner(w, "Claude Code Platform Setup")
 
-	platform.PrintStep(w, 1, 9, "Checking Claude Code installation...")
+	platform.PrintStep(w, 1, 10, "Checking Claude Code installation...")
 	if err := ensureClaudeCLITo(w); err != nil {
 		return err
 	}
 
-	platform.PrintStep(w, 2, 9, "API Key provisioning...")
+	platform.PrintStep(w, 2, 10, "API Key provisioning...")
 	if err := provisionAPIKeyTo(w, interactive); err != nil {
 		return err
 	}
 
-	platform.PrintStep(w, 3, 9, "Setting up global user configuration...")
+	platform.PrintStep(w, 3, 10, "Setting up global user configuration...")
 	if err := setupGlobalSettingsTo(w, force); err != nil {
 		return err
 	}
 
-	platform.PrintStep(w, 4, 9, "Setting up global CLAUDE.md...")
+	platform.PrintStep(w, 4, 10, "Setting up global CLAUDE.md...")
 	if err := setupGlobalClaudeMdTo(w); err != nil {
 		return err
 	}
 
-	platform.PrintStep(w, 5, 9, "Installing claude-workspace to PATH...")
+	platform.PrintStep(w, 5, 10, "Installing claude-workspace to PATH...")
 	installBinaryToPathTo(w)
 
-	platform.PrintStep(w, 6, 9, "Checking Node.js (required for filesystem MCP server)...")
+	platform.PrintStep(w, 6, 10, "Checking Node.js (required for filesystem MCP server)...")
 	ensureNodeTo(w)
 
-	platform.PrintStep(w, 7, 9, "Registering user-scoped MCP servers...")
+	platform.PrintStep(w, 7, 10, "Registering user-scoped MCP servers...")
 	if err := setupUserMCPServersTo(w, force); err != nil {
 		platform.PrintWarningLine(w, fmt.Sprintf("MCP server registration skipped: %v", err))
 	}
 
-	platform.PrintStep(w, 8, 9, "Checking optional system tools...")
+	platform.PrintStep(w, 8, 10, "Checking optional system tools...")
 	tools.CheckAndInstallTo(w, tools.Optional())
 
-	platform.PrintStep(w, 9, 9, "Statusline setup (cost & context display)...")
+	platform.PrintStep(w, 9, 10, "Installing recommended plugins...")
+	setupPluginsTo(w)
+
+	platform.PrintStep(w, 10, 10, "Statusline setup (cost & context display)...")
 	if err := statusline.RunTo(w, []string{}); err != nil {
 		platform.PrintWarningLine(w, fmt.Sprintf("statusline setup skipped: %v", err))
 	}
@@ -589,6 +593,47 @@ func ensureLocalBinClaudeTo(w io.Writer, home, claudePath string) error {
 	}
 
 	return nil
+}
+
+// platformPlugins is the list of plugins that setup installs by default.
+var platformPlugins = []string{"skill-creator@claude-plugins-official"}
+
+func setupPluginsTo(w io.Writer) {
+	if !platform.Exists("claude") {
+		fmt.Fprintln(w, "  Claude CLI not found. Skipping plugin installation.")
+		return
+	}
+
+	installed := installedPlugins()
+
+	for _, plugin := range platformPlugins {
+		if installed[plugin] {
+			fmt.Fprintf(w, "  %s already installed.\n", plugin)
+			continue
+		}
+		fmt.Fprintf(w, "  Installing %s...\n", plugin)
+		if err := platform.Run("claude", "plugin", "install", plugin, "--scope", "user"); err != nil {
+			platform.PrintWarningLine(w, fmt.Sprintf("could not install %s: %v", plugin, err))
+		} else {
+			platform.PrintOK(w, fmt.Sprintf("Installed %s", plugin))
+		}
+	}
+}
+
+// installedPlugins returns a set of installed plugin identifiers by parsing
+// the output of "claude plugin list".
+func installedPlugins() map[string]bool {
+	out, err := platform.Output("claude", "plugin", "list")
+	if err != nil {
+		return nil
+	}
+	plugins := make(map[string]bool)
+	for _, plugin := range platformPlugins {
+		if strings.Contains(out, plugin) {
+			plugins[plugin] = true
+		}
+	}
+	return plugins
 }
 
 func joinStrings(ss []string, sep string) string {

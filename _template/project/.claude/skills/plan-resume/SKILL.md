@@ -67,9 +67,9 @@ Check if this plan was previously executed with a team or is annotated for team 
 
 ## Step 6: Create Todo List
 
-Generate todos from remaining incomplete items using TaskCreate/TaskUpdate:
-- One task per remaining phase or logical group of steps
-- Set dependencies between tasks where phases are sequential
+For **sequential execution**: Use TodoWrite to create trackable items from the remaining steps — one todo per phase or logical group.
+
+For **team execution** (solo or multi-agent): Use TaskCreate to create team tasks from the remaining steps — one task per phase, with dependencies set via `addBlockedBy` where phases are sequential.
 
 ## Step 7: Session Hygiene
 

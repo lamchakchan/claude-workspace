@@ -1,4 +1,4 @@
-package tui
+package tui //nolint:dupl // picker views share identical keyboard handling by design
 
 import (
 	"fmt"
@@ -115,7 +115,7 @@ func (m *McpPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *McpPickerModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *McpPickerModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) { //nolint:dupl // picker views share identical keyboard handling
 	switch msg.String() {
 	case keyUp, "k":
 		next := m.nextSelectable(m.cursor-1, -1)

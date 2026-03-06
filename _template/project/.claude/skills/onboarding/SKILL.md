@@ -47,15 +47,15 @@ Run `claude mcp list` to identify which capability categories are covered by ins
 - `filesystem` server → filesystem operations
 - GitHub/GitLab/Bitbucket servers → version control
 - Observability servers (honeycomb, datadog, grafana, newrelic, sentry) → traces/logs/metrics
-- `engram` server → cross-project persistent memory
+- `mcp-memory-libsql` or similar memory server → cross-project persistent memory
 
 ### 7. Initialize Persistent Memory (if a memory MCP server is available)
 
 Check for memory tools in your available tool list (e.g., tools matching
-`mcp__engram__*` or `mcp__memory__*`). If found:
-1. Call the search tool for the project name — skip if observations already exist
-2. If not found, call the save/create tool with a topic key like the project name
-   and content summarizing: tech stack, purpose, build command, test command, key directories
+`mcp__mcp-memory-libsql__*`). If found:
+1. Call `read_graph` or `search_nodes` for the project name — skip if entities already exist
+2. If not found, call `create_entities` with an entity for the project summarizing:
+   tech stack, purpose, build command, test command, key directories
 
 This creates a persistent cross-project record that survives context compaction and new sessions.
 

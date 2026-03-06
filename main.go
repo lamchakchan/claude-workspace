@@ -19,6 +19,7 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/mcp"
 	"github.com/lamchakchan/claude-workspace/internal/memory"
 	"github.com/lamchakchan/claude-workspace/internal/platform"
+	"github.com/lamchakchan/claude-workspace/internal/plugins"
 	"github.com/lamchakchan/claude-workspace/internal/sandbox"
 	"github.com/lamchakchan/claude-workspace/internal/sessions"
 	"github.com/lamchakchan/claude-workspace/internal/setup"
@@ -46,6 +47,7 @@ var commands = map[string]func([]string) error{
 	"memory":     func(a []string) error { return memory.Run(a[1:]) },
 	"sessions":   func(a []string) error { return sessions.Run(a[1:]) },
 	"cost":       func(a []string) error { return cost.Run(a[1:]) },
+	"plugins":    func(a []string) error { return plugins.Run(a[1:]) },
 }
 
 const helpText = `
@@ -92,6 +94,13 @@ Commands:
     [--breakdown]                Per-model cost breakdown
     [--since YYYYMMDD]           Filter from date
     [--json]                     JSON output
+  plugins [subcommand]           Manage Claude Code plugins
+    (no args) / list             List installed plugins
+    add <plugin[@marketplace]>   Install a plugin
+      [--scope user|project]     Installation scope (default: user)
+    remove <plugin>              Remove an installed plugin
+      [--scope user|project]     Scope (default: user)
+    available                    List available plugins from marketplaces
   config [subcommand]            View and edit all Claude Code configuration
     (no args)                    Launch interactive TUI config viewer/editor
     view                         Non-interactive formatted output of all config

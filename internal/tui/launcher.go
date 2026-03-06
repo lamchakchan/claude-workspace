@@ -8,6 +8,8 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+const argRemove = "remove"
+
 // commandItem represents a single command in the launcher menu.
 type commandItem struct {
 	name    string
@@ -59,6 +61,14 @@ func newLauncher(version string, theme *Theme) *launcherModel {
 				{name: "Add Server", desc: "Add a local or remote MCP server", icon: "➕", command: "mcp", args: []string{"add"}},
 				{name: "List Servers", desc: "Show all configured servers", icon: "📋", command: "mcp", args: []string{"list"}},
 				{name: "Remove Server", desc: "Remove an MCP server", icon: "➖", command: "mcp", args: []string{"remove"}},
+			},
+		},
+		{
+			title: "Plugins",
+			items: []commandItem{
+				{name: "Install Plugin", desc: "Install from marketplace", icon: "➕", command: "plugins", args: []string{"add"}},
+				{name: "List Plugins", desc: "Show installed plugins", icon: "📋", command: "plugins", args: []string{"list"}},
+				{name: "Remove Plugin", desc: "Remove an installed plugin", icon: "➖", command: "plugins", args: []string{"remove"}},
 			},
 		},
 		{
@@ -161,7 +171,7 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 		if len(item.args) > 0 && item.args[0] == "create" {
 			return pushView(NewSandbox(m.theme))
 		}
-		if len(item.args) > 0 && item.args[0] == "remove" {
+		if len(item.args) > 0 && item.args[0] == argRemove {
 			return pushView(NewSandboxRemove(m.theme))
 		}
 		return pushView(NewSandboxList(m.theme))
@@ -171,10 +181,18 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 		if len(item.args) > 0 && item.args[0] == "add" {
 			return pushView(NewMcpPicker(m.theme))
 		}
-		if len(item.args) > 0 && item.args[0] == "remove" {
+		if len(item.args) > 0 && item.args[0] == argRemove {
 			return pushView(NewMcpRemove(m.theme))
 		}
 		return pushView(NewMcpList(m.theme))
+	case "plugins":
+		if len(item.args) > 0 && item.args[0] == "add" {
+			return pushView(NewPluginsPicker(m.theme))
+		}
+		if len(item.args) > 0 && item.args[0] == argRemove {
+			return pushView(NewPluginsRemove(m.theme))
+		}
+		return pushView(NewPluginsList(m.theme))
 
 	// In-app viewers for data display commands
 	case "doctor":

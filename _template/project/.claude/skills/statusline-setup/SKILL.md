@@ -39,18 +39,7 @@ Runtime options (detected in preference order at execution time):
 
 ## Configuring the Statusline
 
-Use the built-in `statusline-setup` subagent (Tools: Read, Edit) to configure interactively. Invoke it via the Task tool:
-
-```
-Task tool: subagent_type=statusline-setup
-Prompt: Configure the statusline in ~/.claude/settings.json using the best available runtime
-```
-
-The subagent will:
-1. Check whether `statusLine` is already present in `~/.claude/settings.json`
-2. Write `~/.claude/statusline.sh` — a wrapper script that handles runtime detection and reset countdown
-3. Register the script in `~/.claude/settings.json`
-4. Confirm the configuration was applied
+The recommended approach is the automated CLI command (see below). For manual setup, add the following to `~/.claude/settings.json`.
 
 ## Manual Configuration
 

@@ -632,6 +632,25 @@ func TestRemoveUserMCPServers_NoMcpServers(t *testing.T) {
 	}
 }
 
+func TestPlatformPlugins(t *testing.T) {
+	if len(platformPlugins) == 0 {
+		t.Error("platformPlugins should not be empty")
+	}
+	found := false
+	for _, p := range platformPlugins {
+		if p == "skill-creator@claude-plugins-official" {
+			found = true
+		}
+		// Each plugin should have the format "name@marketplace"
+		if !strings.Contains(p, "@") {
+			t.Errorf("plugin %q missing @marketplace suffix", p)
+		}
+	}
+	if !found {
+		t.Error("expected skill-creator@claude-plugins-official in platformPlugins")
+	}
+}
+
 func TestJoinStrings(t *testing.T) {
 	tests := []struct {
 		name string
