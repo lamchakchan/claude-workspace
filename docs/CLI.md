@@ -20,6 +20,7 @@ claude-workspace
 |-------|----------|
 | Getting Started | Setup, Attach, Enrich, Sandbox |
 | MCP Servers | Add Server, List Servers, Remove Server |
+| Plugins | Install Plugin, List Plugins, Remove Plugin |
 | Inspect & Manage | Doctor, Skills, Agents, Hooks, Sessions, Memory, Cost, Config |
 | Maintenance | Upgrade, Statusline |
 
@@ -89,6 +90,11 @@ MCP Servers
   📋 List Servers  Show all configured servers
   ➖ Remove Server Remove an MCP server
 
+Plugins
+  ➕ Install Plugin  Install from marketplace
+  📋 List Plugins    Show installed plugins
+  ➖ Remove Plugin   Remove an installed plugin
+
 Inspect & Manage
   🩺 Doctor        Check platform configuration health
   🛠  Skills        List available skills and personal commands
@@ -112,7 +118,7 @@ Maintenance
 
 ## claude-workspace setup
 
-First-time setup: installs Claude Code CLI, provisions API keys, configures global settings, installs the binary to PATH, installs Node.js if missing, registers MCP servers, and optionally configures the statusline for cost and context display.
+First-time setup: installs Claude Code CLI, provisions API keys, configures global settings, installs the binary to PATH, installs Node.js if missing, registers MCP servers, installs recommended plugins (skill-creator), and optionally configures the statusline for cost and context display.
 
 **Synopsis:**
 
@@ -896,6 +902,54 @@ claude-workspace cost --json
 ```
 
 **See also:** [ccusage](https://github.com/ryoppippi/ccusage)
+
+---
+
+## claude-workspace plugins
+
+Manage Claude Code plugins: list installed, install from marketplaces, and remove plugins.
+
+**Synopsis:**
+
+```
+claude-workspace plugins [subcommand] [options]
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| *(none)* / `list` | List installed plugins with scope, version, and enabled state |
+| `add <plugin[@marketplace]>` | Install a plugin |
+| `remove <plugin[@marketplace]>` | Remove an installed plugin |
+| `available` | List available plugins from configured marketplaces |
+
+**Flags:**
+
+| Flag | Applies to | Default | Description |
+|------|-----------|---------|-------------|
+| `--scope user\|project` | `add`, `remove` | `user` | Installation/removal scope |
+
+**Examples:**
+
+```bash
+# List installed plugins
+claude-workspace plugins
+
+# Install a plugin from the official marketplace
+claude-workspace plugins add skill-creator@claude-plugins-official
+
+# Install with project scope
+claude-workspace plugins add my-plugin@my-marketplace --scope project
+
+# Remove a plugin
+claude-workspace plugins remove skill-creator@claude-plugins-official
+
+# Browse available plugins from configured marketplaces
+claude-workspace plugins available
+```
+
+**See also:** [Plugins](PLUGINS.md)
 
 ---
 

@@ -62,6 +62,14 @@ func newLauncher(version string, theme *Theme) *launcherModel {
 			},
 		},
 		{
+			title: "Plugins",
+			items: []commandItem{
+				{name: "Install Plugin", desc: "Install from marketplace", icon: "➕", command: "plugins", args: []string{"add"}},
+				{name: "List Plugins", desc: "Show installed plugins", icon: "📋", command: "plugins", args: []string{"list"}},
+				{name: "Remove Plugin", desc: "Remove an installed plugin", icon: "➖", command: "plugins", args: []string{"remove"}},
+			},
+		},
+		{
 			title: "Inspect & Manage",
 			items: []commandItem{
 				{name: "Doctor", desc: "Check platform configuration health", icon: "🩺", command: "doctor"},
@@ -175,6 +183,14 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 			return pushView(NewMcpRemove(m.theme))
 		}
 		return pushView(NewMcpList(m.theme))
+	case "plugins":
+		if len(item.args) > 0 && item.args[0] == "add" {
+			return pushView(NewPluginsPicker(m.theme))
+		}
+		if len(item.args) > 0 && item.args[0] == "remove" {
+			return pushView(NewPluginsRemove(m.theme))
+		}
+		return pushView(NewPluginsList(m.theme))
 
 	// In-app viewers for data display commands
 	case "doctor":

@@ -10,7 +10,8 @@ Skills are reusable workflows that Claude follows when you invoke them as slash 
 2. [Using Skills](#using-skills)
 3. [Built-in Skills](#built-in-skills)
 4. [Creating Custom Skills](#creating-custom-skills)
-5. [Skills vs Agents vs Commands](#skills-vs-agents-vs-commands)
+5. [Plugins](#plugins)
+6. [Skills vs Agents vs Commands](#skills-vs-agents-vs-commands)
 
 ---
 
@@ -162,6 +163,54 @@ Personal commands use a simpler format — just plain Markdown. They're useful f
 - Define output format if the skill should produce structured results
 - Reference subagents when the skill needs delegated work (e.g., "Use the explorer subagent")
 - Keep skills focused on one workflow — chain multiple skills for complex flows
+
+### Using skill-creator
+
+The recommended way to create and improve skills is with the `/skill-creator` plugin. It provides a guided workflow for drafting skills, running test evaluations, collecting feedback, and iterating until the skill works well. See the [Plugins](#plugins) section below for installation.
+
+---
+
+## Plugins
+
+Plugins extend Claude Code with additional skills, agents, and tools from external sources. They are managed by the Claude Code CLI — not by `claude-workspace`.
+
+### Installing plugins
+
+```bash
+claude plugin install <name>@<marketplace> --scope user
+```
+
+### skill-creator (recommended)
+
+The `skill-creator` plugin from Anthropic's official marketplace provides a complete workflow for building and improving skills:
+
+- **Drafting** — Guided interview to capture intent, edge cases, and output format
+- **Testing** — Runs the skill against test prompts and compares with/without-skill baselines
+- **Evaluation** — Quantitative benchmarks and a browser-based reviewer for qualitative feedback
+- **Iteration** — Improves the skill based on feedback, reruns tests, repeats until satisfied
+- **Description optimization** — Tunes the skill's trigger description for accurate invocation
+
+Install it:
+
+```bash
+claude plugin install skill-creator@claude-plugins-official --scope user
+```
+
+Once installed, use `/skill-creator` in any Claude Code session to create a new skill or improve an existing one.
+
+### Platform-managed plugins
+
+The `claude-workspace setup` command automatically installs the `skill-creator` plugin. To skip or reinstall manually, use the commands above.
+
+### Managing plugins
+
+```bash
+claude plugin list                    # List installed plugins
+claude plugin update <name>           # Update to latest version
+claude plugin uninstall <name>        # Remove a plugin
+claude plugin disable <name>          # Disable without removing
+claude plugin enable <name>           # Re-enable a disabled plugin
+```
 
 ---
 
