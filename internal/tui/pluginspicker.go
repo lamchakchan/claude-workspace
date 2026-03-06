@@ -1,4 +1,4 @@
-package tui
+package tui //nolint:dupl // picker views share identical keyboard handling by design
 
 import (
 	"fmt"
@@ -138,7 +138,7 @@ func (m *PluginsPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *PluginsPickerModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *PluginsPickerModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) { //nolint:dupl // picker views share identical keyboard handling by design
 	switch msg.String() {
 	case keyUp, "k":
 		next := m.nextSelectable(m.cursor-1, -1)
@@ -301,39 +301,7 @@ func (m *PluginsPickerModel) View() tea.View {
 		return tea.NewView(b.String())
 	}
 
-	// Build rendered lines
-	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#06B6D4"))
-	installedStyle := lipgloss.NewStyle().Foreground(m.theme.Muted)
-
-	lines := make([]string, 0, len(m.entries))
-	for i, e := range m.entries {
-		if e.isHeader {
-			lines = append(lines, "  "+sectionStyle.Render(e.header))
-			continue
-		}
-
-		label := e.plugin.Name
-		if e.plugin.Description != "" {
-			label += "  " + lipgloss.NewStyle().Foreground(m.theme.Muted).Render(e.plugin.Description)
-		}
-
-		selected := i == m.cursor
-
-		if e.isInstalled {
-			check := installedStyle.Render("  ✓ " + e.plugin.Name + " (installed)")
-			lines = append(lines, check)
-		} else if selected {
-			cursor := lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true).Render("> ")
-			styledLabel := lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true).Render(e.plugin.Name)
-			desc := ""
-			if e.plugin.Description != "" {
-				desc = "  " + lipgloss.NewStyle().Foreground(m.theme.Primary).Render(e.plugin.Description)
-			}
-			lines = append(lines, "  "+cursor+styledLabel+desc)
-		} else {
-			lines = append(lines, "    "+label)
-		}
-	}
+	lines := m.buildLines()
 
 	// Slice visible lines
 	visible := m.visibleLines()
@@ -383,4 +351,40 @@ func (m *PluginsPickerModel) View() tea.View {
 	b.WriteString(help)
 
 	return tea.NewView(b.String())
+}
+
+// buildLines renders all picker entries into display lines.
+func (m *PluginsPickerModel) buildLines() []string {
+	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#06B6D4"))
+	installedStyle := lipgloss.NewStyle().Foreground(m.theme.Muted)
+
+	lines := make([]string, 0, len(m.entries))
+	for i, e := range m.entries {
+		if e.isHeader {
+			lines = append(lines, "  "+sectionStyle.Render(e.header))
+			continue
+		}
+
+		selected := i == m.cursor
+
+		switch {
+		case e.isInstalled:
+			lines = append(lines, installedStyle.Render("  ✓ "+e.plugin.Name+" (installed)"))
+		case selected:
+			cursor := lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true).Render("> ")
+			styledLabel := lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true).Render(e.plugin.Name)
+			desc := ""
+			if e.plugin.Description != "" {
+				desc = "  " + lipgloss.NewStyle().Foreground(m.theme.Primary).Render(e.plugin.Description)
+			}
+			lines = append(lines, "  "+cursor+styledLabel+desc)
+		default:
+			label := e.plugin.Name
+			if e.plugin.Description != "" {
+				label += "  " + lipgloss.NewStyle().Foreground(m.theme.Muted).Render(e.plugin.Description)
+			}
+			lines = append(lines, "    "+label)
+		}
+	}
+	return lines
 }

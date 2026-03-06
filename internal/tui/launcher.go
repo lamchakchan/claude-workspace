@@ -8,6 +8,8 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+const argRemove = "remove"
+
 // commandItem represents a single command in the launcher menu.
 type commandItem struct {
 	name    string
@@ -169,7 +171,7 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 		if len(item.args) > 0 && item.args[0] == "create" {
 			return pushView(NewSandbox(m.theme))
 		}
-		if len(item.args) > 0 && item.args[0] == "remove" {
+		if len(item.args) > 0 && item.args[0] == argRemove {
 			return pushView(NewSandboxRemove(m.theme))
 		}
 		return pushView(NewSandboxList(m.theme))
@@ -179,7 +181,7 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 		if len(item.args) > 0 && item.args[0] == "add" {
 			return pushView(NewMcpPicker(m.theme))
 		}
-		if len(item.args) > 0 && item.args[0] == "remove" {
+		if len(item.args) > 0 && item.args[0] == argRemove {
 			return pushView(NewMcpRemove(m.theme))
 		}
 		return pushView(NewMcpList(m.theme))
@@ -187,7 +189,7 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 		if len(item.args) > 0 && item.args[0] == "add" {
 			return pushView(NewPluginsPicker(m.theme))
 		}
-		if len(item.args) > 0 && item.args[0] == "remove" {
+		if len(item.args) > 0 && item.args[0] == argRemove {
 			return pushView(NewPluginsRemove(m.theme))
 		}
 		return pushView(NewPluginsList(m.theme))

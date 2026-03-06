@@ -12,6 +12,8 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/plugins"
 )
 
+const scopeDefault = "user"
+
 // pluginRemoveState represents the current phase of the remove flow.
 type pluginRemoveState int
 
@@ -126,7 +128,7 @@ func (m *PluginsRemoveModel) updatePicking(msg tea.KeyPressMsg) (tea.Model, tea.
 			}
 			scope := m.selected.Scope
 			if scope == "" {
-				scope = "user"
+				scope = scopeDefault
 			}
 			m.confirm = NewConfirm(
 				"Remove Plugin",
@@ -154,7 +156,7 @@ func (m *PluginsRemoveModel) executeRemove() tea.Cmd {
 	}
 	scope := m.selected.Scope
 	if scope == "" {
-		scope = "user"
+		scope = scopeDefault
 	}
 	exe, _ := os.Executable()
 	cmd := exec.Command(exe, "plugins", "remove", name, "--scope", scope)
@@ -225,7 +227,7 @@ func (m *PluginsRemoveModel) View() tea.View {
 	for i, p := range m.plugins {
 		scope := p.Scope
 		if scope == "" {
-			scope = "user"
+			scope = scopeDefault
 		}
 		name := p.Name
 		if p.Marketplace != "" {

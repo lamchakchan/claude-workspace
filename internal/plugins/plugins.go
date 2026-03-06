@@ -10,6 +10,8 @@ import (
 	"github.com/lamchakchan/claude-workspace/internal/platform"
 )
 
+const scopeDefault = "user"
+
 // Run dispatches the plugins subcommand.
 func Run(args []string) error {
 	if len(args) == 0 {
@@ -49,7 +51,7 @@ func ListTo(w io.Writer) error {
 	for _, p := range plugins {
 		scope := p.Scope
 		if scope == "" {
-			scope = "user"
+			scope = scopeDefault
 		}
 		name := p.Name
 		if p.Marketplace != "" {
@@ -76,21 +78,7 @@ func Add(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("usage: claude-workspace plugins add <plugin[@marketplace]> [--scope user|project]")
 	}
-
-	plugin := args[0]
-	scope := "user"
-	for i := 1; i < len(args); i++ {
-		if args[i] == "--scope" && i+1 < len(args) {
-			scope = args[i+1]
-			i++
-		}
-	}
-
-	fmt.Printf("Installing %s (scope: %s)...\n", plugin, scope)
-	if err := platform.Run("claude", "plugin", "install", plugin, "--scope", scope); err != nil {
-		return fmt.Errorf("installing plugin %s: %w", plugin, err)
-	}
-	return nil
+	return runPluginCmd(args, "install", "Installing", "installing")
 }
 
 // Remove uninstalls a plugin via the Claude CLI.
@@ -98,9 +86,13 @@ func Remove(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("usage: claude-workspace plugins remove <plugin[@marketplace]> [--scope user|project]")
 	}
+	return runPluginCmd(args, "uninstall", "Removing", "removing")
+}
 
+// runPluginCmd executes a claude plugin <action> command with scope parsing.
+func runPluginCmd(args []string, action, progressVerb, errVerb string) error {
 	plugin := args[0]
-	scope := "user"
+	scope := scopeDefault
 	for i := 1; i < len(args); i++ {
 		if args[i] == "--scope" && i+1 < len(args) {
 			scope = args[i+1]
@@ -108,9 +100,9 @@ func Remove(args []string) error {
 		}
 	}
 
-	fmt.Printf("Removing %s (scope: %s)...\n", plugin, scope)
-	if err := platform.Run("claude", "plugin", "uninstall", plugin, "--scope", scope); err != nil {
-		return fmt.Errorf("removing plugin %s: %w", plugin, err)
+	fmt.Printf("%s %s (scope: %s)...\n", progressVerb, plugin, scope)
+	if err := platform.Run("claude", "plugin", action, plugin, "--scope", scope); err != nil {
+		return fmt.Errorf("%s plugin %s: %w", errVerb, plugin, err)
 	}
 	return nil
 }
