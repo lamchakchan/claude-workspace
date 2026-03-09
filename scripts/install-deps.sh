@@ -55,13 +55,13 @@ esac
 read_go_version() {
     local gomod="$PROJECT_DIR/go.mod"
     if [[ ! -f "$gomod" ]]; then
-        echo "1.24"
+        echo "1.25"
         return
     fi
     local ver
     ver=$(grep -E '^go [0-9]+\.[0-9]+' "$gomod" | head -1 | awk '{print $2}')
     if [[ -z "$ver" ]]; then
-        echo "1.24"
+        echo "1.25"
     else
         echo "$ver"
     fi
