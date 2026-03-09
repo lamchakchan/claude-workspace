@@ -3,7 +3,7 @@
 ## Project
 Name: claude-workspace
 Purpose: A platform engineering kit for deploying Claude Code AI agents across organizations
-Tech Stack: Go 1.24, Charm TUI (bubbletea/bubbles/lipgloss), embed FS
+Tech Stack: Go 1.25, Charm TUI (bubbletea/bubbles/lipgloss), embed FS
 Build: `make build` (cross-compiles darwin/linux, amd64/arm64)
 Test: `go test ./...`
 Lint: `go vet ./...` and `golangci-lint run ./...` and `make lint` (CUE template validation)
