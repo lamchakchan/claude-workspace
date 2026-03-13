@@ -78,6 +78,7 @@
       }
     ]
   },
+  "effortLevel": "high",
   "model": "opus",
   "plansDirectory": "./.claude/plans",
   "respectGitignore": true,
