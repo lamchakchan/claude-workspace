@@ -49,9 +49,9 @@ esac
 
 echo -e "${BOLD}Detected:${NC} ${OS}/${ARCH}"
 
-# Get latest release tag
+# Get latest release tag (uses redirect instead of API to avoid rate limits)
 echo -e "${BOLD}Fetching latest release...${NC}"
-LATEST=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+LATEST=$(curl -fsSI "https://github.com/${REPO}/releases/latest" | grep -i '^location:' | sed -E 's|.*/tag/([^ \r\n]+).*|\1|')
 
 if [ -z "$LATEST" ]; then
   echo -e "${RED}Error: Could not determine latest release${NC}"
