@@ -26,8 +26,10 @@ func Run(args []string) error {
 		return Remove(args[1:])
 	case "available":
 		return AvailableTo(os.Stdout)
+	case "marketplace":
+		return RunMarketplace(args[1:])
 	default:
-		return fmt.Errorf("unknown plugins subcommand: %s (available: list, add, remove, available)", args[0])
+		return fmt.Errorf("unknown plugins subcommand: %s (available: list, add, remove, available, marketplace)", args[0])
 	}
 }
 

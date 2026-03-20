@@ -1,4 +1,4 @@
-package tui
+package tui //nolint:dupl // remove views share identical structure by design
 
 import (
 	"fmt"
@@ -66,7 +66,7 @@ func (m *PluginsRemoveModel) Init() tea.Cmd {
 	}
 }
 
-func (m *PluginsRemoveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *PluginsRemoveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:dupl // remove views share identical update structure by design
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width

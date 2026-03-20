@@ -101,6 +101,20 @@ Commands:
     remove <plugin>              Remove an installed plugin
       [--scope user|project]     Scope (default: user)
     available                    List available plugins from marketplaces
+    marketplace list             List configured plugin marketplaces
+    marketplace add <target>     Add a plugin marketplace (owner/repo or local path)
+    marketplace remove <name>    Remove a configured marketplace
+
+  Plugin examples:
+    claude-workspace plugins list
+    claude-workspace plugins add code-review@claude-plugins-official
+    claude-workspace plugins remove code-review --scope user
+    claude-workspace plugins marketplace list
+    claude-workspace plugins marketplace add anthropics/claude-plugins-official
+    claude-workspace plugins marketplace add ~/git/myorg/my-plugins
+    claude-workspace plugins marketplace add /home/user/git/org/repo
+    claude-workspace plugins marketplace remove claude-plugins-official
+
   config [subcommand]            View and edit all Claude Code configuration
     (no args)                    Launch interactive TUI config viewer/editor
     view                         Non-interactive formatted output of all config
@@ -163,6 +177,13 @@ func main() {
 		os.Exit(1)
 	}
 	platform.McpConfigFS = mcpConfigSub
+
+	marketplaceRegistrySub, err := fs.Sub(MarketplaceRegistryFS, "docs/plugin-marketplaces")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing embedded marketplace registry: %v\n", err)
+		os.Exit(1)
+	}
+	platform.MarketplaceRegistryFS = marketplaceRegistrySub
 	platform.InitColor()
 
 	args := os.Args[1:]

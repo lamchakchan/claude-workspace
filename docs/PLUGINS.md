@@ -69,13 +69,24 @@ Lists all plugins from configured marketplaces, grouped by marketplace name. Ins
 
 A marketplace is a Git repository that contains plugins in a standard directory structure. Claude Code ships with support for the official Anthropic marketplace.
 
-### Adding a Marketplace
+### Managing Marketplaces via CLI
 
 ```bash
-claude plugin marketplace add anthropics/claude-plugins-official
+# List configured marketplaces
+claude-workspace plugins marketplace list
+
+# Add a marketplace by owner/repo
+claude-workspace plugins marketplace add anthropics/claude-plugins-official
+
+# Remove a configured marketplace
+claude-workspace plugins marketplace remove claude-plugins-official
 ```
 
-This clones the marketplace repository to `~/.claude/plugins/marketplaces/` and makes its plugins available for installation.
+Adding a marketplace clones the repository to `~/.claude/plugins/marketplaces/` and makes its plugins available for installation.
+
+### Curated Registry
+
+`claude-workspace` ships with a curated registry of known marketplaces (embedded in `docs/plugin-marketplaces/marketplaces.json`). The TUI marketplace picker displays these curated entries alongside an option to add custom marketplaces by `owner/repo`. Already-configured marketplaces appear dimmed.
 
 ### Marketplace Structure
 
@@ -101,13 +112,16 @@ The `claude-workspace setup` command automatically installs recommended plugins:
 
 ## TUI Integration
 
-The interactive TUI (`claude-workspace` with no arguments) includes a **Plugins** group with three actions:
+The interactive TUI (`claude-workspace` with no arguments) includes a **Plugins** group with six actions:
 
 | Item | Description |
 |------|-------------|
 | Install Plugin | Browse available marketplace plugins and install |
 | List Plugins | View all installed plugins |
 | Remove Plugin | Select and remove an installed plugin with confirmation |
+| Add Marketplace | Browse curated marketplaces or add a custom one by owner/repo |
+| List Marketplaces | View all configured marketplaces with repo and plugin count |
+| Remove Marketplace | Select and remove a configured marketplace with confirmation |
 
 ## Plugin Configuration
 

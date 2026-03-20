@@ -1,4 +1,4 @@
-package tui //nolint:dupl // picker views share identical keyboard handling by design
+package tui //nolint:dupl // picker views share identical structure and keyboard handling by design
 
 import (
 	"fmt"
@@ -9,32 +9,35 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/lamchakchan/claude-workspace/internal/platform"
 	"github.com/lamchakchan/claude-workspace/internal/plugins"
 )
 
-// pluginPickerEntry is a flattened row in the picker: a section header or a plugin.
-type pluginPickerEntry struct {
-	isHeader    bool
-	header      string
-	plugin      *plugins.Plugin
-	isInstalled bool
+// marketplacePickerEntry is a flattened row in the picker: a section header, a marketplace, or an action.
+type marketplacePickerEntry struct {
+	isHeader     bool
+	header       string
+	recipe       *plugins.MarketplaceRecipe
+	isConfigured bool
+	isAction     bool
+	actionLabel  string
 }
 
-// pluginPickerLoadedMsg carries discovered available plugins.
-type pluginPickerLoadedMsg struct {
-	available []plugins.Plugin
-	installed map[string]bool
+// marketplacePickerLoadedMsg carries discovered curated and configured marketplaces.
+type marketplacePickerLoadedMsg struct {
+	curated    []plugins.MarketplaceRecipe
+	configured map[string]bool
 }
 
-// pluginPickerErrorMsg carries an error from the async loader.
-type pluginPickerErrorMsg struct {
+// marketplacePickerErrorMsg carries an error from the async loader.
+type marketplacePickerErrorMsg struct {
 	err string
 }
 
-// PluginsPickerModel displays available plugins grouped by marketplace with install action.
-type PluginsPickerModel struct {
+// MarketplacePickerModel displays curated marketplaces with add action.
+type MarketplacePickerModel struct {
 	theme   *Theme
-	entries []pluginPickerEntry
+	entries []marketplacePickerEntry
 	cursor  int
 	scroll  int
 	width   int
@@ -43,68 +46,51 @@ type PluginsPickerModel struct {
 	err     string
 }
 
-// NewPluginsPicker creates a new available plugins picker.
-func NewPluginsPicker(theme *Theme) *PluginsPickerModel {
-	return &PluginsPickerModel{
+// NewMarketplacePicker creates a new marketplace picker.
+func NewMarketplacePicker(theme *Theme) *MarketplacePickerModel {
+	return &MarketplacePickerModel{
 		theme:   theme,
 		loading: true,
 	}
 }
 
-func (m *PluginsPickerModel) Init() tea.Cmd {
+func (m *MarketplacePickerModel) Init() tea.Cmd {
 	return func() tea.Msg {
-		available, err := plugins.DiscoverAvailable()
+		curated, err := plugins.LoadMarketplaces(platform.MarketplaceRegistryFS)
 		if err != nil {
-			return pluginPickerErrorMsg{err: err.Error()}
+			return marketplacePickerErrorMsg{err: err.Error()}
 		}
-		installed, _ := plugins.DiscoverInstalled()
-		installedSet := make(map[string]bool, len(installed))
-		for _, p := range installed {
-			key := p.Name
-			if p.Marketplace != "" {
-				key += "@" + p.Marketplace
-			}
-			installedSet[key] = true
+		configured, _ := plugins.DiscoverMarketplaces()
+		configuredSet := make(map[string]bool, len(configured))
+		for _, mp := range configured {
+			configuredSet[mp.Name] = true
 		}
-		return pluginPickerLoadedMsg{available: available, installed: installedSet}
+		return marketplacePickerLoadedMsg{curated: curated, configured: configuredSet}
 	}
 }
 
-func (m *PluginsPickerModel) buildEntries(available []plugins.Plugin, installed map[string]bool) {
-	// Group by marketplace
-	type group struct {
-		name    string
-		plugins []plugins.Plugin
-	}
-	var groups []group
-	seen := make(map[string]int)
-	for _, p := range available {
-		mp := p.Marketplace
-		if mp == "" {
-			mp = "unknown"
-		}
-		if idx, ok := seen[mp]; ok {
-			groups[idx].plugins = append(groups[idx].plugins, p)
-		} else {
-			seen[mp] = len(groups)
-			groups = append(groups, group{name: mp, plugins: []plugins.Plugin{p}})
-		}
+func (m *MarketplacePickerModel) buildEntries(curated []plugins.MarketplaceRecipe, configured map[string]bool) {
+	// Count total entries: action + headers + recipes
+	count := 1 // "Add custom marketplace..." action
+	if len(curated) > 0 {
+		count += 1 + len(curated) // header + recipes
 	}
 
-	// Count total entries for pre-allocation
-	count := 0
-	for _, g := range groups {
-		count += 1 + len(g.plugins)
-	}
+	m.entries = make([]marketplacePickerEntry, 0, count)
 
-	m.entries = make([]pluginPickerEntry, 0, count)
-	for _, g := range groups {
-		m.entries = append(m.entries, pluginPickerEntry{isHeader: true, header: strings.ToUpper(g.name)})
-		for i := range g.plugins {
-			key := g.plugins[i].Name + "@" + g.name
-			m.entries = append(m.entries, pluginPickerEntry{
-				plugin:      &g.plugins[i],
-				isInstalled: installed[key],
+	// First entry: add custom marketplace
+	m.entries = append(m.entries, marketplacePickerEntry{
+		isAction:    true,
+		actionLabel: "Add custom marketplace...",
+	})
+
+	// Curated marketplaces
+	if len(curated) > 0 {
+		m.entries = append(m.entries, marketplacePickerEntry{isHeader: true, header: "CURATED MARKETPLACES"})
+		for i := range curated {
+			m.entries = append(m.entries, marketplacePickerEntry{
+				recipe:       &curated[i],
+				isConfigured: configured[curated[i].Key],
 			})
 		}
 	}
@@ -112,19 +98,19 @@ func (m *PluginsPickerModel) buildEntries(available []plugins.Plugin, installed 
 	m.cursor = m.nextSelectable(0, 1)
 }
 
-func (m *PluginsPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:dupl // picker views share identical update structure by design
+func (m *MarketplacePickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:dupl // picker views share identical update structure by design
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
 
-	case pluginPickerLoadedMsg:
+	case marketplacePickerLoadedMsg:
 		m.loading = false
-		m.buildEntries(msg.available, msg.installed)
+		m.buildEntries(msg.curated, msg.configured)
 		return m, nil
 
-	case pluginPickerErrorMsg:
+	case marketplacePickerErrorMsg:
 		m.loading = false
 		m.err = msg.err
 		return m, nil
@@ -138,7 +124,7 @@ func (m *PluginsPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint
 	return m, nil
 }
 
-func (m *PluginsPickerModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) { //nolint:dupl // picker views share identical keyboard handling by design
+func (m *MarketplacePickerModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) { //nolint:dupl // picker views share identical keyboard handling by design
 	switch msg.String() {
 	case keyUp, "k":
 		next := m.nextSelectable(m.cursor-1, -1)
@@ -175,22 +161,24 @@ func (m *PluginsPickerModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd)
 	return m, nil
 }
 
-func (m *PluginsPickerModel) activateEntry() tea.Cmd {
+func (m *MarketplacePickerModel) activateEntry() tea.Cmd {
 	if m.cursor < 0 || m.cursor >= len(m.entries) {
 		return nil
 	}
 	e := m.entries[m.cursor]
-	if e.plugin == nil || e.isInstalled {
+
+	// "Add custom marketplace..." action -> push the add form
+	if e.isAction {
+		return pushView(NewMarketplaceAdd(m.theme))
+	}
+
+	// Skip already-configured or header entries
+	if e.recipe == nil || e.isConfigured {
 		return nil
 	}
 
-	name := e.plugin.Name
-	if e.plugin.Marketplace != "" {
-		name += "@" + e.plugin.Marketplace
-	}
-
 	exe, _ := os.Executable()
-	cmd := exec.Command(exe, "plugins", "add", name)
+	cmd := exec.Command(exe, "plugins", "marketplace", "add", e.recipe.Repo)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -199,7 +187,7 @@ func (m *PluginsPickerModel) activateEntry() tea.Cmd {
 	})
 }
 
-func (m *PluginsPickerModel) visibleLines() int {
+func (m *MarketplacePickerModel) visibleLines() int {
 	v := m.height - bannerOverhead - footerOverhead
 	if v < 1 {
 		return 1
@@ -207,7 +195,7 @@ func (m *PluginsPickerModel) visibleLines() int {
 	return v
 }
 
-func (m *PluginsPickerModel) clampScroll() {
+func (m *MarketplacePickerModel) clampScroll() {
 	visible := m.visibleLines()
 	if m.cursor < m.scroll {
 		m.scroll = m.cursor
@@ -227,7 +215,7 @@ func (m *PluginsPickerModel) clampScroll() {
 	}
 }
 
-func (m *PluginsPickerModel) movePage(dir int) {
+func (m *MarketplacePickerModel) movePage(dir int) {
 	target := m.cursor
 	linesLeft := m.visibleLines()
 	for linesLeft > 0 {
@@ -245,7 +233,7 @@ func (m *PluginsPickerModel) movePage(dir int) {
 	m.clampScroll()
 }
 
-func (m *PluginsPickerModel) nextSelectable(start, dir int) int {
+func (m *MarketplacePickerModel) nextSelectable(start, dir int) int {
 	for i := start; i >= 0 && i < len(m.entries); i += dir {
 		if !m.entries[i].isHeader {
 			return i
@@ -254,7 +242,7 @@ func (m *PluginsPickerModel) nextSelectable(start, dir int) int {
 	return m.cursor
 }
 
-func (m *PluginsPickerModel) selectableCount() int {
+func (m *MarketplacePickerModel) selectableCount() int {
 	n := 0
 	for _, e := range m.entries {
 		if !e.isHeader {
@@ -264,7 +252,7 @@ func (m *PluginsPickerModel) selectableCount() int {
 	return n
 }
 
-func (m *PluginsPickerModel) selectableIndex() int {
+func (m *MarketplacePickerModel) selectableIndex() int {
 	n := 0
 	for i, e := range m.entries {
 		if !e.isHeader {
@@ -277,12 +265,12 @@ func (m *PluginsPickerModel) selectableIndex() int {
 	return 0
 }
 
-func (m *PluginsPickerModel) View() tea.View {
+func (m *MarketplacePickerModel) View() tea.View {
 	var b strings.Builder
-	b.WriteString(m.theme.SectionBanner("Install Plugin"))
+	b.WriteString(m.theme.SectionBanner("Add Marketplace"))
 
 	if m.loading {
-		b.WriteString("\n  Loading available plugins...")
+		b.WriteString("\n  Loading marketplaces...")
 		return tea.NewView(b.String())
 	}
 
@@ -294,9 +282,7 @@ func (m *PluginsPickerModel) View() tea.View {
 	}
 
 	if len(m.entries) == 0 {
-		b.WriteString("\n  No marketplace plugins found.\n")
-		b.WriteString("\n  Add a marketplace first:")
-		b.WriteString("\n    claude plugin marketplace add anthropics/claude-plugins-official\n")
+		b.WriteString("\n  No curated marketplaces available.\n")
 		b.WriteString("\n  Press esc to go back.\n")
 		return tea.NewView(b.String())
 	}
@@ -339,7 +325,7 @@ func (m *PluginsPickerModel) View() tea.View {
 	// Footer
 	b.WriteString("\n")
 	help := fmt.Sprintf(
-		"%s navigate  %s page  %s/%s top/bottom  %s install  %s back  %d/%d",
+		"%s navigate  %s page  %s/%s top/bottom  %s select  %s back  %d/%d",
 		m.theme.HelpKey.Render("j/k"),
 		m.theme.HelpKey.Render("pgup/pgdn"),
 		m.theme.HelpKey.Render("g"),
@@ -354,9 +340,9 @@ func (m *PluginsPickerModel) View() tea.View {
 }
 
 // buildLines renders all picker entries into display lines.
-func (m *PluginsPickerModel) buildLines() []string {
+func (m *MarketplacePickerModel) buildLines() []string {
 	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#06B6D4"))
-	installedStyle := lipgloss.NewStyle().Foreground(m.theme.Muted)
+	configuredStyle := lipgloss.NewStyle().Foreground(m.theme.Muted)
 
 	lines := make([]string, 0, len(m.entries))
 	for i, e := range m.entries {
@@ -367,21 +353,34 @@ func (m *PluginsPickerModel) buildLines() []string {
 
 		selected := i == m.cursor
 
+		// Action entry (e.g., "Add custom marketplace...")
+		if e.isAction {
+			if selected {
+				cursor := lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true).Render("> ")
+				label := lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true).Render(e.actionLabel)
+				lines = append(lines, "  "+cursor+label)
+			} else {
+				lines = append(lines, "    "+e.actionLabel)
+			}
+			continue
+		}
+
+		// Marketplace recipe entry
 		switch { //nolint:dupl // picker views share identical styling logic by design
-		case e.isInstalled:
-			lines = append(lines, installedStyle.Render("  ✓ "+e.plugin.Name+" (installed)"))
+		case e.isConfigured:
+			lines = append(lines, configuredStyle.Render("  \u2713 "+e.recipe.Key+" (configured)"))
 		case selected:
 			cursor := lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true).Render("> ")
-			styledLabel := lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true).Render(e.plugin.Name)
+			styledLabel := lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true).Render(e.recipe.Key)
 			desc := ""
-			if e.plugin.Description != "" {
-				desc = "  " + lipgloss.NewStyle().Foreground(m.theme.Primary).Render(e.plugin.Description)
+			if e.recipe.Description != "" {
+				desc = "  " + lipgloss.NewStyle().Foreground(m.theme.Primary).Render(e.recipe.Description)
 			}
 			lines = append(lines, "  "+cursor+styledLabel+desc)
 		default:
-			label := e.plugin.Name
-			if e.plugin.Description != "" {
-				label += "  " + lipgloss.NewStyle().Foreground(m.theme.Muted).Render(e.plugin.Description)
+			label := e.recipe.Key
+			if e.recipe.Description != "" {
+				label += "  " + lipgloss.NewStyle().Foreground(m.theme.Muted).Render(e.recipe.Description)
 			}
 			lines = append(lines, "    "+label)
 		}

@@ -1,0 +1,10 @@
+{
+  "_description": "Curated plugin marketplace registry for claude-workspace",
+  "marketplaces": {
+    "claude-plugins-official": {
+      "repo": "anthropics/claude-plugins-official",
+      "description": "Official Anthropic plugin marketplace with curated tools and skills",
+      "category": "official"
+    }
+  }
+}
