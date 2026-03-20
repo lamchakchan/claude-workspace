@@ -8,7 +8,10 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-const argRemove = "remove"
+const (
+	argAdd    = "add"
+	argRemove = "remove"
+)
 
 // commandItem represents a single command in the launcher menu.
 type commandItem struct {
@@ -181,7 +184,7 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 	case "upgrade":
 		return pushView(NewUpgrade(m.version, m.theme))
 	case "mcp":
-		if len(item.args) > 0 && item.args[0] == "add" {
+		if len(item.args) > 0 && item.args[0] == argAdd {
 			return pushView(NewMcpPicker(m.theme))
 		}
 		if len(item.args) > 0 && item.args[0] == argRemove {
@@ -191,7 +194,7 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 	case "plugins":
 		if len(item.args) > 1 && item.args[0] == "marketplace" {
 			switch item.args[1] {
-			case "add":
+			case argAdd:
 				return pushView(NewMarketplacePicker(m.theme))
 			case argRemove:
 				return pushView(NewMarketplaceRemove(m.theme))
@@ -199,7 +202,7 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 				return pushView(NewMarketplaceList(m.theme))
 			}
 		}
-		if len(item.args) > 0 && item.args[0] == "add" {
+		if len(item.args) > 0 && item.args[0] == argAdd {
 			return pushView(NewPluginsPicker(m.theme))
 		}
 		if len(item.args) > 0 && item.args[0] == argRemove {

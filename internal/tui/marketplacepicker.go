@@ -1,4 +1,4 @@
-package tui //nolint:dupl // picker views share identical keyboard handling by design
+package tui //nolint:dupl // picker views share identical structure and keyboard handling by design
 
 import (
 	"fmt"
@@ -98,7 +98,7 @@ func (m *MarketplacePickerModel) buildEntries(curated []plugins.MarketplaceRecip
 	m.cursor = m.nextSelectable(0, 1)
 }
 
-func (m *MarketplacePickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *MarketplacePickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:dupl // picker views share identical update structure by design
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -366,7 +366,7 @@ func (m *MarketplacePickerModel) buildLines() []string {
 		}
 
 		// Marketplace recipe entry
-		switch {
+		switch { //nolint:dupl // picker views share identical styling logic by design
 		case e.isConfigured:
 			lines = append(lines, configuredStyle.Render("  \u2713 "+e.recipe.Key+" (configured)"))
 		case selected:

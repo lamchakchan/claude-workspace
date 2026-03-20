@@ -112,7 +112,7 @@ func (m *PluginsPickerModel) buildEntries(available []plugins.Plugin, installed 
 	m.cursor = m.nextSelectable(0, 1)
 }
 
-func (m *PluginsPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *PluginsPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:dupl // picker views share identical update structure by design
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -367,7 +367,7 @@ func (m *PluginsPickerModel) buildLines() []string {
 
 		selected := i == m.cursor
 
-		switch {
+		switch { //nolint:dupl // picker views share identical styling logic by design
 		case e.isInstalled:
 			lines = append(lines, installedStyle.Render("  ✓ "+e.plugin.Name+" (installed)"))
 		case selected:

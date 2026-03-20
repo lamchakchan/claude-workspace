@@ -12,11 +12,10 @@ import (
 
 // MarketplaceAddModel is a simple text input for adding a marketplace by owner/repo.
 type MarketplaceAddModel struct {
-	theme    *Theme
-	input    string
-	cursor   int
-	err      string
-	quitting bool
+	theme  *Theme
+	input  string
+	cursor int
+	err    string
 }
 
 // NewMarketplaceAdd creates a new marketplace add form.
@@ -38,7 +37,8 @@ func (m *MarketplaceAddModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.String() {
 		case keyEnter:
-			return m, m.submit()
+			cmd := m.submit()
+			return m, cmd
 		case keyBackspace:
 			if m.cursor > 0 {
 				m.input = m.input[:m.cursor-1] + m.input[m.cursor:]
