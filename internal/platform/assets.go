@@ -20,6 +20,9 @@ var GlobalFS fs.FS
 // McpConfigFS is set by main to the embedded MCP config filesystem (docs/mcp-configs).
 var McpConfigFS fs.FS
 
+// MarketplaceRegistryFS is set by main to the embedded marketplace registry filesystem (docs/plugin-marketplaces).
+var MarketplaceRegistryFS fs.FS
+
 // ExtractTo extracts files from the embedded FS srcDir to destDir on disk.
 // If force is false, existing files are skipped.
 func ExtractTo(efs fs.FS, srcDir, destDir string, force bool) error {

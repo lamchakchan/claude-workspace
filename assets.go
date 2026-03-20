@@ -13,3 +13,9 @@ var PlatformFS embed.FS
 //
 //go:embed all:docs/mcp-configs
 var McpConfigFS embed.FS
+
+// MarketplaceRegistryFS embeds the docs/plugin-marketplaces directory containing
+// the curated marketplace registry JSON file.
+//
+//go:embed all:docs/plugin-marketplaces
+var MarketplaceRegistryFS embed.FS

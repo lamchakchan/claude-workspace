@@ -69,6 +69,9 @@ func newLauncher(version string, theme *Theme) *launcherModel {
 				{name: "Install Plugin", desc: "Install from marketplace", icon: "➕", command: "plugins", args: []string{"add"}},
 				{name: "List Plugins", desc: "Show installed plugins", icon: "📋", command: "plugins", args: []string{"list"}},
 				{name: "Remove Plugin", desc: "Remove an installed plugin", icon: "➖", command: "plugins", args: []string{"remove"}},
+				{name: "Add Marketplace", desc: "Add a plugin marketplace", icon: "🏪", command: "plugins", args: []string{"marketplace", "add"}},
+				{name: "List Marketplaces", desc: "Show configured marketplaces", icon: "📦", command: "plugins", args: []string{"marketplace", "list"}},
+				{name: "Remove Marketplace", desc: "Remove a marketplace", icon: "🗑 ", command: "plugins", args: []string{"marketplace", "remove"}},
 			},
 		},
 		{
@@ -186,6 +189,16 @@ func (m *launcherModel) activate(item *commandItem) tea.Cmd { //nolint:gocyclo /
 		}
 		return pushView(NewMcpList(m.theme))
 	case "plugins":
+		if len(item.args) > 1 && item.args[0] == "marketplace" {
+			switch item.args[1] {
+			case "add":
+				return pushView(NewMarketplacePicker(m.theme))
+			case argRemove:
+				return pushView(NewMarketplaceRemove(m.theme))
+			default:
+				return pushView(NewMarketplaceList(m.theme))
+			}
+		}
 		if len(item.args) > 0 && item.args[0] == "add" {
 			return pushView(NewPluginsPicker(m.theme))
 		}
