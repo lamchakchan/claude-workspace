@@ -1,9 +1,9 @@
 ---
 name: security-scanner
 description: Security vulnerability analysis. Use proactively before any PR involving auth, input handling, or dependency changes. Writes detailed findings to .claude/audits/ and returns a brief summary to preserve context.
-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Write, Edit
 model: sonnet
-permissionMode: plan
+permissionMode: bypassPermissions
 maxTurns: 25
 memory: project
 ---

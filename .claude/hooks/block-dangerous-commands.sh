@@ -9,8 +9,10 @@ if [ -z "$COMMAND" ]; then
   exit 0
 fi
 
-# Block destructive filesystem commands
-if echo "$COMMAND" | grep -qE '^\s*rm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?(/|\*|~)'; then
+# Block destructive filesystem commands targeting root, home, or bare wildcard
+# Allows: rm /tmp/foo, rm ./internal/old.go, rm -f specific-file
+# Blocks: rm -rf /, rm -rf /*, rm -rf ~, rm -rf ~/, rm -rf ~/*, rm *
+if echo "$COMMAND" | grep -qE '^\s*rm\s+(-[a-zA-Z]*\s+)*(/\s*$|/\*|~(/\*?)?(\s|$)|\*)'; then
   echo "Blocked: Destructive filesystem operation targeting root, home, or wildcard" >&2
   exit 2
 fi
