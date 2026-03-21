@@ -1,9 +1,9 @@
 ---
 name: code-reviewer
 description: Code quality and correctness review. Use proactively after any code changes to catch bugs, logic errors, missing error handling, and maintainability issues. Does NOT perform deep security scanning (use security-scanner) or run tests (use test-runner).
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Write, Edit
 model: sonnet
-permissionMode: plan
+permissionMode: bypassPermissions
 memory: project
 ---
 

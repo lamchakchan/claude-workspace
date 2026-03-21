@@ -1,9 +1,9 @@
 ---
 name: incident-responder
 description: Production incident diagnosis agent. Use when you have a stack trace, error spike, or production incident to triage. Reads Sentry errors and Grafana metrics when available. Correlates findings with codebase to identify root cause.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Write, Edit
 model: sonnet
-permissionMode: plan
+permissionMode: bypassPermissions
 maxTurns: 25
 memory: project
 ---

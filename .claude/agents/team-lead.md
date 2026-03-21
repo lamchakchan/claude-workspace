@@ -3,6 +3,7 @@ name: team-lead
 description: Coordinates multi-agent teams for parallel task execution. Decomposes plans into parallelizable phases, creates teams, assigns tasks, monitors progress, and verifies completed work.
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Write, Edit
 model: opus
+permissionMode: bypassPermissions
 maxTurns: 40
 memory: project
 ---
