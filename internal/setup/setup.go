@@ -161,18 +161,9 @@ func ensureNodeTo(w io.Writer) {
 }
 
 func provisionAPIKeyTo(w io.Writer, interactive bool) error {
-	if platform.FileExists(claudeConfig) {
-		var config map[string]json.RawMessage
-		if err := platform.ReadJSONFile(claudeConfig, &config); err == nil {
-			if _, hasOAuth := config["oauthAccount"]; hasOAuth {
-				fmt.Fprintln(w, "  Already authenticated. Skipping API key provisioning.")
-				return nil
-			}
-			if _, hasKey := config["primaryApiKey"]; hasKey {
-				fmt.Fprintln(w, "  Already authenticated. Skipping API key provisioning.")
-				return nil
-			}
-		}
+	if platform.IsClaudeAuthenticated() {
+		fmt.Fprintln(w, "  Already authenticated. Skipping API key provisioning.")
+		return nil
 	}
 
 	if !interactive {

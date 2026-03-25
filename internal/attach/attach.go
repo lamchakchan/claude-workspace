@@ -104,7 +104,10 @@ func Run(targetPath string, allArgs []string) error {
 	// Enrich CLAUDE.md with AI-powered project analysis
 	if !noEnrich {
 		platform.PrintStep(os.Stdout, 7, 7, "Enriching CLAUDE.md with project context...")
-		if err := platform.EnrichClaudeMd(projectDir, claudeDir); err != nil {
+		if reason := enrichSkipReason(); reason != "" {
+			platform.PrintWarningLine(os.Stdout, reason)
+			fmt.Println("  Using static scaffold. Edit .claude/CLAUDE.md to customize.")
+		} else if err := platform.EnrichClaudeMd(projectDir, claudeDir); err != nil {
 			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Note: %v", err))
 			fmt.Println("  Using static scaffold. Edit .claude/CLAUDE.md to customize.")
 		}
@@ -342,6 +345,18 @@ func setupRootGitignore(projectDir string) {
 	if modified {
 		platform.PrintSuccess(os.Stdout, "Updated .gitignore with claude-workspace entries")
 	}
+}
+
+// enrichSkipReason returns a non-empty message if CLAUDE.md enrichment should be
+// skipped (Claude CLI missing or not authenticated). Returns "" when enrichment can proceed.
+func enrichSkipReason() string {
+	if !platform.Exists("claude") {
+		return "Claude CLI not installed. Skipping enrichment."
+	}
+	if !platform.IsClaudeAuthenticated() {
+		return "Claude CLI not authenticated. Skipping enrichment."
+	}
+	return ""
 }
 
 func contains(slice []string, item string) bool {
