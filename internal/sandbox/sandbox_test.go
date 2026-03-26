@@ -110,7 +110,6 @@ func TestCreate_CopiesClaudeConfig(t *testing.T) {
 	claudeDir := filepath.Join(projectDir, ".claude")
 	_ = os.MkdirAll(claudeDir, 0755)
 	_ = os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(`{"key":"value"}`), 0644)
-	_ = os.WriteFile(filepath.Join(claudeDir, "CLAUDE.local.md"), []byte("# Local instructions"), 0644)
 
 	worktreeDir := filepath.Join(parent, "myproject-worktrees", "config-branch")
 	t.Cleanup(func() {
@@ -129,12 +128,6 @@ func TestCreate_CopiesClaudeConfig(t *testing.T) {
 		t.Errorf("settings.local.json content = %q", content)
 	}
 
-	claudeMdPath := filepath.Join(worktreeDir, ".claude", "CLAUDE.local.md")
-	if content, err := os.ReadFile(claudeMdPath); err != nil {
-		t.Errorf("CLAUDE.local.md not copied: %v", err)
-	} else if string(content) != "# Local instructions" {
-		t.Errorf("CLAUDE.local.md content = %q", content)
-	}
 }
 
 func TestCreate_CopiesMcpJson(t *testing.T) {

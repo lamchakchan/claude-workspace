@@ -147,38 +147,38 @@ flowchart TD
     A["~/.claude/CLAUDE.md<br/>Global user instructions<br/>personal, all projects"]
     B["CLAUDE.md<br/>Project root<br/>platform-level context"]
     PC[".claude/CLAUDE.md<br/>Project config directory<br/>tech stack, conventions"]
-    D[".claude/CLAUDE.local.md<br/>Personal project override<br/>local env, preferences"]
+    R[".claude/rules/*.md<br/>Modular rules<br/>platform, custom, path-scoped"]
     Z["Unified instruction set<br/>sent to Claude"]
 
     A -->|"loaded first"| Z
     B -->|"loaded second"| Z
     PC -->|"loaded third"| Z
-    D -->|"loaded last — highest specificity"| Z
+    R -->|"loaded alongside CLAUDE.md"| Z
 
     classDef highlight fill:#FFD700,stroke:#B8860B,color:#000,font-weight:bold
     classDef global fill:#2980b9,color:#fff
     classDef platform fill:#8e44ad,color:#fff
     classDef project fill:#27ae60,color:#fff
-    classDef local fill:#f39c12,color:#000
+    classDef rules fill:#e67e22,color:#fff
 
     class Z highlight
     class A global
     class B platform
     class PC project
-    class D local
+    class R rules
 
     click A href "https://docs.anthropic.com/en/docs/claude-code/memory" _blank
     click B href "https://docs.anthropic.com/en/docs/claude-code/memory" _blank
     click PC href "https://docs.anthropic.com/en/docs/claude-code/memory" _blank
-    click D href "https://docs.anthropic.com/en/docs/claude-code/memory" _blank
+    click R href "https://docs.anthropic.com/en/docs/claude-code/memory" _blank
     click Z href "https://docs.anthropic.com/en/docs/claude-code/memory" _blank
 ```
 
-When the same topic appears in multiple files, Claude applies a **more specific wins** heuristic — later-loaded instructions take precedence for the same directive. For example, a global instruction to "use npm" is overridden by a local instruction to "use bun for this project."
+When the same topic appears in multiple files, Claude applies a **more specific wins** heuristic — later-loaded instructions take precedence for the same directive. For example, a global instruction to "use npm" is overridden by a project rule to "use bun for this project."
 
-### Path-specific rules
+### Rules (`.claude/rules/`)
 
-Files in `.claude/rules/` with a `paths:` frontmatter are only injected when Claude operates on matching files:
+Files in `.claude/rules/` are loaded alongside CLAUDE.md files. Rules without frontmatter are loaded at session start. Rules with a `paths:` frontmatter are only injected when Claude operates on matching files:
 
 ```markdown
 ---
@@ -187,6 +187,8 @@ paths:
 ---
 These rules only apply when editing API route files.
 ```
+
+The platform uses `.claude/rules/platform.md` to deliver platform conventions without modifying your existing `.claude/CLAUDE.md`. Custom rules can be added by creating additional `.md` files in the directory. See [RULES.md](RULES.md) for the full reference.
 
 ### CLAUDE.md imports
 
@@ -199,13 +201,13 @@ See @README.md for project overview.
 
 > Full CLAUDE.md loading reference: [Claude Code Memory](https://docs.anthropic.com/en/docs/claude-code/memory)
 
-### This platform's three-layer architecture
+### This platform's prompt architecture
 
 | Layer | File | Managed by | Committed? |
 |---|---|---|---|
 | **Global** | `~/.claude/CLAUDE.md` | Platform setup script | No |
 | **Project** | `.claude/CLAUDE.md` | Team | Yes |
-| **Personal** | `.claude/CLAUDE.local.md` | Individual | No (gitignored) |
+| **Rules** | `.claude/rules/*.md` | Team + platform (`attach` generates `platform.md`) | Yes |
 
 ---
 
@@ -446,7 +448,8 @@ Every file Claude Code reads, with paths and git status.
 | Local settings | `.claude/settings.local.json` | No (gitignored) | Personal project overrides |
 | Global CLAUDE.md | `~/.claude/CLAUDE.md` | No | Personal instructions for all projects |
 | Project CLAUDE.md | `.claude/CLAUDE.md` | Yes | Team conventions and tech stack |
-| Local CLAUDE.md | `.claude/CLAUDE.local.md` | No (gitignored) | Personal project notes |
+| Local CLAUDE.md | `.claude/CLAUDE.local.md` | No (gitignored) | Personal project notes (deprecated -- use `.claude/rules/` instead) |
+| Project rules | `.claude/rules/*.md` | Yes | Modular instructions -- platform conventions, path-scoped rules, custom topic files |
 | Project MCP | `.mcp.json` | Yes | Team MCP server definitions |
 | Local Claude config | `~/.claude.json` | No | MCP secrets, local server configs |
 | Managed MCP | `managed-mcp.json` (system dir) | No (MDM) | Org-enforced MCP servers |

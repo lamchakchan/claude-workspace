@@ -11,7 +11,7 @@ A preconfigured, batteries-included platform for deploying Claude Code AI agents
 | `.claude/settings.json` | Team settings with safe defaults |
 | `.claude/settings.local.json.example` | Template for personal overrides |
 | `.claude/CLAUDE.md` | Project instructions (auto-detected stack) |
-| `.claude/CLAUDE.local.md.example` | Template for personal context |
+| `.claude/rules/platform.md` | Platform conventions (modular rules file) |
 | `.claude/agents/*.md` | 5 subagent definitions |
 | `.claude/skills/*/` | 6 skill definitions |
 | `.claude/hooks/*.sh` | 4 safety hook scripts |
@@ -80,6 +80,7 @@ claude-workspace doctor
 | [Runbook](docs/RUNBOOK.md) | Maintenance, troubleshooting, onboarding, security, rollback procedures |
 | [Plugins](docs/PLUGINS.md) | Plugin management, marketplaces, platform-managed plugins |
 | [Skills](docs/SKILLS.md) | Built-in skills reference, usage guide, creating custom skills |
+| [Rules](docs/RULES.md) | Rules directory, path-scoped rules, custom rules, migration from CLAUDE.local.md |
 | [Memory](docs/MEMORY.md) | Memory layers, auto-memory, CLAUDE.md files, Memory MCP, clearing procedures, and gitignore rules |
 | [Sandbox](docs/SANDBOX.md) | Git worktree sandboxing: parallel sessions, auto-config, dependency install, cleanup |
 | [Statusline](docs/STATUSLINE.md) | Live session statusline: indicators, data sources, call flow, output examples, and setup |

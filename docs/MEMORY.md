@@ -11,11 +11,11 @@ This document explains the memory layers available in Claude Code, when to use e
 | **Managed policy** | `/Library/Application Support/ClaudeCode/CLAUDE.md` (macOS) | All users in org | Always | Org-wide via MDM |
 | **Project CLAUDE.md** | `./CLAUDE.md` or `./.claude/CLAUDE.md` | Per-project | Always | Team via git |
 | **User CLAUDE.md** | `~/.claude/CLAUDE.md` | All projects | Always | Just you |
-| **CLAUDE.local.md** | `./CLAUDE.local.md` | Per-project | Always | Just you (gitignored) |
+| **Project rules** | `.claude/rules/*.md` | Per-project | Always (unconditional) or on matching files (path-scoped) | Team via git |
 | **Auto-memory** | `~/.claude/projects/<project>/memory/MEMORY.md` | Per-project | First 200 lines | Just you |
 | **Memory MCP** | `~/.config/claude-workspace/memory.db` (libsql database) | Cross-project | Must query explicitly | Just you |
 
-**Rule of thumb:** More specific instructions take precedence over broader ones. Project CLAUDE.md overrides User CLAUDE.md; CLAUDE.local.md overrides both for personal overrides.
+**Rule of thumb:** More specific instructions take precedence over broader ones. Project CLAUDE.md overrides User CLAUDE.md; rules files add modular topic-specific instructions alongside CLAUDE.md.
 
 ---
 
@@ -71,7 +71,7 @@ rm -rf ~/.claude/projects/-Users-lam-git-myproject/memory/
 
 CLAUDE.md files contain instructions you write for Claude. They are loaded at session start and concatenated — all active files are merged into one instruction set, with later-loaded (more specific) files taking precedence for the same directive.
 
-Load order: global user (`~/.claude/CLAUDE.md`) → project root (`CLAUDE.md`) → project config (`.claude/CLAUDE.md`) → personal override (`.claude/CLAUDE.local.md`).
+Load order: global user (`~/.claude/CLAUDE.md`) → project root (`CLAUDE.md`) → project config (`.claude/CLAUDE.md`) → rules (`.claude/rules/*.md`).
 
 > For the full layering diagram, path-specific rules, and `@import` syntax, see [CONFIG.md — Prompt Layering](CONFIG.md#3-prompt-layering-claudemd).
 
@@ -86,11 +86,6 @@ Load order: global user (`~/.claude/CLAUDE.md`) → project root (`CLAUDE.md`) �
 - *"I prefer short, direct responses. Skip preamble and summaries unless I ask."*
 - *"Always use `bun` instead of `npm` or `yarn`."*
 - *"When writing commit messages, use imperative mood and explain the 'why', not the 'what'."*
-
-**Example CLAUDE.local.md instructions** (personal, this project only):
-
-- *"My local API runs on port 9000, not the default 8080."*
-- *"Skip the smoke tests when iterating locally — they take 5 minutes."*
 
 **CLAUDE.md imports:** Use `@path/to/file` syntax to import other files:
 ```markdown
@@ -232,7 +227,6 @@ Use this to directly edit any scope:
 |---|---|
 | User CLAUDE.md | `~/.claude/CLAUDE.md` |
 | Project CLAUDE.md | `./.claude/CLAUDE.md` |
-| Personal project override | `./CLAUDE.local.md` |
 | Auto-memory index | `~/.claude/projects/<project>/memory/MEMORY.md` |
 
 ### `/init` — bootstrap a project CLAUDE.md
@@ -265,9 +259,9 @@ For scopes without a dedicated command, just tell Claude what to remember:
 "Remember across all projects that I use 1Password CLI for secrets — never ask me to paste credentials."
 ```
 
-**CLAUDE.local.md (personal project overrides):**
+**Project rules (modular topic instructions):**
 ```
-"Add a CLAUDE.local.md note that my local Postgres runs on port 5433."
+"Add a rule file for our API conventions in .claude/rules/api.md"
 ```
 
 ---
@@ -280,7 +274,7 @@ For scopes without a dedicated command, just tell Claude what to remember:
 | **Memory MCP** | `mcp__mcp-memory-libsql__delete_entity` | `rm ~/.config/claude-workspace/memory.db` | `rm ~/.config/claude-workspace/memory.db` |
 | **User CLAUDE.md** | `/memory` to open editor | Edit `~/.claude/CLAUDE.md` directly | Delete the file (re-run `claude-workspace setup` to regenerate) |
 | **Project CLAUDE.md** | `/memory` to open editor | Edit `.claude/CLAUDE.md` | `claude-workspace attach --force` to regenerate from template |
-| **CLAUDE.local.md** | `/memory` to open editor | Edit `./CLAUDE.local.md` | Delete the file |
+| **Project rules** | Edit `.claude/rules/*.md` directly | Edit or delete individual rule files | `rm -rf .claude/rules/` |
 | **Session context** | `/clear` (resets conversation buffer, not files) | N/A | N/A |
 | **All of the above** | N/A | `rm -rf ~/.claude/ && rm ~/.claude.json` (full offboarding) | See RUNBOOK.md offboarding section |
 
@@ -294,7 +288,6 @@ For scopes without a dedicated command, just tell Claude what to remember:
 |---|---|
 | `.claude/MEMORY.md` | Auto-memory normally lives in `~/.claude/...` (outside repo), but if manually placed in `.claude/` it would be tracked. |
 | `.claude/*.jsonl` | JSONL conversation/log files that tools could write into the project's `.claude/` directory. |
-| `.claude/CLAUDE.local.md` | Personal project overrides. Already covered by Claude Code convention. |
 | `.claude/settings.local.json` | Personal local settings. Already covered. |
 
 **What NOT to ignore:**
@@ -302,8 +295,9 @@ For scopes without a dedicated command, just tell Claude what to remember:
 - `~/.claude/projects/*/memory/MEMORY.md` — lives **outside the repo** in `~/.claude/`. No gitignore entry needed.
 - Session `.jsonl` files in `~/.claude/projects/*/` — outside the repo.
 - `~/.claude.json` — outside the repo.
+- `.claude/rules/*.md` — rules are team-shared and should be committed.
 
-Both patterns (`.claude/MEMORY.md`, `.claude/*.jsonl`) are already present in this repo's `.gitignore`, `.claude/.gitignore`, and `_template/.claude/.gitignore`.
+These patterns are already present in this repo's `.gitignore`, `.claude/.gitignore`, and `_template/.claude/.gitignore`.
 
 ---
 
@@ -312,8 +306,8 @@ Both patterns (`.claude/MEMORY.md`, `.claude/*.jsonl`) are already present in th
 ```
 Is this fact relevant to ONE project only?
   YES → Is it an instruction/rule for Claude to follow?
-          YES → Project CLAUDE.md (.claude/CLAUDE.md) — shared with team
-                Or CLAUDE.local.md — personal override, gitignored
+          YES → Project CLAUDE.md (.claude/CLAUDE.md) — core instructions
+                Or .claude/rules/*.md — modular topic rules (shared with team)
           NO  → Auto-memory (Claude writes it) or tell Claude "remember X"
   NO  → Does it apply to ALL my projects (personal preference)?
           YES + is it an instruction? → User CLAUDE.md (~/.claude/CLAUDE.md)

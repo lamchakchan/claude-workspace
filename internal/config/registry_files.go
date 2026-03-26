@@ -22,7 +22,7 @@ func buildFileKeys() []ConfigKey {
 		},
 		ConfigKey{
 			Key: "file:claudemd.local", Category: CatFiles, Type: TypeString,
-			Description: "Local project instructions not committed to git (CLAUDE.local.md)",
+			Description: "Local project instructions (CLAUDE.local.md) — deprecated, use .claude/rules/ instead",
 			ValidScopes: fs,
 		},
 

@@ -55,7 +55,7 @@ flowchart TD
     C --> D["4. Install dependencies"]
 
     A -.- A1["New branch: git worktree add -b &lt;branch&gt;<br/>Existing branch: git worktree add &lt;dir&gt; &lt;branch&gt;"]
-    B -.- B1[".claude/settings.local.json<br/>.claude/CLAUDE.local.md"]
+    B -.- B1[".claude/settings.local.json"]
     C -.- C1[".mcp.json (if not git-tracked)"]
     D -.- D1["Auto-detects ecosystem from lock files"]
 ```
@@ -71,7 +71,6 @@ Git-tracked files (`.claude/settings.json`, `.claude/CLAUDE.md`, agents, hooks, 
 | File | Purpose |
 |------|---------|
 | `.claude/settings.local.json` | Personal settings overrides |
-| `.claude/CLAUDE.local.md` | Personal project instructions |
 
 ### Step 3: Copy MCP configuration
 

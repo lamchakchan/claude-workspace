@@ -3,6 +3,7 @@ package enrich
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -58,6 +59,43 @@ func TestRun_ScaffoldOnlyExistingFile(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(claudeDir, "CLAUDE.md"))
 	if string(data) != existing {
 		t.Errorf("existing CLAUDE.md was modified: got %q, want %q", string(data), existing)
+	}
+}
+
+func TestRun_ScaffoldOnlyExistingFile_WritesToRules(t *testing.T) {
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	_ = os.MkdirAll(claudeDir, 0755)
+
+	// Write an existing CLAUDE.md
+	existing := "# Existing content"
+	_ = os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte(existing), 0644)
+
+	// Create a go.mod so scaffold detects Go
+	_ = os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test"), 0644)
+
+	err := Run(dir, []string{"--scaffold-only"})
+	if err != nil {
+		t.Fatalf("Run() unexpected error: %v", err)
+	}
+
+	// Existing CLAUDE.md should be preserved
+	data, _ := os.ReadFile(filepath.Join(claudeDir, "CLAUDE.md"))
+	if string(data) != existing {
+		t.Errorf("existing CLAUDE.md was modified: got %q, want %q", string(data), existing)
+	}
+
+	// Scaffold should have been written to rules/platform.md
+	rulesPath := filepath.Join(claudeDir, "rules", "platform.md")
+	rulesData, err := os.ReadFile(rulesPath)
+	if err != nil {
+		t.Fatalf("rules/platform.md not created: %v", err)
+	}
+	if !strings.Contains(string(rulesData), "# Project Instructions") {
+		t.Error("rules/platform.md should contain scaffold content")
+	}
+	if !strings.Contains(string(rulesData), "Tech Stack: Go") {
+		t.Error("rules/platform.md should detect Go tech stack")
 	}
 }
 

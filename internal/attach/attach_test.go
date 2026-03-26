@@ -100,6 +100,98 @@ func TestSetupGitignore_UpdatesExisting(t *testing.T) {
 	}
 }
 
+func TestSetupProjectInstructions_NoCLAUDEMd(t *testing.T) {
+	oldFS := platform.FS
+	platform.FS = fstest.MapFS{
+		".claude/rules/platform.md": &fstest.MapFile{Data: []byte("# Platform Rules")},
+	}
+	defer func() { platform.FS = oldFS }()
+
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	_ = os.MkdirAll(filepath.Join(claudeDir, "rules"), 0755)
+
+	// No existing CLAUDE.md — should write scaffold to CLAUDE.md
+	got := setupProjectInstructions(dir, claudeDir, false)
+
+	if got != filepath.Join(claudeDir, "CLAUDE.md") {
+		t.Errorf("target = %q, want CLAUDE.md path", got)
+	}
+	data, err := os.ReadFile(filepath.Join(claudeDir, "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("CLAUDE.md not created: %v", err)
+	}
+	if !strings.Contains(string(data), "# Project Instructions") {
+		t.Error("CLAUDE.md should contain scaffold content")
+	}
+	// Rules template should also be copied
+	if _, err := os.ReadFile(filepath.Join(claudeDir, "rules", "platform.md")); err != nil {
+		t.Error("rules/platform.md should be created")
+	}
+}
+
+func TestSetupProjectInstructions_ExistingCLAUDEMd(t *testing.T) {
+	oldFS := platform.FS
+	platform.FS = fstest.MapFS{
+		".claude/rules/platform.md": &fstest.MapFile{Data: []byte("# Platform Rules")},
+	}
+	defer func() { platform.FS = oldFS }()
+
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	_ = os.MkdirAll(filepath.Join(claudeDir, "rules"), 0755)
+
+	// Write existing CLAUDE.md
+	existing := "# My Custom Instructions"
+	_ = os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte(existing), 0644)
+
+	got := setupProjectInstructions(dir, claudeDir, false)
+
+	// Should target rules/platform.md
+	if got != filepath.Join(claudeDir, "rules", "platform.md") {
+		t.Errorf("target = %q, want rules/platform.md path", got)
+	}
+	// Existing CLAUDE.md should be preserved
+	data, _ := os.ReadFile(filepath.Join(claudeDir, "CLAUDE.md"))
+	if string(data) != existing {
+		t.Errorf("CLAUDE.md was modified: got %q, want %q", string(data), existing)
+	}
+	// rules/platform.md should have platform rules template content
+	rulesData, err := os.ReadFile(filepath.Join(claudeDir, "rules", "platform.md"))
+	if err != nil {
+		t.Fatalf("rules/platform.md not created: %v", err)
+	}
+	if !strings.Contains(string(rulesData), "# Platform Rules") {
+		t.Error("rules/platform.md should contain platform rules template content")
+	}
+}
+
+func TestSetupProjectInstructions_Force(t *testing.T) {
+	oldFS := platform.FS
+	platform.FS = fstest.MapFS{
+		".claude/rules/platform.md": &fstest.MapFile{Data: []byte("# Platform Rules")},
+	}
+	defer func() { platform.FS = oldFS }()
+
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	_ = os.MkdirAll(filepath.Join(claudeDir, "rules"), 0755)
+
+	// Write existing CLAUDE.md
+	_ = os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# Old"), 0644)
+
+	got := setupProjectInstructions(dir, claudeDir, true)
+
+	// --force should always write to CLAUDE.md
+	if got != filepath.Join(claudeDir, "CLAUDE.md") {
+		t.Errorf("target = %q, want CLAUDE.md path with --force", got)
+	}
+	data, _ := os.ReadFile(filepath.Join(claudeDir, "CLAUDE.md"))
+	if !strings.Contains(string(data), "# Project Instructions") {
+		t.Error("CLAUDE.md should be overwritten with scaffold content")
+	}
+}
+
 func TestSetupGitignore_SkipsDenyAll(t *testing.T) {
 	templateContent := "settings.local.json\nCLAUDE.local.md\nagent-memory-local/\nMEMORY.md\n*.jsonl\naudits/\nplans/*.md\n!plans/.gitkeep\n!*.example\n"
 	restore := setupMockFS(templateContent)
