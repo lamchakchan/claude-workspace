@@ -233,7 +233,7 @@ make deploy-docker && bash scripts/dev-env.sh test --docker
 
 ## 4. Sandboxed Branches
 
-The `sandbox` command creates an isolated git worktree with a new branch, copies local configuration (`.claude/settings.local.json`, `.claude/CLAUDE.local.md`, `.mcp.json`) into it, and installs dependencies automatically.
+The `sandbox` command creates an isolated git worktree with a new branch, copies local configuration (`.claude/settings.local.json`, `.mcp.json`) into it, and installs dependencies automatically.
 
 ### Create a Sandbox
 
@@ -249,7 +249,7 @@ claude-workspace sandbox ./my-project bugfix-login
 
 This will:
 1. Create a git worktree at `<project>-worktrees/<branch-name>/`
-2. Copy local Claude settings and CLAUDE.local.md into the worktree
+2. Copy local Claude settings into the worktree
 3. Copy `.mcp.json` if not already tracked by git
 4. Auto-install dependencies (detects bun, npm, yarn, pnpm)
 
@@ -777,7 +777,7 @@ This instantly disables all hooks while preserving the configuration. Remove whe
 3. **Project Onboarding**
    - [ ] Clone their project repo
    - [ ] Attach platform: `claude-workspace attach /path/to/project`
-   - [ ] Customize `.claude/CLAUDE.local.md` with their personal context
+   - [ ] Add any personal rules to `.claude/rules/` if needed
    - [ ] Copy `.claude/settings.local.json.example` → `.claude/settings.local.json`
 
 4. **Verification**

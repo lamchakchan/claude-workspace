@@ -46,6 +46,7 @@ func Run(targetPath string, allArgs []string) error {
 		filepath.Join(claudeDir, "skills"),
 		filepath.Join(claudeDir, "hooks"),
 		filepath.Join(claudeDir, "plans"),
+		filepath.Join(claudeDir, "rules"),
 	} {
 		_ = os.MkdirAll(dir, 0755)
 	}
@@ -97,27 +98,15 @@ func Run(targetPath string, allArgs []string) error {
 	platform.PrintStep(os.Stdout, 5, 7, "Setting up MCP configuration...")
 	setupMcpConfig(projectDir, force)
 
-	// Create project CLAUDE.md
-	platform.PrintStep(os.Stdout, 6, 7, "Setting up CLAUDE.md...")
-	setupProjectClaudeMd(projectDir, claudeDir, force)
+	// Create project instructions (CLAUDE.md or rules/platform.md)
+	platform.PrintStep(os.Stdout, 6, 7, "Setting up project instructions...")
+	instructionsPath := setupProjectInstructions(projectDir, claudeDir, force)
 
-	// Enrich CLAUDE.md with AI-powered project analysis
-	if !noEnrich {
-		platform.PrintStep(os.Stdout, 7, 7, "Enriching CLAUDE.md with project context...")
-		if reason := enrichSkipReason(); reason != "" {
-			platform.PrintWarningLine(os.Stdout, reason)
-			fmt.Println("  Using static scaffold. Edit .claude/CLAUDE.md to customize.")
-		} else if err := platform.EnrichClaudeMd(projectDir, claudeDir); err != nil {
-			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Note: %v", err))
-			fmt.Println("  Using static scaffold. Edit .claude/CLAUDE.md to customize.")
-		}
-	} else {
-		platform.PrintStep(os.Stdout, 7, 7, "Skipping CLAUDE.md enrichment (--no-enrich)")
-	}
+	// Enrich instructions with AI-powered project analysis
+	enrichInstructions(projectDir, instructionsPath, noEnrich)
 
 	// Setup gitignore
 	setupGitignore(claudeDir)
-	setupRootGitignore(projectDir)
 
 	platform.PrintBanner(os.Stdout, "Attachment Complete")
 	fmt.Printf("\n%s %s\n", platform.Bold("Platform attached to:"), projectDir)
@@ -126,11 +115,31 @@ func Run(targetPath string, allArgs []string) error {
 	platform.PrintCommand(os.Stdout, fmt.Sprintf("cd %s && claude", projectDir))
 
 	platform.PrintSection(os.Stdout, "Customize for this project")
-	platform.PrintManual(os.Stdout, fmt.Sprintf("Edit %s for team instructions", filepath.Join(claudeDir, "CLAUDE.md")))
+	platform.PrintManual(os.Stdout, fmt.Sprintf("Edit %s for project instructions", filepath.Join(claudeDir, "CLAUDE.md")))
+	platform.PrintManual(os.Stdout, fmt.Sprintf("Add modular rules to %s", filepath.Join(claudeDir, "rules")))
 	platform.PrintManual(os.Stdout, "Copy .claude/settings.local.json.example to .claude/settings.local.json for personal overrides")
 	fmt.Println()
 
 	return nil
+}
+
+func enrichInstructions(projectDir, instructionsPath string, noEnrich bool) {
+	if noEnrich {
+		platform.PrintStep(os.Stdout, 7, 7, "Skipping enrichment (--no-enrich)")
+		return
+	}
+	if instructionsPath == "" {
+		return
+	}
+	relTarget, _ := filepath.Rel(projectDir, instructionsPath)
+	platform.PrintStep(os.Stdout, 7, 7, fmt.Sprintf("Enriching %s with project context...", relTarget))
+	if reason := enrichSkipReason(); reason != "" {
+		platform.PrintWarningLine(os.Stdout, reason)
+		fmt.Printf("  Using static scaffold. Edit %s to customize.\n", relTarget)
+	} else if err := platform.EnrichClaudeMd(projectDir, instructionsPath); err != nil {
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Note: %v", err))
+		fmt.Printf("  Using static scaffold. Edit %s to customize.\n", relTarget)
+	}
 }
 
 // copyFromEmbed copies files from the embedded FS to disk.
@@ -276,35 +285,63 @@ func setupMcpConfig(projectDir string, force bool) {
 	platform.PrintSuccess(os.Stdout, "Created .mcp.json")
 }
 
-func setupProjectClaudeMd(projectDir, claudeDir string, force bool) {
+// setupProjectInstructions writes the project scaffold to the appropriate target file.
+// If .claude/CLAUDE.md does not exist, the scaffold is written there (first-time setup).
+// If .claude/CLAUDE.md already exists and --force is not set, the scaffold is written
+// to .claude/rules/platform.md instead (non-destructive).
+// With --force, the scaffold always overwrites .claude/CLAUDE.md.
+// Returns the path of the written file, or "" if nothing was written.
+func setupProjectInstructions(projectDir, claudeDir string, force bool) string {
 	claudeMdPath := filepath.Join(claudeDir, "CLAUDE.md")
+	rulesPath := filepath.Join(claudeDir, "rules", "platform.md")
 
-	if platform.FileExists(claudeMdPath) && !force {
-		platform.PrintWarningLine(os.Stdout, "Project CLAUDE.md already exists. Use --force to overwrite.")
-		return
-	}
-
-	content := platform.GenerateClaudeMdScaffold(projectDir)
-
-	if err := os.WriteFile(claudeMdPath, []byte(content), 0644); err != nil {
-		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error writing CLAUDE.md: %v", err))
-		return
-	}
-	platform.PrintSuccess(os.Stdout, "Created .claude/CLAUDE.md (customize for your project)")
-
-	// Copy local example
-	if exampleData, err := platform.ReadAsset(".claude/CLAUDE.local.md.example"); err == nil {
-		destExample := filepath.Join(claudeDir, "CLAUDE.local.md.example")
-		if !platform.FileExists(destExample) || force {
-			_ = os.WriteFile(destExample, exampleData, 0644)
-			platform.PrintSuccess(os.Stdout, "Created .claude/CLAUDE.local.md.example")
+	// Determine where to write the scaffold and what content to use
+	if force || !platform.FileExists(claudeMdPath) {
+		// First-time setup or --force: write scaffold to CLAUDE.md, copy rules template
+		content := platform.GenerateClaudeMdScaffold(projectDir)
+		if err := os.WriteFile(claudeMdPath, []byte(content), 0644); err != nil {
+			platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error writing CLAUDE.md: %v", err))
+			return ""
 		}
+		platform.PrintSuccess(os.Stdout, "Created .claude/CLAUDE.md (customize for your project)")
+
+		// Also copy the platform rules template
+		if rulesData, err := platform.ReadAsset(".claude/rules/platform.md"); err == nil {
+			if !platform.FileExists(rulesPath) || force {
+				if err := os.WriteFile(rulesPath, rulesData, 0644); err != nil {
+					platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error writing rules/platform.md: %v", err))
+				} else {
+					platform.PrintSuccess(os.Stdout, "Created .claude/rules/platform.md")
+				}
+			}
+		}
+		return claudeMdPath
 	}
+
+	// Existing CLAUDE.md without --force: write platform rules template to rules/platform.md
+	platform.PrintWarningLine(os.Stdout, "Project CLAUDE.md already exists. Writing platform conventions to .claude/rules/platform.md")
+	rulesData, err := platform.ReadAsset(".claude/rules/platform.md")
+	if err != nil {
+		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error reading platform rules template: %v", err))
+		return ""
+	}
+	if err := os.WriteFile(rulesPath, rulesData, 0644); err != nil {
+		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error writing rules/platform.md: %v", err))
+		return ""
+	}
+	platform.PrintSuccess(os.Stdout, "Created .claude/rules/platform.md")
+	return rulesPath
 }
 
 func setupGitignore(claudeDir string) {
 	gitignorePath := filepath.Join(claudeDir, ".gitignore")
 	existed := platform.FileExists(gitignorePath)
+
+	// If existing file already has a deny-all pattern (bare "*"), it's more
+	// restrictive than our template — no need to append specific entries.
+	if existed && platform.HasDenyAllPattern(gitignorePath) {
+		return
+	}
 
 	// Read required entries from the embedded template
 	data, err := platform.ReadAsset(".claude/.gitignore")
@@ -324,26 +361,6 @@ func setupGitignore(claudeDir string) {
 		} else {
 			platform.PrintSuccess(os.Stdout, "Created .claude/.gitignore")
 		}
-	}
-}
-
-func setupRootGitignore(projectDir string) {
-	gitignorePath := filepath.Join(projectDir, ".gitignore")
-
-	// Read required entries from the embedded template
-	data, err := platform.ReadAsset(".gitignore")
-	if err != nil {
-		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error reading embedded .gitignore: %v", err))
-		return
-	}
-
-	modified, err := platform.EnsureGitignoreEntries(gitignorePath, string(data))
-	if err != nil {
-		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error writing .gitignore: %v", err))
-		return
-	}
-	if modified {
-		platform.PrintSuccess(os.Stdout, "Updated .gitignore with claude-workspace entries")
 	}
 }
 

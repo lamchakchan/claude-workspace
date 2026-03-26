@@ -378,7 +378,7 @@ func readFileBased(home, cwd string) map[string]*ConfigValue {
 		projectClaudeMd = discoverTextFile(filepath.Join(cwd, "CLAUDE.md"))
 	}
 	add("file:claudemd.project", projectClaudeMd)
-	add("file:claudemd.local", discoverTextFile(filepath.Join(cwd, "CLAUDE.local.md")))
+	add("file:claudemd.local", discoverTextFile(filepath.Join(cwd, "CLAUDE.local.md"))) // deprecated: use .claude/rules/ instead
 
 	// MCP servers
 	add("file:mcp.project", discoverMCPProject(cwd))

@@ -121,12 +121,6 @@ func copyClaudeConfig(projectDir, worktreeDir string) {
 		}
 	}
 
-	localClaudeMd := filepath.Join(claudeDir, "CLAUDE.local.md")
-	if platform.FileExists(localClaudeMd) {
-		if err := platform.CopyFile(localClaudeMd, filepath.Join(worktreeClaudeDir, "CLAUDE.local.md")); err == nil {
-			platform.PrintSuccess(os.Stdout, "Copied local CLAUDE.md to worktree")
-		}
-	}
 }
 
 func copyMCPConfig(projectDir, worktreeDir string) {

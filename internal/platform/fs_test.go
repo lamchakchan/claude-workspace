@@ -388,3 +388,39 @@ func TestEnsureGitignoreEntries_PreservesUserEntries(t *testing.T) {
 		}
 	}
 }
+
+func TestHasDenyAllPattern(t *testing.T) {
+	dir := t.TempDir()
+
+	tests := []struct {
+		name    string
+		content string
+		want    bool
+	}{
+		{"bare star", "*\n!.gitignore\n!CLAUDE.md\n", true},
+		{"star only", "*\n", true},
+		{"star with whitespace", "  *  \n!.gitignore\n", true},
+		{"no star", "settings.local.json\nMEMORY.md\n", false},
+		{"star in glob", "*.log\n*.tmp\n", false},
+		{"comment with star", "# *\nsettings.local.json\n", false},
+		{"empty file", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := filepath.Join(dir, tt.name+".gitignore")
+			_ = os.WriteFile(p, []byte(tt.content), 0644)
+			got := HasDenyAllPattern(p)
+			if got != tt.want {
+				t.Errorf("HasDenyAllPattern() = %v, want %v for content %q", got, tt.want, tt.content)
+			}
+		})
+	}
+}
+
+func TestHasDenyAllPattern_NonexistentFile(t *testing.T) {
+	got := HasDenyAllPattern("/nonexistent/path/.gitignore")
+	if got {
+		t.Error("HasDenyAllPattern() should return false for nonexistent file")
+	}
+}

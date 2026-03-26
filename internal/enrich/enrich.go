@@ -11,8 +11,11 @@ import (
 )
 
 // Run executes the enrich command for the given project path. It generates a
-// static CLAUDE.md scaffold if one does not exist, then optionally enriches it
-// with AI analysis. Pass --scaffold-only in args to skip AI enrichment.
+// static scaffold if one does not exist, then optionally enriches it with AI
+// analysis. Pass --scaffold-only in args to skip AI enrichment.
+//
+// If .claude/CLAUDE.md already exists, the scaffold and enrichment target
+// .claude/rules/platform.md instead (non-destructive).
 func Run(projectPath string, args []string) error {
 	scaffoldOnly := contains(args, "--scaffold-only")
 
@@ -44,30 +47,44 @@ func Run(projectPath string, args []string) error {
 		return fmt.Errorf("creating .claude directory: %w", err)
 	}
 
-	// If CLAUDE.md doesn't exist, generate scaffold first
+	// Determine target: if CLAUDE.md exists, write to rules/platform.md instead
+	targetPath := claudeMdPath
 	scaffoldGenerated := false
-	if !platform.FileExists(claudeMdPath) {
-		content := platform.GenerateClaudeMdScaffold(projectDir)
-		if err := os.WriteFile(claudeMdPath, []byte(content), 0644); err != nil {
-			return fmt.Errorf("writing scaffold CLAUDE.md: %w", err)
+	if platform.FileExists(claudeMdPath) {
+		rulesDir := filepath.Join(claudeDir, "rules")
+		if err := os.MkdirAll(rulesDir, 0755); err != nil {
+			return fmt.Errorf("creating .claude/rules directory: %w", err)
 		}
-		platform.PrintSuccess(os.Stdout, "Created .claude/CLAUDE.md scaffold")
+		targetPath = filepath.Join(rulesDir, "platform.md")
+		platform.PrintWarningLine(os.Stdout, "CLAUDE.md already exists. Targeting .claude/rules/platform.md")
+	}
+
+	// Generate scaffold if target doesn't exist
+	if !platform.FileExists(targetPath) {
+		content := platform.GenerateClaudeMdScaffold(projectDir)
+		if err := os.WriteFile(targetPath, []byte(content), 0644); err != nil {
+			return fmt.Errorf("writing scaffold: %w", err)
+		}
+		relTarget, _ := filepath.Rel(projectDir, targetPath)
+		platform.PrintSuccess(os.Stdout, fmt.Sprintf("Created %s scaffold", relTarget))
 		scaffoldGenerated = true
 	}
 
 	if scaffoldOnly {
 		if !scaffoldGenerated {
-			platform.PrintWarningLine(os.Stdout, "CLAUDE.md already exists. Skipping scaffold generation.")
+			relTarget, _ := filepath.Rel(projectDir, targetPath)
+			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("%s already exists. Skipping scaffold generation.", relTarget))
 		}
 		return nil
 	}
 
 	// Run AI enrichment
-	platform.PrintStep(os.Stdout, 1, 1, "Enriching CLAUDE.md with project context...")
-	if err := platform.EnrichClaudeMd(projectDir, claudeDir); err != nil {
+	relTarget, _ := filepath.Rel(projectDir, targetPath)
+	platform.PrintStep(os.Stdout, 1, 1, fmt.Sprintf("Enriching %s with project context...", relTarget))
+	if err := platform.EnrichClaudeMd(projectDir, targetPath); err != nil {
 		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Note: %v", err))
 		if scaffoldGenerated {
-			fmt.Println("  Using static scaffold. Edit .claude/CLAUDE.md to customize.")
+			fmt.Printf("  Using static scaffold. Edit %s to customize.\n", relTarget)
 		}
 		return nil
 	}

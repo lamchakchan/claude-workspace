@@ -1,7 +1,6 @@
 package attach
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,32 +35,18 @@ func TestContains(t *testing.T) {
 	}
 }
 
-const rootGitignoreTemplate = `.claude/settings.local.json
-.claude/CLAUDE.local.md
-.claude/agent-memory-local/
-.claude/MEMORY.md
-.claude/*.jsonl
-`
+const testGitignoreTemplate = "settings.local.json\nCLAUDE.local.md\nagent-memory-local/\nMEMORY.md\n*.jsonl\naudits/\nplans/*.md\n!plans/.gitkeep\n!*.example\n"
 
 func setupMockFS(claudeGitignoreContent string) func() {
 	oldFS := platform.FS
 	platform.FS = fstest.MapFS{
 		".claude/.gitignore": &fstest.MapFile{Data: []byte(claudeGitignoreContent)},
-		".gitignore":         &fstest.MapFile{Data: []byte(rootGitignoreTemplate)},
-	}
-	return func() { platform.FS = oldFS }
-}
-
-func setupMockFSWithRoot(rootContent string) func() {
-	oldFS := platform.FS
-	platform.FS = fstest.MapFS{
-		".gitignore": &fstest.MapFile{Data: []byte(rootContent)},
 	}
 	return func() { platform.FS = oldFS }
 }
 
 func TestSetupGitignore_CreatesFromTemplate(t *testing.T) {
-	templateContent := "settings.local.json\nCLAUDE.local.md\nagent-memory-local/\nMEMORY.md\n*.jsonl\naudits/\nplans/*.md\n!plans/.gitkeep\n!*.example\n"
+	templateContent := testGitignoreTemplate
 	restore := setupMockFS(templateContent)
 	defer restore()
 
@@ -85,7 +70,7 @@ func TestSetupGitignore_CreatesFromTemplate(t *testing.T) {
 }
 
 func TestSetupGitignore_UpdatesExisting(t *testing.T) {
-	templateContent := "settings.local.json\nCLAUDE.local.md\nagent-memory-local/\nMEMORY.md\n*.jsonl\naudits/\nplans/*.md\n!plans/.gitkeep\n!*.example\n"
+	templateContent := testGitignoreTemplate
 	restore := setupMockFS(templateContent)
 	defer restore()
 
@@ -117,46 +102,115 @@ func TestSetupGitignore_UpdatesExisting(t *testing.T) {
 	}
 }
 
-func TestSetupRootGitignore_Creates(t *testing.T) {
-	restore := setupMockFSWithRoot(rootGitignoreTemplate)
-	defer restore()
+func TestSetupProjectInstructions_NoCLAUDEMd(t *testing.T) {
+	oldFS := platform.FS
+	platform.FS = fstest.MapFS{
+		".claude/rules/platform.md": &fstest.MapFile{Data: []byte("# Platform Rules")},
+	}
+	defer func() { platform.FS = oldFS }()
 
 	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	_ = os.MkdirAll(filepath.Join(claudeDir, "rules"), 0755)
 
-	setupRootGitignore(dir)
+	// No existing CLAUDE.md — should write scaffold to CLAUDE.md
+	got := setupProjectInstructions(dir, claudeDir, false)
 
-	content, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
-	if err != nil {
-		t.Fatalf("expected .gitignore to be created: %v", err)
+	if got != filepath.Join(claudeDir, "CLAUDE.md") {
+		t.Errorf("target = %q, want CLAUDE.md path", got)
 	}
-
-	s := string(content)
-	for _, entry := range []string{
-		".claude/settings.local.json",
-		".claude/CLAUDE.local.md",
-		".claude/agent-memory-local/",
-		".claude/MEMORY.md",
-		".claude/*.jsonl",
-	} {
-		if !strings.Contains(s, entry) {
-			t.Errorf("should contain %q", entry)
-		}
+	data, err := os.ReadFile(filepath.Join(claudeDir, "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("CLAUDE.md not created: %v", err)
+	}
+	if !strings.Contains(string(data), "# Project Instructions") {
+		t.Error("CLAUDE.md should contain scaffold content")
+	}
+	// Rules template should also be copied
+	if _, err := os.ReadFile(filepath.Join(claudeDir, "rules", "platform.md")); err != nil {
+		t.Error("rules/platform.md should be created")
 	}
 }
 
-func TestSetupRootGitignore_Idempotent(t *testing.T) {
-	restore := setupMockFSWithRoot(rootGitignoreTemplate)
+func TestSetupProjectInstructions_ExistingCLAUDEMd(t *testing.T) {
+	oldFS := platform.FS
+	platform.FS = fstest.MapFS{
+		".claude/rules/platform.md": &fstest.MapFile{Data: []byte("# Platform Rules")},
+	}
+	defer func() { platform.FS = oldFS }()
+
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	_ = os.MkdirAll(filepath.Join(claudeDir, "rules"), 0755)
+
+	// Write existing CLAUDE.md
+	existing := "# My Custom Instructions"
+	_ = os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte(existing), 0644)
+
+	got := setupProjectInstructions(dir, claudeDir, false)
+
+	// Should target rules/platform.md
+	if got != filepath.Join(claudeDir, "rules", "platform.md") {
+		t.Errorf("target = %q, want rules/platform.md path", got)
+	}
+	// Existing CLAUDE.md should be preserved
+	data, _ := os.ReadFile(filepath.Join(claudeDir, "CLAUDE.md"))
+	if string(data) != existing {
+		t.Errorf("CLAUDE.md was modified: got %q, want %q", string(data), existing)
+	}
+	// rules/platform.md should have platform rules template content
+	rulesData, err := os.ReadFile(filepath.Join(claudeDir, "rules", "platform.md"))
+	if err != nil {
+		t.Fatalf("rules/platform.md not created: %v", err)
+	}
+	if !strings.Contains(string(rulesData), "# Platform Rules") {
+		t.Error("rules/platform.md should contain platform rules template content")
+	}
+}
+
+func TestSetupProjectInstructions_Force(t *testing.T) {
+	oldFS := platform.FS
+	platform.FS = fstest.MapFS{
+		".claude/rules/platform.md": &fstest.MapFile{Data: []byte("# Platform Rules")},
+	}
+	defer func() { platform.FS = oldFS }()
+
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	_ = os.MkdirAll(filepath.Join(claudeDir, "rules"), 0755)
+
+	// Write existing CLAUDE.md
+	_ = os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# Old"), 0644)
+
+	got := setupProjectInstructions(dir, claudeDir, true)
+
+	// --force should always write to CLAUDE.md
+	if got != filepath.Join(claudeDir, "CLAUDE.md") {
+		t.Errorf("target = %q, want CLAUDE.md path with --force", got)
+	}
+	data, _ := os.ReadFile(filepath.Join(claudeDir, "CLAUDE.md"))
+	if !strings.Contains(string(data), "# Project Instructions") {
+		t.Error("CLAUDE.md should be overwritten with scaffold content")
+	}
+}
+
+func TestSetupGitignore_SkipsDenyAll(t *testing.T) {
+	templateContent := testGitignoreTemplate
+	restore := setupMockFS(templateContent)
 	defer restore()
 
 	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	_ = os.MkdirAll(claudeDir, 0755)
 
-	setupRootGitignore(dir)
-	first, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	// Write a deny-all gitignore
+	denyAll := "*\n!.gitignore\n!CLAUDE.md\n"
+	_ = os.WriteFile(filepath.Join(claudeDir, ".gitignore"), []byte(denyAll), 0644)
 
-	setupRootGitignore(dir)
-	second, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	setupGitignore(claudeDir)
 
-	if !bytes.Equal(first, second) {
-		t.Error("second call should not modify file")
+	content, _ := os.ReadFile(filepath.Join(claudeDir, ".gitignore"))
+	if string(content) != denyAll {
+		t.Error("should not modify a deny-all .gitignore")
 	}
 }

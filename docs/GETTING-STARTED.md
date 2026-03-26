@@ -135,7 +135,7 @@ claude-workspace attach /path/to/your/project
 # .claude/settings.json              - Team settings with safe defaults
 # .claude/settings.local.json.example - Template for personal overrides
 # .claude/CLAUDE.md                  - Project instructions (auto-detected tech stack)
-# .claude/CLAUDE.local.md.example    - Template for personal context
+# .claude/rules/platform.md         - Platform conventions (modular rules file)
 # .claude/agents/                    - All 10 subagent definitions
 # .claude/skills/                    - All 6 skill definitions
 # .claude/hooks/                     - All 4 safety hooks
@@ -201,9 +201,12 @@ For settings you don't want to share with the team:
 ```bash
 # Copy the example to create your local settings
 cp .claude/settings.local.json.example .claude/settings.local.json
-cp .claude/CLAUDE.local.md.example .claude/CLAUDE.local.md
-# Edit these files - they're gitignored
+# Edit this file - it's gitignored
 ```
+
+### Adding Custom Rules
+
+Add modular instructions by creating `.md` files in `.claude/rules/`. Rules can be unconditional or scoped to specific file paths. See [RULES.md](RULES.md) for details and examples.
 
 ---
 
@@ -219,7 +222,7 @@ claude
 What happens at startup:
 1. Claude loads `~/.claude/CLAUDE.md` (your global instructions)
 2. Claude loads `.claude/CLAUDE.md` (project instructions)
-3. Claude loads `.claude/CLAUDE.local.md` (your personal notes, if exists)
+3. Claude loads `.claude/rules/*.md` (modular rules -- platform conventions, custom rules)
 4. Hooks are registered (safety checks activate)
 5. MCP servers start (memory, filesystem, git)
 6. Claude is ready for your prompt

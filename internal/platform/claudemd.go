@@ -400,7 +400,16 @@ func GenerateClaudeMdScaffold(projectDir string) string {
 }
 
 // BuildEnrichmentPrompt constructs the LLM prompt for AI enrichment.
-func BuildEnrichmentPrompt(projectDir, claudeMdPath string) string {
+// When targetPath points to a rules/platform.md file, the prompt focuses on
+// platform conventions and team execution rather than project-specific content.
+func BuildEnrichmentPrompt(projectDir, targetPath string) string {
+	if strings.HasSuffix(targetPath, filepath.Join("rules", "platform.md")) {
+		return buildRulesEnrichmentPrompt(projectDir, targetPath)
+	}
+	return buildClaudeMdEnrichmentPrompt(projectDir, targetPath)
+}
+
+func buildClaudeMdEnrichmentPrompt(projectDir, targetPath string) string {
 	return fmt.Sprintf(`You are analyzing a software project to generate a CLAUDE.md file with real project context.
 
 The project is located at: %s
@@ -452,17 +461,69 @@ Rules:
 - Only include information you can verify from the project files
 - Do not hallucinate or guess — if unsure, omit the section content
 - Keep the total output under 150 lines
-- Output raw markdown only — no wrapping code fences, no commentary`, projectDir, claudeMdPath)
+- Output raw markdown only — no wrapping code fences, no commentary`, projectDir, targetPath)
 }
 
-// EnrichClaudeMd runs claude opus to analyze the project and overwrite CLAUDE.md.
-func EnrichClaudeMd(projectDir, claudeDir string) error {
+func buildRulesEnrichmentPrompt(projectDir, targetPath string) string {
+	return fmt.Sprintf(`You are analyzing a software project to generate a platform rules file for Claude Code.
+
+The project is located at: %s
+There is an existing scaffold at: %s
+
+This is a platform rules file (.claude/rules/platform.md), NOT the main CLAUDE.md. It should contain
+platform conventions, team execution patterns, and tool preferences — NOT project-specific details
+like key directories or important files (those belong in .claude/CLAUDE.md).
+
+Your task:
+1. Read the existing scaffold at the path above
+2. Explore the project for team infrastructure: agents, hooks, settings, MCP configuration
+3. Output ONLY raw markdown (no code fences, no explanations, no preamble) following this structure:
+
+# Platform Conventions
+
+## Team Conventions
+- <coding style conventions discovered from config files, linters, formatters>
+- <testing conventions>
+- <documentation conventions>
+
+## MCP Tool Preferences
+Check for .mcp.json in the project. If MCP servers are configured, document:
+- Which MCP servers are available and what they do
+- Preference rules: when to use MCP tools vs built-in Claude Code tools
+
+## Plan Conventions
+- Plans live in `+"`"+`./.claude/plans/`+"`"+` — use naming: `+"`"+`plan-YYYY-MM-DD-<short-description>.md`+"`"+`
+- Include Status and Last Updated fields
+- Plans should be self-contained and resumable
+
+## Team Execution
+Check the project for team infrastructure:
+- `+"`.claude/agents/team-lead.md`"+` — team-lead agent
+- `+"`.claude/hooks/verify-task-completed.sh`"+` — TaskCompleted hook
+- `+"`.claude/hooks/check-teammate-idle.sh`"+` — TeammateIdle hook
+- `+"`.claude/settings.json`"+` — hook configurations
+If team infrastructure is found, document:
+- Available execution modes: sequential, solo team, multi-agent team
+- Key tools: TeamCreate, TaskCreate/TaskUpdate/TaskList, Agent, SendMessage, TeamDelete
+- Which hooks are configured and what they do
+If no team infrastructure is found, include a placeholder comment
+
+Rules:
+- Only include information you can verify from the project files
+- Do not hallucinate or guess — if unsure, omit the section content
+- Do NOT include project-specific sections (Key Directories, Important Files) — those belong in CLAUDE.md
+- Keep the total output under 100 lines
+- Output raw markdown only — no wrapping code fences, no commentary`, projectDir, targetPath)
+}
+
+// EnrichClaudeMd runs claude opus to analyze the project and enrich the target file.
+// targetPath is the absolute path to the file to enrich (CLAUDE.md or rules/platform.md).
+func EnrichClaudeMd(projectDir, targetPath string) error {
 	if !Exists("claude") {
 		return fmt.Errorf("claude CLI not found. Install with `claude-workspace setup`")
 	}
 
-	claudeMdPath := filepath.Join(claudeDir, "CLAUDE.md")
-	prompt := BuildEnrichmentPrompt(projectDir, claudeMdPath)
+	prompt := BuildEnrichmentPrompt(projectDir, targetPath)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
@@ -494,10 +555,15 @@ func EnrichClaudeMd(projectDir, claudeDir string) error {
 	}
 	content := stdout[idx:]
 
-	if err := os.WriteFile(claudeMdPath, []byte(content+"\n"), 0644); err != nil {
-		return fmt.Errorf("writing enriched CLAUDE.md: %w", err)
+	if err := os.WriteFile(targetPath, []byte(content+"\n"), 0644); err != nil {
+		return fmt.Errorf("writing enriched file: %w", err)
 	}
 
-	PrintSuccess(os.Stdout, "Enriched .claude/CLAUDE.md with project context")
+	// Show relative path from project dir for cleaner output
+	relPath, _ := filepath.Rel(projectDir, targetPath)
+	if relPath == "" {
+		relPath = filepath.Base(targetPath)
+	}
+	PrintSuccess(os.Stdout, fmt.Sprintf("Enriched %s with project context", relPath))
 	return nil
 }

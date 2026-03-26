@@ -137,6 +137,19 @@ func appendGitignoreBlock(existing []byte, missing []string) []byte {
 	return append(existing, []byte(buf.String())...)
 }
 
+// HasDenyAllPattern checks if a gitignore file contains a bare "*" entry,
+// which ignores everything. This pattern (often paired with negations like
+// !.gitignore and !CLAUDE.md) is strictly more restrictive than our template
+// entries, so appending specific ignores would be redundant.
+func HasDenyAllPattern(gitignorePath string) bool {
+	data, err := os.ReadFile(gitignorePath)
+	if err != nil {
+		return false
+	}
+	entries := parseGitignoreEntries(string(data))
+	return entries["*"]
+}
+
 // IsExecutable checks if a file has any execute permission bit set.
 func IsExecutable(path string) bool {
 	info, err := os.Stat(path)

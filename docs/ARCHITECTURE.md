@@ -63,17 +63,17 @@ The platform's settings live in `.claude/settings.json` (layer 4 of 5). This mea
 
 ### How CLAUDE.md Files Stack
 
-CLAUDE.md files **concatenate** — they don't override each other. Claude receives all active files merged into a single instruction set, with later-loaded files treated as more specific. Load order: global user → project root → `.claude/CLAUDE.md` → `.claude/CLAUDE.local.md`.
+CLAUDE.md files **concatenate** — they don't override each other. Claude receives all active files merged into a single instruction set, with later-loaded files treated as more specific. Load order: global user → project root → `.claude/CLAUDE.md` → `.claude/rules/*.md`.
 
 > For the full load order diagram, path-specific rules, and `@import` syntax, see [CONFIG.md — Prompt Layering](CONFIG.md#3-prompt-layering-claudemd).
 
-### Design Decision: Three-Layer Prompt Architecture
+### Design Decision: Prompt Architecture
 
 | Layer | Purpose | Managed By |
 |-------|---------|------------|
 | **Global** (`~/.claude/CLAUDE.md`) | Universal behaviors — plan first, test always, never commit secrets | Platform setup script |
 | **Project** (`.claude/CLAUDE.md`) | Project-specific context — tech stack, conventions, directory layout | Team lead / developers |
-| **Personal** (`.claude/CLAUDE.local.md`) | Individual preferences — response style, local env details | Each developer |
+| **Rules** (`.claude/rules/*.md`) | Modular topic rules — platform conventions, path-scoped rules, team guidelines | Team + platform (`attach` generates `platform.md`) |
 
 ### Why Not One Big Prompt?
 

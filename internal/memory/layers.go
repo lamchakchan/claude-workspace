@@ -70,7 +70,7 @@ func DiscoverLayers() ([]Layer, error) {
 	}
 	layers = append(layers, discoverFileLayer(LayerProjectClaudeMD, "Project CLAUDE.md", projectMD))
 
-	// CLAUDE.local.md
+	// CLAUDE.local.md — deprecated in favor of .claude/rules/, kept for backward compatibility
 	localMD := filepath.Join(cwd, "CLAUDE.local.md")
 	layers = append(layers, discoverFileLayer(LayerLocalMD, "CLAUDE.local.md", localMD))
 
