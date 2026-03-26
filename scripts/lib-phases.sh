@@ -102,9 +102,6 @@ run_phase_attach() {
     assert ".claude/.gitignore contains audits/" \
         vm_exec_quiet "grep -q 'audits/' ${PROJECT}/.claude/.gitignore"
 
-    assert "root .gitignore exists" \
-        vm_exec_quiet "test -f ${PROJECT}/.gitignore"
-
     assert ".claude/.gitignore contains plans/*.md" \
         vm_exec_quiet "grep -q 'plans/\*.md' ${PROJECT}/.claude/.gitignore"
 

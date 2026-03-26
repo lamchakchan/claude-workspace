@@ -117,7 +117,6 @@ func Run(targetPath string, allArgs []string) error {
 
 	// Setup gitignore
 	setupGitignore(claudeDir)
-	setupRootGitignore(projectDir)
 
 	platform.PrintBanner(os.Stdout, "Attachment Complete")
 	fmt.Printf("\n%s %s\n", platform.Bold("Platform attached to:"), projectDir)
@@ -306,6 +305,12 @@ func setupGitignore(claudeDir string) {
 	gitignorePath := filepath.Join(claudeDir, ".gitignore")
 	existed := platform.FileExists(gitignorePath)
 
+	// If existing file already has a deny-all pattern (bare "*"), it's more
+	// restrictive than our template — no need to append specific entries.
+	if existed && platform.HasDenyAllPattern(gitignorePath) {
+		return
+	}
+
 	// Read required entries from the embedded template
 	data, err := platform.ReadAsset(".claude/.gitignore")
 	if err != nil {
@@ -324,26 +329,6 @@ func setupGitignore(claudeDir string) {
 		} else {
 			platform.PrintSuccess(os.Stdout, "Created .claude/.gitignore")
 		}
-	}
-}
-
-func setupRootGitignore(projectDir string) {
-	gitignorePath := filepath.Join(projectDir, ".gitignore")
-
-	// Read required entries from the embedded template
-	data, err := platform.ReadAsset(".gitignore")
-	if err != nil {
-		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error reading embedded .gitignore: %v", err))
-		return
-	}
-
-	modified, err := platform.EnsureGitignoreEntries(gitignorePath, string(data))
-	if err != nil {
-		platform.PrintErrorLine(os.Stdout, fmt.Sprintf("Error writing .gitignore: %v", err))
-		return
-	}
-	if modified {
-		platform.PrintSuccess(os.Stdout, "Updated .gitignore with claude-workspace entries")
 	}
 }
 

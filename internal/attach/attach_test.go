@@ -1,7 +1,6 @@
 package attach
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,26 +35,10 @@ func TestContains(t *testing.T) {
 	}
 }
 
-const rootGitignoreTemplate = `.claude/settings.local.json
-.claude/CLAUDE.local.md
-.claude/agent-memory-local/
-.claude/MEMORY.md
-.claude/*.jsonl
-`
-
 func setupMockFS(claudeGitignoreContent string) func() {
 	oldFS := platform.FS
 	platform.FS = fstest.MapFS{
 		".claude/.gitignore": &fstest.MapFile{Data: []byte(claudeGitignoreContent)},
-		".gitignore":         &fstest.MapFile{Data: []byte(rootGitignoreTemplate)},
-	}
-	return func() { platform.FS = oldFS }
-}
-
-func setupMockFSWithRoot(rootContent string) func() {
-	oldFS := platform.FS
-	platform.FS = fstest.MapFS{
-		".gitignore": &fstest.MapFile{Data: []byte(rootContent)},
 	}
 	return func() { platform.FS = oldFS }
 }
@@ -117,46 +100,23 @@ func TestSetupGitignore_UpdatesExisting(t *testing.T) {
 	}
 }
 
-func TestSetupRootGitignore_Creates(t *testing.T) {
-	restore := setupMockFSWithRoot(rootGitignoreTemplate)
+func TestSetupGitignore_SkipsDenyAll(t *testing.T) {
+	templateContent := "settings.local.json\nCLAUDE.local.md\nagent-memory-local/\nMEMORY.md\n*.jsonl\naudits/\nplans/*.md\n!plans/.gitkeep\n!*.example\n"
+	restore := setupMockFS(templateContent)
 	defer restore()
 
 	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	_ = os.MkdirAll(claudeDir, 0755)
 
-	setupRootGitignore(dir)
+	// Write a deny-all gitignore
+	denyAll := "*\n!.gitignore\n!CLAUDE.md\n"
+	_ = os.WriteFile(filepath.Join(claudeDir, ".gitignore"), []byte(denyAll), 0644)
 
-	content, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
-	if err != nil {
-		t.Fatalf("expected .gitignore to be created: %v", err)
-	}
+	setupGitignore(claudeDir)
 
-	s := string(content)
-	for _, entry := range []string{
-		".claude/settings.local.json",
-		".claude/CLAUDE.local.md",
-		".claude/agent-memory-local/",
-		".claude/MEMORY.md",
-		".claude/*.jsonl",
-	} {
-		if !strings.Contains(s, entry) {
-			t.Errorf("should contain %q", entry)
-		}
-	}
-}
-
-func TestSetupRootGitignore_Idempotent(t *testing.T) {
-	restore := setupMockFSWithRoot(rootGitignoreTemplate)
-	defer restore()
-
-	dir := t.TempDir()
-
-	setupRootGitignore(dir)
-	first, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
-
-	setupRootGitignore(dir)
-	second, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
-
-	if !bytes.Equal(first, second) {
-		t.Error("second call should not modify file")
+	content, _ := os.ReadFile(filepath.Join(claudeDir, ".gitignore"))
+	if string(content) != denyAll {
+		t.Error("should not modify a deny-all .gitignore")
 	}
 }
