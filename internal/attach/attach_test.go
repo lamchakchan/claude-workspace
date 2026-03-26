@@ -35,6 +35,8 @@ func TestContains(t *testing.T) {
 	}
 }
 
+const testGitignoreTemplate = "settings.local.json\nCLAUDE.local.md\nagent-memory-local/\nMEMORY.md\n*.jsonl\naudits/\nplans/*.md\n!plans/.gitkeep\n!*.example\n"
+
 func setupMockFS(claudeGitignoreContent string) func() {
 	oldFS := platform.FS
 	platform.FS = fstest.MapFS{
@@ -44,7 +46,7 @@ func setupMockFS(claudeGitignoreContent string) func() {
 }
 
 func TestSetupGitignore_CreatesFromTemplate(t *testing.T) {
-	templateContent := "settings.local.json\nCLAUDE.local.md\nagent-memory-local/\nMEMORY.md\n*.jsonl\naudits/\nplans/*.md\n!plans/.gitkeep\n!*.example\n"
+	templateContent := testGitignoreTemplate
 	restore := setupMockFS(templateContent)
 	defer restore()
 
@@ -68,7 +70,7 @@ func TestSetupGitignore_CreatesFromTemplate(t *testing.T) {
 }
 
 func TestSetupGitignore_UpdatesExisting(t *testing.T) {
-	templateContent := "settings.local.json\nCLAUDE.local.md\nagent-memory-local/\nMEMORY.md\n*.jsonl\naudits/\nplans/*.md\n!plans/.gitkeep\n!*.example\n"
+	templateContent := testGitignoreTemplate
 	restore := setupMockFS(templateContent)
 	defer restore()
 
@@ -193,7 +195,7 @@ func TestSetupProjectInstructions_Force(t *testing.T) {
 }
 
 func TestSetupGitignore_SkipsDenyAll(t *testing.T) {
-	templateContent := "settings.local.json\nCLAUDE.local.md\nagent-memory-local/\nMEMORY.md\n*.jsonl\naudits/\nplans/*.md\n!plans/.gitkeep\n!*.example\n"
+	templateContent := testGitignoreTemplate
 	restore := setupMockFS(templateContent)
 	defer restore()
 

@@ -103,19 +103,7 @@ func Run(targetPath string, allArgs []string) error {
 	instructionsPath := setupProjectInstructions(projectDir, claudeDir, force)
 
 	// Enrich instructions with AI-powered project analysis
-	if !noEnrich && instructionsPath != "" {
-		relTarget, _ := filepath.Rel(projectDir, instructionsPath)
-		platform.PrintStep(os.Stdout, 7, 7, fmt.Sprintf("Enriching %s with project context...", relTarget))
-		if reason := enrichSkipReason(); reason != "" {
-			platform.PrintWarningLine(os.Stdout, reason)
-			fmt.Printf("  Using static scaffold. Edit %s to customize.\n", relTarget)
-		} else if err := platform.EnrichClaudeMd(projectDir, instructionsPath); err != nil {
-			platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Note: %v", err))
-			fmt.Printf("  Using static scaffold. Edit %s to customize.\n", relTarget)
-		}
-	} else if noEnrich {
-		platform.PrintStep(os.Stdout, 7, 7, "Skipping enrichment (--no-enrich)")
-	}
+	enrichInstructions(projectDir, instructionsPath, noEnrich)
 
 	// Setup gitignore
 	setupGitignore(claudeDir)
@@ -133,6 +121,25 @@ func Run(targetPath string, allArgs []string) error {
 	fmt.Println()
 
 	return nil
+}
+
+func enrichInstructions(projectDir, instructionsPath string, noEnrich bool) {
+	if noEnrich {
+		platform.PrintStep(os.Stdout, 7, 7, "Skipping enrichment (--no-enrich)")
+		return
+	}
+	if instructionsPath == "" {
+		return
+	}
+	relTarget, _ := filepath.Rel(projectDir, instructionsPath)
+	platform.PrintStep(os.Stdout, 7, 7, fmt.Sprintf("Enriching %s with project context...", relTarget))
+	if reason := enrichSkipReason(); reason != "" {
+		platform.PrintWarningLine(os.Stdout, reason)
+		fmt.Printf("  Using static scaffold. Edit %s to customize.\n", relTarget)
+	} else if err := platform.EnrichClaudeMd(projectDir, instructionsPath); err != nil {
+		platform.PrintWarningLine(os.Stdout, fmt.Sprintf("Note: %v", err))
+		fmt.Printf("  Using static scaffold. Edit %s to customize.\n", relTarget)
+	}
 }
 
 // copyFromEmbed copies files from the embedded FS to disk.
