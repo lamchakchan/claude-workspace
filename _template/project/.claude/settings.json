@@ -8,6 +8,7 @@
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"
   },
   "model": "opus",
+  "effortLevel": "high",
   "teammateMode": "in-process",
   "hooks": {
     "PreToolUse": [
